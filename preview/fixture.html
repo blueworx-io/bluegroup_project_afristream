@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AfriStream Customer Portal — Local Preview</title>
-<!-- Local stand-in for a WordPress page containing [afristream_portal].
-     Loads the exact same assets the plugin enqueues. -->
+<title>AfriStream Customer Portal — API Fixture Preview</title>
+<!-- Test harness: identical to index.html but pointed at the deterministic
+     fixture payload, so Playwright can exercise the API-data path without a
+     TMDB key or network access. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" href="data:,">
@@ -13,7 +14,7 @@
 <style>body{margin:0}</style>
 </head>
 <body>
-<div class="afristream-portal" data-afristream-portal data-default-tab="profile" data-show-sport="true" data-endpoint="/api/watch"></div>
+<div class="afristream-portal" data-afristream-portal data-default-tab="watch" data-show-sport="true" data-endpoint="/api/watch?fixture=1"></div>
 <script src="/assets/portal.js"></script>
 </body>
 </html>

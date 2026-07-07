@@ -12,6 +12,16 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 
 `default_tab` is one of `profile | watch | tips | help`.
 
+## Live "What to Watch" data (TMDB)
+
+The What to Watch section pulls trending movies/series and new releases from [TMDB](https://www.themoviedb.org/) (free API key, non-commercial use, attribution shown). Without a key the portal falls back to its built-in curated lists — nothing breaks.
+
+- **WordPress:** add `define( 'AFRISTREAM_TMDB_API_KEY', 'your-key' );` to `wp-config.php` (or set the `afristream_tmdb_api_key` option). Never commit the key.
+- **Local preview:** set the `TMDB_API_KEY` environment variable before `npm run preview`.
+- Get a key: themoviedb.org → sign up → Settings → API → request a key (choose "Developer"/non-commercial).
+
+Responses are cached for 12 hours (WP transient / in-memory locally). Sport, Live TV, and Collections are curated lists — edit them in [assets/portal.js](assets/portal.js).
+
 ## Local preview (no WordPress needed)
 
 ```bash
@@ -19,7 +29,7 @@ npm install
 npm run preview   # → http://localhost:4173
 ```
 
-The preview page loads the exact assets the plugin enqueues.
+The preview page loads the exact assets the plugin enqueues, and `/api/watch` mirrors the plugin's REST endpoint.
 
 ## Tests
 

@@ -130,14 +130,16 @@
     'Phone & Tablet': 'Fixes for Android and iOS phones and tablets.'
   };
 
-  // Flat, deduped search index across every content source.
-  function buildIndex() {
+  // Flat, deduped search index across every content source. Movies/series/
+  // newWeek come from the live data (API or built-in); sport, live TV and
+  // collections are always the curated lists.
+  function buildIndex(data) {
     const seen = new Set();
     const index = [];
     const src = [
-      ...MOVIES.map((x) => ({ ...x, type: 'Movies' })),
-      ...SERIES.map((x) => ({ ...x, type: 'Series' })),
-      ...NEW_WEEK.map((x) => ({ ...x, type: /episode/i.test(x.meta) ? 'Series' : 'Movies' })),
+      ...data.movies.map((x) => ({ ...x, type: x.type || 'Movies' })),
+      ...data.series.map((x) => ({ ...x, type: x.type || 'Series' })),
+      ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
       ...SPORT.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
       ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg }))
@@ -163,7 +165,9 @@
 
   const posterArt = (m) => `
     <div style="width:100%;aspect-ratio:2/3;border-radius:14px;background:${m.bg};position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:11px;box-shadow:0 10px 24px -18px rgba(11,21,51,.5)">
-      <div style="position:absolute;top:-26px;right:-10px;font-size:120px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>
+      ${m.poster
+        ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 42%,rgba(5,9,24,.82))"></div>`
+        : `<div style="position:absolute;top:-26px;right:-10px;font-size:120px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
       <div style="position:absolute;top:9px;left:9px;background:rgba(5,9,24,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px">${esc(m.platform)}</div>
       <div style="position:relative;color:#fff;font-weight:700;font-size:13.5px;line-height:1.25;text-shadow:0 1px 8px rgba(0,0,0,.4)">${esc(m.t)}</div>
     </div>`;
@@ -179,9 +183,14 @@
   function createPortal(root) {
     const props = {
       defaultTab: root.getAttribute('data-default-tab') || 'profile',
-      showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true')
+      showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
+      endpoint: root.getAttribute('data-endpoint') || ''
     };
-    const INDEX = buildIndex();
+    // Live catalog data — starts as the built-in curated lists, replaced by
+    // the watch endpoint's payload when it returns TMDB data.
+    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK };
+    let INDEX = buildIndex(data);
+    let dataSource = 'built-in';
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', year: 'All Years', sort: 'Recommended' };
 
     const state = {
@@ -310,11 +319,11 @@
       const sub = state.subWatch;
       const posterRows = [];
       if (!searching) {
-        if (sub === 'All' || sub === 'Movies') posterRows.push({ h: 'Trending Movies', items: MOVIES });
-        if (sub === 'All' || sub === 'Series') posterRows.push({ h: 'Trending Series', items: SERIES });
-        if (sub === 'Documentaries') posterRows.push({ h: 'Documentaries', items: INDEX.filter((x) => x.genre === 'Docs') });
+        if (sub === 'All' || sub === 'Movies') posterRows.push({ h: 'Trending Movies', items: data.movies });
+        if (sub === 'All' || sub === 'Series') posterRows.push({ h: 'Trending Series', items: data.series });
+        if (sub === 'Documentaries') posterRows.push({ h: 'Documentaries', items: INDEX.filter((x) => /^(Docs|Documentary)$/.test(x.genre)) });
         if (sub === 'Kids') posterRows.push({ h: 'Kids & Family', items: INDEX.filter((x) => x.genre === 'Kids' || x.genre === 'Family') });
-        if (sub === 'All' || sub === 'New This Week') posterRows.push({ h: 'New This Week', items: NEW_WEEK });
+        if (sub === 'All' || sub === 'New This Week') posterRows.push({ h: 'New This Week', items: data.newWeek });
       }
 
       const filterCount = Object.keys(FILTER_DEFAULTS).filter((k) => state[k] !== FILTER_DEFAULTS[k]).length;
@@ -401,6 +410,8 @@
         </div>
       </div>` : ''}
   `}
+  ${dataSource === 'tmdb' ? `
+  <p style="margin:22px 2px 0;font-size:11px;color:rgba(11,21,51,.45)">Listings and artwork from <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.</p>` : ''}
 </section>`;
     }
 
@@ -544,6 +555,32 @@ ${(SECTIONS[state.section] || profileSection)()}
     });
 
     render();
+
+    // Pull live catalog data from the watch endpoint (WP REST in production,
+    // the preview server's /api/watch locally). Anything other than a healthy
+    // TMDB payload leaves the built-in curated lists in place.
+    if (props.endpoint && typeof fetch === 'function') {
+      const prep = (arr) => (Array.isArray(arr) ? arr : [])
+        .filter((x) => x && x.t)
+        .map((x) => ({ ...x, initial: String(x.t)[0], bg: bg(x.genre) }));
+
+      fetch(props.endpoint)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (!payload || payload.source !== 'tmdb') return;
+          const movies = prep(payload.movies);
+          const series = prep(payload.series);
+          const newWeek = prep(payload.newWeek);
+          if (!movies.length && !series.length) return;
+          if (movies.length) data.movies = movies;
+          if (series.length) data.series = series;
+          if (newWeek.length) data.newWeek = newWeek;
+          dataSource = 'tmdb';
+          INDEX = buildIndex(data);
+          render(true);
+        })
+        .catch(() => { /* endpoint unreachable — curated lists stay */ });
+    }
   }
 
   // ------------------------------------------------------------------- init

@@ -60,6 +60,30 @@ test('tips section links through to troubleshooting', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'AfriStream Troubleshooting Guide' })).toBeVisible();
 });
 
+test('watch API endpoint responds with a valid source', async ({ request }) => {
+  const res = await request.get('/api/watch');
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+  expect(['tmdb', 'fallback']).toContain(json.source);
+});
+
+test('watch section consumes API data when the endpoint provides it', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+
+  // Fixture payload replaces the curated movie/series/new-week rows…
+  await expect(page.getByText('Fixture Movie One')).toBeVisible();
+  await expect(page.getByText('Fixture Series One')).toBeVisible();
+  await expect(page.getByText('Fixture New Arrival')).toBeVisible();
+  await expect(page.getByText('Listings and artwork from')).toBeVisible();
+
+  // …while the curated sport row stays.
+  await expect(page.getByRole('heading', { name: 'Live & Upcoming Sport' })).toBeVisible();
+
+  // Search works over the API-provided index.
+  await page.getByPlaceholder('Search titles…').fill('Fixture New Arrival');
+  await expect(page.getByText('1 result', { exact: true })).toBeVisible();
+});
+
 test('troubleshooting accordion and device tabs work', async ({ page }) => {
   await page.getByRole('button', { name: 'Troubleshooting' }).click();
 
