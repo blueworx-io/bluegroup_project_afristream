@@ -1,0 +1,12 @@
+name: CI
+on: pull_request
+jobs:
+  guardrails:
+    uses: blueworx-io/bluegroup_core_foundation/.github/workflows/ci-wordpress.yml@main
+    with:
+      # TODO: replace with the real staging/preview URL once one exists.
+      # Keep in sync with STAGING_PLACEHOLDER in playwright.config.js —
+      # while this placeholder is passed, Playwright falls back to the
+      # plugin's local preview harness so the tests still run in CI.
+      preview_url: https://staging.afristream.example.com
+      plugin_slug: afristream-portal

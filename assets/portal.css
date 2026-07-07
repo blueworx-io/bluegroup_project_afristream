@@ -1,0 +1,56 @@
+/* AfriStream Customer Portal — base styles scoped to the portal mount.
+   Layout/visual detail lives inline in portal.js (ported 1:1 from the
+   Claude Design handoff); this file carries what inline styles can't:
+   scope-wide defaults, pseudo-elements/classes, and keyframes. */
+
+.afristream-portal {
+  background: #F2F3F7;
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
+  color: #0B1533;
+  -webkit-font-smoothing: antialiased;
+}
+
+.afristream-portal * {
+  box-sizing: border-box;
+}
+
+.afristream-portal a {
+  color: #2E5BE6;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.afristream-portal a:hover {
+  color: #2148C2;
+  text-decoration: underline;
+}
+
+.afristream-portal input::placeholder {
+  color: rgba(11, 21, 51, .38);
+}
+
+.afristream-portal ::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.afristream-portal ::-webkit-scrollbar-thumb {
+  background: rgba(11, 21, 51, .16);
+  border-radius: 99px;
+}
+
+.afristream-portal ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes asPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+
+/* Hover states — the design's style-hover attributes. !important so they
+   win over the inline base styles they modify. */
+.afristream-portal .as-hover-primary:hover { background: #2148C2 !important; }
+.afristream-portal .as-hover-chip:hover { background: #E5E7EF !important; }
+.afristream-portal .as-hover-ghost:hover { background: #F2F3F7 !important; }
+.afristream-portal .as-hover-light:hover { background: #E8EDFB !important; }
