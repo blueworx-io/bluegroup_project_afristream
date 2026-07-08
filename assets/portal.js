@@ -23,9 +23,10 @@
     .replace(/"/g, '&quot;');
 
   const yr = (meta) => {
-    const m = String(meta).match(/(20\d\d)/);
+    const m = String(meta).match(/((?:19|20)\d\d)/);
     return m ? +m[1] : 0;
   };
+  const decadeOf = (year) => (year ? `${Math.floor(year / 10) * 10}s` : '');
 
   // ------------------------------------------------------------------- data
 
@@ -142,12 +143,14 @@
       ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
       ...data.sport.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
-      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg }))
+      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg })),
+      ...(data.catalog || []).map((x) => ({ ...x, type: x.type || 'Movies' })),
     ];
     for (const x of src) {
       if (!seen.has(x.t)) {
         seen.add(x.t);
-        index.push({ ...x, year: yr(x.meta) });
+        const year = yr(x.meta);
+        index.push({ ...x, year, country: x.country || '', decade: decadeOf(year) });
       }
     }
     return index;
@@ -193,10 +196,10 @@
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or
     // ESPN sport fixtures).
-    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT };
+    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT, catalog: [] };
     let INDEX = buildIndex(data);
     let dataSource = 'built-in';
-    const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', year: 'All Years', sort: 'Recommended' };
+    const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' };
 
     const state = {
       section: ['profile', 'watch', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
@@ -205,10 +208,10 @@
       accIdx: 0,
       copied: '',
       query: '',
-      platform: 'All Platforms',
       genre: 'All Genres',
       type: 'All Types',
-      year: 'All Years',
+      country: 'All Countries',
+      decade: 'All Decades',
       sort: 'Recommended',
       open: {},
       filtersOpen: false
@@ -224,10 +227,10 @@
       const q = state.query.trim().toLowerCase();
       return INDEX.filter((x) =>
         (!q || x.t.toLowerCase().includes(q)) &&
-        (exclude === 'platform' || state.platform === 'All Platforms' || x.platform === state.platform) &&
-        (exclude === 'genre' || state.genre === 'All Genres' || x.genre === state.genre) &&
         (exclude === 'type' || state.type === 'All Types' || x.type === state.type) &&
-        (exclude === 'year' || state.year === 'All Years' || String(x.year) === state.year)
+        (exclude === 'genre' || state.genre === 'All Genres' || x.genre === state.genre) &&
+        (exclude === 'country' || state.country === 'All Countries' || x.country === state.country) &&
+        (exclude === 'decade' || state.decade === 'All Decades' || x.decade === state.decade)
       );
     }
     const uniq = (list, key) => [...new Set(list.map((x) => x[key]))];
@@ -285,8 +288,9 @@
       const groups = [
         { key: 'type', label: 'Type', options: ['All Types', ...uniq(facetPool('type'), 'type').sort()] },
         { key: 'genre', label: 'Genre', options: ['All Genres', ...uniq(facetPool('genre'), 'genre').sort()] },
-        { key: 'year', label: 'Year', options: ['All Years', ...uniq(facetPool('year').filter((x) => x.year), 'year').sort((a, b) => b - a).map(String)] },
-        { key: 'sort', label: 'Sort by', options: ['Recommended', 'A–Z', 'Newest'] }
+        { key: 'country', label: 'Country', options: ['All Countries', ...uniq(facetPool('country').filter((x) => x.country), 'country').sort()] },
+        { key: 'decade', label: 'Decade', options: ['All Decades', ...uniq(facetPool('decade').filter((x) => x.decade), 'decade').sort((a, b) => parseInt(b, 10) - parseInt(a, 10))] },
+        { key: 'sort', label: 'Sort by', options: ['Recommended', 'A–Z', 'Newest', 'Top Rated'] },
       ];
       const filterGroups = groups.filter((g) => g.key === 'sort' || g.options.length > 2 || state[g.key] !== FILTER_DEFAULTS[g.key]);
       const applyLabel = searching ? `Show ${results.length} result${results.length === 1 ? '' : 's'}` : 'Done';
@@ -316,10 +320,14 @@
 
     function watchSection() {
       const q = state.query.trim().toLowerCase();
-      const searching = !!q || state.platform !== 'All Platforms' || state.genre !== 'All Genres' || state.type !== 'All Types' || state.year !== 'All Years' || state.sort !== 'Recommended';
+      const searching = !!q || state.type !== 'All Types' || state.genre !== 'All Genres' || state.country !== 'All Countries' || state.decade !== 'All Decades' || state.sort !== 'Recommended';
       let results = searching ? facetPool(null) : [];
       if (state.sort === 'A–Z') results = [...results].sort((a, b) => a.t.localeCompare(b.t));
       else if (state.sort === 'Newest') results = [...results].sort((a, b) => b.year - a.year);
+      else if (state.sort === 'Top Rated') {
+        const rate = (x) => { const m = String(x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
+        results = [...results].sort((a, b) => rate(b) - rate(a));
+      }
 
       const sub = state.subWatch;
       const posterRows = [];
@@ -542,7 +550,7 @@ ${(SECTIONS[state.section] || profileSection)()}
         case 'quicknav': setState({ subWatch: val }); break;
         case 'open-filters': setState({ filtersOpen: true }); break;
         case 'close-filters': setState({ filtersOpen: false }); break;
-        case 'clear-filters': setState({ query: '', platform: 'All Platforms', genre: 'All Genres', type: 'All Types', year: 'All Years', sort: 'Recommended' }); break;
+        case 'clear-filters': setState({ query: '', type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' }); break;
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
         case 'helptab': setState({ helpTab: val }); break;
         case 'toggle-guide': {
@@ -639,13 +647,15 @@ ${(SECTIONS[state.section] || profileSection)()}
           const movies = prep(payload.movies);
           const series = prep(payload.series);
           const newWeek = prep(payload.newWeek);
+          const catalog = prep(payload.catalog);
           const sport = prepSport(payload.sport);
-          if (!movies.length && !series.length && !sport.length) return;
+          if (!movies.length && !series.length && !sport.length && !catalog.length) return;
           if (movies.length) data.movies = movies;
           if (series.length) data.series = series;
           if (newWeek.length) data.newWeek = newWeek;
+          if (catalog.length) data.catalog = catalog;
           if (sport.length) data.sport = sport;
-          if (movies.length || series.length) dataSource = 'tmdb';
+          if (movies.length || series.length || catalog.length) dataSource = 'tmdb';
           INDEX = buildIndex(data);
           render(true);
         })

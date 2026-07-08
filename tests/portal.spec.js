@@ -93,6 +93,30 @@ test('watch fixture payload carries a deep catalog with country data', async ({ 
   expect(withCountry).toHaveProperty('type');
 });
 
+test('filter drawer exposes country and decade facets from the catalog', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  const drawer = page.getByTestId('filters-drawer');
+  await expect(drawer.getByText('Country', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Decade', { exact: true })).toBeVisible();
+
+  // Filter by a decade present only in the catalog fixture.
+  await drawer.getByRole('button', { name: '1990s', exact: true }).click();
+  await drawer.getByRole('button', { name: /^Show \d+ results?$/ }).click();
+  await expect(page.getByText('Nairobi Nights')).toBeVisible();
+  await expect(page.getByText('Jozi Heat')).not.toBeVisible();
+});
+
+test('filter drawer filters the catalog by country', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  const drawer = page.getByTestId('filters-drawer');
+  await drawer.getByRole('button', { name: 'Nigeria', exact: true }).click();
+  await drawer.getByRole('button', { name: /^Show \d+ results?$/ }).click();
+  await expect(page.getByText('Lagos Lights')).toBeVisible();
+  await expect(page.getByText('Seoul Signal')).not.toBeVisible();
+});
+
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   const row = page.locator('[data-dragscroll]').first();
