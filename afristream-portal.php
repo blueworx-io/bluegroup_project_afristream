@@ -3,7 +3,7 @@
  * Plugin Name: AfriStream Customer Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.2.0
+ * Version:     0.3.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: afristream-portal
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.2.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.3.0' );
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
@@ -203,14 +203,31 @@ function afristream_portal_tmdb_catalog() {
  */
 function afristream_portal_sport_events() {
 	$leagues = array(
-		'soccer/fifa.world'     => 'FIFA World Cup',
-		'soccer/eng.1'          => 'Premier League',
-		'soccer/uefa.champions' => 'Champions League',
-		'racing/f1'             => 'Formula 1',
-		'mma/ufc'               => 'UFC',
-		'rugby/270557'          => 'URC Rugby',
-		'football/nfl'          => 'NFL',
-		'basketball/nba'        => 'NBA',
+		// Football (soccer) — mostly European seasons, so quiet over the summer.
+		'soccer/fifa.world'       => 'FIFA World Cup',
+		'soccer/eng.1'            => 'Premier League',
+		'soccer/esp.1'            => 'LaLiga',
+		'soccer/ita.1'            => 'Serie A',
+		'soccer/ger.1'            => 'Bundesliga',
+		'soccer/fra.1'            => 'Ligue 1',
+		'soccer/uefa.champions'   => 'Champions League',
+		'soccer/uefa.europa'      => 'Europa League',
+		'soccer/usa.1'            => 'MLS',
+		// Motorsport & combat.
+		'racing/f1'               => 'Formula 1',
+		'mma/ufc'                 => 'UFC',
+		// North American major leagues.
+		'football/nfl'            => 'NFL',
+		'basketball/nba'          => 'NBA',
+		'baseball/mlb'            => 'MLB',
+		'hockey/nhl'              => 'NHL',
+		// Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for
+		// some of these; the mapping falls back to the competition label.
+		'rugby/270557'            => 'URC Rugby',
+		'tennis/atp'              => 'ATP Tennis',
+		'tennis/wta'              => 'WTA Tennis',
+		'golf/pga'                => 'PGA Tour',
+		'australian-football/afl' => 'AFL',
 	);
 	$range  = gmdate( 'Ymd' ) . '-' . gmdate( 'Ymd', time() + 7 * DAY_IN_SECONDS );
 	$events = array();

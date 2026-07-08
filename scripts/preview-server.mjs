@@ -111,14 +111,31 @@ async function tmdbCatalog() {
 // Major global sporting events from ESPN's public scoreboard API — keyless.
 // Same league list and mapping as the plugin's PHP; keep the two in sync.
 const ESPN_LEAGUES = {
+  // Football (soccer) — mostly European seasons, so quiet over the summer.
   'soccer/fifa.world': 'FIFA World Cup',
   'soccer/eng.1': 'Premier League',
+  'soccer/esp.1': 'LaLiga',
+  'soccer/ita.1': 'Serie A',
+  'soccer/ger.1': 'Bundesliga',
+  'soccer/fra.1': 'Ligue 1',
   'soccer/uefa.champions': 'Champions League',
+  'soccer/uefa.europa': 'Europa League',
+  'soccer/usa.1': 'MLS',
+  // Motorsport & combat.
   'racing/f1': 'Formula 1',
   'mma/ufc': 'UFC',
-  'rugby/270557': 'URC Rugby',
+  // North American major leagues.
   'football/nfl': 'NFL',
   'basketball/nba': 'NBA',
+  'baseball/mlb': 'MLB',
+  'hockey/nhl': 'NHL',
+  // Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for some
+  // of these; the mapping falls back to the competition label.
+  'rugby/270557': 'URC Rugby',
+  'tennis/atp': 'ATP Tennis',
+  'tennis/wta': 'WTA Tennis',
+  'golf/pga': 'PGA Tour',
+  'australian-football/afl': 'AFL',
 };
 
 async function espnSport() {
