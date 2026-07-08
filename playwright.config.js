@@ -29,5 +29,8 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 60000,
+        // Hermetic tests: no live TMDB/ESPN calls — the portal exercises its
+        // curated fallback, and the fixture page covers the API-data path.
+        env: { ...process.env, WATCH_OFFLINE: '1' },
       },
 });

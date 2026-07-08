@@ -146,19 +146,18 @@ function afristream_portal_tmdb_map( $json, $genres, $type, $limit, $meta_label 
 	return $items;
 }
 
-function afristream_portal_watch_data() {
-	$cached = get_transient( 'afristream_portal_watch' );
+/**
+ * Movie/series catalog from TMDB. Returns the mapped arrays, or null when no
+ * key is configured or TMDB is unreachable (only successful fetches are
+ * cached, for 12 hours).
+ */
+function afristream_portal_tmdb_catalog() {
+	$cached = get_transient( 'afristream_portal_tmdb' );
 	if ( false !== $cached ) {
-		return rest_ensure_response( $cached );
+		return $cached;
 	}
-
 	if ( ! afristream_portal_tmdb_key() ) {
-		return rest_ensure_response(
-			array(
-				'source' => 'fallback',
-				'reason' => 'no-key',
-			)
-		);
+		return null;
 	}
 
 	$movie_genres = afristream_portal_tmdb_genres( 'movie' );
@@ -178,17 +177,10 @@ function afristream_portal_watch_data() {
 	$on_air          = afristream_portal_tmdb_get( '/tv/on_the_air' );
 
 	if ( ! $trending_movies && ! $trending_tv ) {
-		return rest_ensure_response(
-			array(
-				'source' => 'fallback',
-				'reason' => 'tmdb-unreachable',
-			)
-		);
+		return null;
 	}
 
-	$data = array(
-		'source'  => 'tmdb',
-		'updated' => gmdate( 'c' ),
+	$catalog = array(
 		'movies'  => afristream_portal_tmdb_map( $trending_movies, $movie_genres, 'Movies', 10 ),
 		'series'  => afristream_portal_tmdb_map( $trending_tv, $tv_genres, 'Series', 10 ),
 		'newWeek' => array_merge(
@@ -197,7 +189,115 @@ function afristream_portal_watch_data() {
 		),
 	);
 
-	set_transient( 'afristream_portal_watch', $data, 12 * HOUR_IN_SECONDS );
+	set_transient( 'afristream_portal_tmdb', $catalog, 12 * HOUR_IN_SECONDS );
+	return $catalog;
+}
+
+/**
+ * Major global sporting events from ESPN's public scoreboard API — keyless,
+ * so this works with no configuration at all. Live events first, then the
+ * soonest kick-offs over the next week, max two per competition, eight total.
+ * The front-end formats `iso` into the viewer's local time. Cached 2 hours
+ * so LIVE flags stay reasonably fresh. Unofficial API: any failure just
+ * means the portal keeps its curated sport list.
+ */
+function afristream_portal_sport_events() {
+	$leagues = array(
+		'soccer/fifa.world'     => 'FIFA World Cup',
+		'soccer/eng.1'          => 'Premier League',
+		'soccer/uefa.champions' => 'Champions League',
+		'racing/f1'             => 'Formula 1',
+		'mma/ufc'               => 'UFC',
+		'rugby/270557'          => 'URC Rugby',
+		'football/nfl'          => 'NFL',
+		'basketball/nba'        => 'NBA',
+	);
+	$range  = gmdate( 'Ymd' ) . '-' . gmdate( 'Ymd', time() + 7 * DAY_IN_SECONDS );
+	$events = array();
+
+	foreach ( $leagues as $path => $label ) {
+		$response = wp_remote_get(
+			'https://site.api.espn.com/apis/site/v2/sports/' . $path . '/scoreboard?dates=' . $range,
+			array( 'timeout' => 8 )
+		);
+		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			continue;
+		}
+		$json = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $json ) || empty( $json['events'] ) ) {
+			continue;
+		}
+		$count = 0;
+		foreach ( $json['events'] as $event ) {
+			if ( $count >= 2 ) {
+				break;
+			}
+			$state = isset( $event['status']['type']['state'] ) ? $event['status']['type']['state'] : 'pre';
+			if ( 'post' === $state ) {
+				continue;
+			}
+			$name = ! empty( $event['name'] ) ? $event['name'] : ( isset( $event['shortName'] ) ? $event['shortName'] : '' );
+			if ( '' === $name ) {
+				continue;
+			}
+			$channel  = isset( $event['competitions'][0]['broadcasts'][0]['names'][0] ) ? $event['competitions'][0]['broadcasts'][0]['names'][0] : '';
+			$events[] = array(
+				'comp' => $label,
+				'fx'   => str_replace( ' at ', ' vs ', $name ),
+				'iso'  => isset( $event['date'] ) ? $event['date'] : '',
+				'time' => 'in' === $state ? 'LIVE now' : '',
+				'ch'   => '' !== $channel ? $channel : $label,
+				'live' => 'in' === $state,
+			);
+			$count++;
+		}
+	}
+
+	usort(
+		$events,
+		function ( $a, $b ) {
+			if ( $a['live'] !== $b['live'] ) {
+				return $a['live'] ? -1 : 1;
+			}
+			return strcmp( $a['iso'], $b['iso'] );
+		}
+	);
+	return array_slice( $events, 0, 8 );
+}
+
+function afristream_portal_sport_cached() {
+	$sport = get_transient( 'afristream_portal_sport' );
+	if ( false === $sport ) {
+		$sport = afristream_portal_sport_events();
+		set_transient( 'afristream_portal_sport', $sport, 2 * HOUR_IN_SECONDS );
+	}
+	return is_array( $sport ) ? $sport : array();
+}
+
+function afristream_portal_watch_data() {
+	$catalog = afristream_portal_tmdb_catalog();
+	$sport   = afristream_portal_sport_cached();
+
+	if ( ! $catalog && ! $sport ) {
+		return rest_ensure_response(
+			array(
+				'source' => 'fallback',
+				'reason' => 'no-live-data',
+			)
+		);
+	}
+
+	$data = array(
+		'source'  => 'live',
+		'updated' => gmdate( 'c' ),
+		'tmdb'    => (bool) $catalog,
+	);
+	if ( $catalog ) {
+		$data = array_merge( $data, $catalog );
+	}
+	if ( $sport ) {
+		$data['sport'] = $sport;
+	}
 	return rest_ensure_response( $data );
 }
 

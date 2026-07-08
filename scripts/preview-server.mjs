@@ -4,10 +4,12 @@
 // assets the WordPress plugin enqueues.
 //
 // /api/watch mirrors the plugin's WP REST endpoint (afristream/v1/watch):
-// with a TMDB_API_KEY env var it proxies live TMDB data (cached in memory);
-// without one it returns source:"fallback" so the portal keeps its built-in
-// lists. /api/watch?fixture=1 always returns a small deterministic payload
-// for the Playwright tests.
+// ESPN sport fixtures are keyless and always attempted; TMDB movie/series
+// data needs a TMDB_API_KEY env var. Results are cached in memory and the
+// portal keeps its built-in lists for whatever is unavailable.
+// /api/watch?fixture=1 always returns a small deterministic payload for the
+// Playwright tests, and WATCH_OFFLINE=1 disables all outbound fetches so the
+// test suite stays hermetic (see playwright.config.js).
 
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -18,8 +20,12 @@ const ROOT = process.cwd();
 const PORT = Number(process.env.PORT) || 4173;
 
 const FIXTURE = {
-  source: 'tmdb',
+  source: 'live',
   updated: 'fixture',
+  tmdb: true,
+  sport: [
+    { comp: 'Fixture League', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
+  ],
   movies: [
     { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies' },
     { t: 'Fixture Movie Two', genre: 'Action', platform: '★ 7.4', meta: '2025', poster: null, type: 'Movies' },
@@ -66,11 +72,10 @@ function mapItems(json, genres, type, limit, metaLabel = '') {
   return items;
 }
 
-async function watchPayload() {
-  if (!process.env.TMDB_API_KEY) return { source: 'fallback', reason: 'no-key' };
-  if (watchCache && Date.now() - watchCacheAt < 12 * 60 * 60 * 1000) return watchCache;
+const DAY = 24 * 60 * 60 * 1000;
 
-  const day = 24 * 60 * 60 * 1000;
+async function tmdbCatalog() {
+  if (!process.env.TMDB_API_KEY) return null;
   const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
   const genreList = async (type) =>
     Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
@@ -83,16 +88,14 @@ async function watchPayload() {
       tmdbGet('/discover/movie', {
         sort_by: 'popularity.desc',
         with_release_type: '4|6',
-        'release_date.gte': iso(Date.now() - 21 * day),
+        'release_date.gte': iso(Date.now() - 21 * DAY),
         'release_date.lte': iso(Date.now()),
       }),
       tmdbGet('/tv/on_the_air'),
     ]);
-    if (!trendingMovies && !trendingTv) return { source: 'fallback', reason: 'tmdb-unreachable' };
+    if (!trendingMovies && !trendingTv) return null;
 
-    watchCache = {
-      source: 'tmdb',
-      updated: new Date().toISOString(),
+    return {
       movies: mapItems(trendingMovies, movieGenres, 'Movies', 10),
       series: mapItems(trendingTv, tvGenres, 'Series', 10),
       newWeek: [
@@ -100,11 +103,77 @@ async function watchPayload() {
         ...mapItems(onAir, tvGenres, 'Series', 4, 'New episodes'),
       ],
     };
-    watchCacheAt = Date.now();
-    return watchCache;
   } catch {
-    return { source: 'fallback', reason: 'tmdb-unreachable' };
+    return null;
   }
+}
+
+// Major global sporting events from ESPN's public scoreboard API — keyless.
+// Same league list and mapping as the plugin's PHP; keep the two in sync.
+const ESPN_LEAGUES = {
+  'soccer/fifa.world': 'FIFA World Cup',
+  'soccer/eng.1': 'Premier League',
+  'soccer/uefa.champions': 'Champions League',
+  'racing/f1': 'Formula 1',
+  'mma/ufc': 'UFC',
+  'rugby/270557': 'URC Rugby',
+  'football/nfl': 'NFL',
+  'basketball/nba': 'NBA',
+};
+
+async function espnSport() {
+  const fmt = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+  const range = `${fmt(Date.now())}-${fmt(Date.now() + 7 * DAY)}`;
+  const events = [];
+
+  await Promise.all(Object.entries(ESPN_LEAGUES).map(async ([path, label]) => {
+    try {
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${range}`,
+        { signal: AbortSignal.timeout(8000) }
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      let count = 0;
+      for (const ev of json?.events ?? []) {
+        if (count >= 2) break;
+        const state = ev?.status?.type?.state ?? 'pre';
+        if (state === 'post') continue;
+        const name = ev?.name || ev?.shortName || '';
+        if (!name) continue;
+        events.push({
+          comp: label,
+          fx: name.replace(' at ', ' vs '),
+          iso: ev.date || '',
+          time: state === 'in' ? 'LIVE now' : '',
+          ch: ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || label,
+          live: state === 'in',
+        });
+        count++;
+      }
+    } catch { /* league unavailable — skip */ }
+  }));
+
+  events.sort((a, b) => (a.live !== b.live ? (a.live ? -1 : 1) : a.iso.localeCompare(b.iso)));
+  return events.slice(0, 8);
+}
+
+async function watchPayload() {
+  if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
+  if (watchCache && Date.now() - watchCacheAt < 2 * 60 * 60 * 1000) return watchCache;
+
+  const [catalog, sport] = await Promise.all([tmdbCatalog(), espnSport()]);
+  if (!catalog && !sport.length) return { source: 'fallback', reason: 'no-live-data' };
+
+  watchCache = {
+    source: 'live',
+    updated: new Date().toISOString(),
+    tmdb: !!catalog,
+    ...(catalog || {}),
+    ...(sport.length ? { sport } : {}),
+  };
+  watchCacheAt = Date.now();
+  return watchCache;
 }
 
 const TYPES = {

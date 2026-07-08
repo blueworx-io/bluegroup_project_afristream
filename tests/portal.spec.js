@@ -70,13 +70,12 @@ test('watch API endpoint responds with a valid source', async ({ request }) => {
 test('watch section consumes API data when the endpoint provides it', async ({ page }) => {
   await page.goto('/preview/fixture.html');
 
-  // Fixture payload replaces the curated movie/series/new-week rows…
+  // Fixture payload replaces the curated movie/series/new-week/sport rows.
   await expect(page.getByText('Fixture Movie One')).toBeVisible();
   await expect(page.getByText('Fixture Series One')).toBeVisible();
   await expect(page.getByText('Fixture New Arrival')).toBeVisible();
   await expect(page.getByText('Listings and artwork from')).toBeVisible();
-
-  // …while the curated sport row stays.
+  await expect(page.getByText('Fixture FC vs Test United')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Live & Upcoming Sport' })).toBeVisible();
 
   // Search works over the API-provided index.

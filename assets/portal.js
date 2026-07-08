@@ -63,17 +63,17 @@
     mk('Tide Riders', 'Family', 'Disney+', 'Added Monday')
   ];
   const SPORT = [
-    { comp: 'URC Rugby', fx: 'Stormers vs Leinster', time: 'LIVE now', ch: 'SuperSport Rugby', live: true },
-    { comp: 'Test Cricket', fx: 'South Africa vs England', time: 'LIVE · Day 3', ch: 'SuperSport Cricket', live: true },
-    { comp: 'Premier League', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'SuperSport PL', live: false },
+    { comp: 'FIFA World Cup', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
+    { comp: 'Premier League', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
     { comp: 'Formula 1', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
-    { comp: 'UFC', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'Prime Video', live: false }
+    { comp: 'UFC', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
+    { comp: 'NBA', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
   ];
   const LIVE_TV = [
-    { name: 'SuperSport Football', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
-    { name: 'BBC One', tag: 'Ent' }, { name: 'M-Net Movies', tag: 'Movies' },
+    { name: 'ESPN', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
+    { name: 'BBC One', tag: 'Ent' }, { name: 'Sky Cinema', tag: 'Movies' },
     { name: 'National Geographic', tag: 'Docs' }, { name: 'Cartoon Network', tag: 'Kids' },
-    { name: 'SuperSport Rugby', tag: 'Sport' }, { name: 'CNN International', tag: 'News' }
+    { name: 'Eurosport', tag: 'Sport' }, { name: 'CNN International', tag: 'News' }
   ].map((t) => ({ ...t, bg: `linear-gradient(150deg, oklch(0.32 0.06 ${hue(t.tag)}), oklch(0.20 0.05 ${hue(t.tag)}))` }));
   const COLLECTIONS = [
     { name: 'Weekend Binge', count: '12 titles', desc: 'Three seasons or less — start Friday, done by Sunday.', h: 300 },
@@ -140,7 +140,7 @@
       ...data.movies.map((x) => ({ ...x, type: x.type || 'Movies' })),
       ...data.series.map((x) => ({ ...x, type: x.type || 'Series' })),
       ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
-      ...SPORT.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
+      ...data.sport.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
       ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg }))
     ];
@@ -186,9 +186,10 @@
       showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
       endpoint: root.getAttribute('data-endpoint') || ''
     };
-    // Live catalog data — starts as the built-in curated lists, replaced by
-    // the watch endpoint's payload when it returns TMDB data.
-    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK };
+    // Live catalog data — starts as the built-in curated lists, replaced
+    // per-array by whatever the watch endpoint returns (TMDB catalog and/or
+    // ESPN sport fixtures).
+    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT };
     let INDEX = buildIndex(data);
     let dataSource = 'built-in';
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', year: 'All Years', sort: 'Recommended' };
@@ -375,7 +376,7 @@
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
         <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
-          ${SPORT.map((s) => `
+          ${data.sport.map((s) => `
             <div style="flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(s.comp)}</span>
@@ -556,26 +557,52 @@ ${(SECTIONS[state.section] || profileSection)()}
 
     render();
 
-    // Pull live catalog data from the watch endpoint (WP REST in production,
-    // the preview server's /api/watch locally). Anything other than a healthy
-    // TMDB payload leaves the built-in curated lists in place.
+    // Pull live catalog + sport data from the watch endpoint (WP REST in
+    // production, the preview server's /api/watch locally). Each array is
+    // applied independently; anything missing or unhealthy leaves the
+    // built-in curated list in place.
     if (props.endpoint && typeof fetch === 'function') {
       const prep = (arr) => (Array.isArray(arr) ? arr : [])
         .filter((x) => x && x.t)
         .map((x) => ({ ...x, initial: String(x.t)[0], bg: bg(x.genre) }));
 
+      // "Sat · 15:00" in the viewer's own timezone, from the event's ISO date.
+      const fmtKick = (iso) => {
+        const d = new Date(iso);
+        if (isNaN(d)) return '';
+        const now = new Date();
+        const midnight = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+        const days = Math.round((midnight(d) - midnight(now)) / 86400000);
+        const day = days === 0 ? 'Today'
+          : days === 1 ? 'Tomorrow'
+          : d.toLocaleDateString([], days > 6 ? { weekday: 'short', day: 'numeric', month: 'short' } : { weekday: 'short' });
+        return `${day} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      };
+
+      const prepSport = (arr) => (Array.isArray(arr) ? arr : [])
+        .filter((s) => s && s.fx)
+        .map((s) => ({
+          comp: s.comp || '',
+          fx: s.fx,
+          ch: s.ch || '',
+          live: !!s.live,
+          time: s.live ? (s.time || 'LIVE now') : (s.iso ? fmtKick(s.iso) : (s.time || ''))
+        }));
+
       fetch(props.endpoint)
         .then((res) => (res.ok ? res.json() : null))
         .then((payload) => {
-          if (!payload || payload.source !== 'tmdb') return;
+          if (!payload || payload.source === 'fallback') return;
           const movies = prep(payload.movies);
           const series = prep(payload.series);
           const newWeek = prep(payload.newWeek);
-          if (!movies.length && !series.length) return;
+          const sport = prepSport(payload.sport);
+          if (!movies.length && !series.length && !sport.length) return;
           if (movies.length) data.movies = movies;
           if (series.length) data.series = series;
           if (newWeek.length) data.newWeek = newWeek;
-          dataSource = 'tmdb';
+          if (sport.length) data.sport = sport;
+          if (movies.length || series.length) dataSource = 'tmdb';
           INDEX = buildIndex(data);
           render(true);
         })
