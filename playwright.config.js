@@ -7,7 +7,10 @@ import { defineConfig } from '@playwright/test';
 // update both files and tests will run against it automatically.
 const STAGING_PLACEHOLDER = 'https://staging.afristream.example.com';
 
-const port = Number(process.env.PORT) || 4173;
+// Tests get their own port (4180) so they never reuse a manually started
+// `npm run preview` server (4173), which may be serving live API data —
+// the suite must always run against the hermetic offline instance below.
+const port = Number(process.env.PORT) || 4180;
 const external = [process.env.PLAYWRIGHT_BASE_URL, process.env.BASE_URL]
   .find((u) => u && u !== STAGING_PLACEHOLDER);
 const baseURL = external || `http://localhost:${port}`;
@@ -29,5 +32,8 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 60000,
+        // Hermetic tests: no live TMDB/ESPN calls — the portal exercises its
+        // curated fallback, and the fixture page covers the API-data path.
+        env: { ...process.env, WATCH_OFFLINE: '1', PORT: String(port) },
       },
 });

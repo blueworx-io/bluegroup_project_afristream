@@ -63,17 +63,17 @@
     mk('Tide Riders', 'Family', 'Disney+', 'Added Monday')
   ];
   const SPORT = [
-    { comp: 'URC Rugby', fx: 'Stormers vs Leinster', time: 'LIVE now', ch: 'SuperSport Rugby', live: true },
-    { comp: 'Test Cricket', fx: 'South Africa vs England', time: 'LIVE · Day 3', ch: 'SuperSport Cricket', live: true },
-    { comp: 'Premier League', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'SuperSport PL', live: false },
+    { comp: 'FIFA World Cup', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
+    { comp: 'Premier League', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
     { comp: 'Formula 1', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
-    { comp: 'UFC', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'Prime Video', live: false }
+    { comp: 'UFC', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
+    { comp: 'NBA', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
   ];
   const LIVE_TV = [
-    { name: 'SuperSport Football', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
-    { name: 'BBC One', tag: 'Ent' }, { name: 'M-Net Movies', tag: 'Movies' },
+    { name: 'ESPN', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
+    { name: 'BBC One', tag: 'Ent' }, { name: 'Sky Cinema', tag: 'Movies' },
     { name: 'National Geographic', tag: 'Docs' }, { name: 'Cartoon Network', tag: 'Kids' },
-    { name: 'SuperSport Rugby', tag: 'Sport' }, { name: 'CNN International', tag: 'News' }
+    { name: 'Eurosport', tag: 'Sport' }, { name: 'CNN International', tag: 'News' }
   ].map((t) => ({ ...t, bg: `linear-gradient(150deg, oklch(0.32 0.06 ${hue(t.tag)}), oklch(0.20 0.05 ${hue(t.tag)}))` }));
   const COLLECTIONS = [
     { name: 'Weekend Binge', count: '12 titles', desc: 'Three seasons or less — start Friday, done by Sunday.', h: 300 },
@@ -130,15 +130,17 @@
     'Phone & Tablet': 'Fixes for Android and iOS phones and tablets.'
   };
 
-  // Flat, deduped search index across every content source.
-  function buildIndex() {
+  // Flat, deduped search index across every content source. Movies/series/
+  // newWeek come from the live data (API or built-in); sport, live TV and
+  // collections are always the curated lists.
+  function buildIndex(data) {
     const seen = new Set();
     const index = [];
     const src = [
-      ...MOVIES.map((x) => ({ ...x, type: 'Movies' })),
-      ...SERIES.map((x) => ({ ...x, type: 'Series' })),
-      ...NEW_WEEK.map((x) => ({ ...x, type: /episode/i.test(x.meta) ? 'Series' : 'Movies' })),
-      ...SPORT.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
+      ...data.movies.map((x) => ({ ...x, type: x.type || 'Movies' })),
+      ...data.series.map((x) => ({ ...x, type: x.type || 'Series' })),
+      ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
+      ...data.sport.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
       ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg }))
     ];
@@ -159,11 +161,17 @@
   const tagStyle = (h) => `align-self:flex-start;position:relative;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:oklch(0.95 0.03 ${h});color:oklch(0.42 0.13 ${h})`;
   const copyBtnStyle = 'flex:none;background:#2E5BE6;color:#fff;border:none;border-radius:13px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer;min-width:98px;box-shadow:0 8px 18px -10px rgba(46,91,230,.7)';
 
+  // Official TMDB short logo (themoviedb.org/about/logos-attribution), inlined
+  // so attribution works offline; gradient id namespaced to avoid collisions.
+  const TMDB_LOGO = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 273.42 35.52" role="img" aria-label="TMDB" style="height:11px;width:auto;display:block"><defs><linearGradient id="asTmdbGrad" y1="17.76" x2="273.42" y2="17.76" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#90cea1"/><stop offset="0.56" stop-color="#3cbec9"/><stop offset="1" stop-color="#00b3e5"/></linearGradient></defs><path fill="url(#asTmdbGrad)" d="M191.85,35.37h63.9A17.67,17.67,0,0,0,273.42,17.7h0A17.67,17.67,0,0,0,255.75,0h-63.9A17.67,17.67,0,0,0,174.18,17.7h0A17.67,17.67,0,0,0,191.85,35.37ZM10.1,35.42h7.8V6.92H28V0H0v6.9H10.1Zm28.1,0H46V8.25h.1L55.05,35.4h6L70.3,8.25h.1V35.4h7.8V0H66.45l-8.2,23.1h-.1L50,0H38.2ZM89.14.12h11.7a33.56,33.56,0,0,1,8.08,1,18.52,18.52,0,0,1,6.67,3.08,15.09,15.09,0,0,1,4.53,5.52,18.5,18.5,0,0,1,1.67,8.25,16.91,16.91,0,0,1-1.62,7.58,16.3,16.3,0,0,1-4.38,5.5,19.24,19.24,0,0,1-6.35,3.37,24.53,24.53,0,0,1-7.55,1.15H89.14Zm7.8,28.2h4a21.66,21.66,0,0,0,5-.55A10.58,10.58,0,0,0,110,26a8.73,8.73,0,0,0,2.68-3.35,11.9,11.9,0,0,0,1-5.08,9.87,9.87,0,0,0-1-4.52,9.17,9.17,0,0,0-2.63-3.18A11.61,11.61,0,0,0,106.22,8a17.06,17.06,0,0,0-4.68-.63h-4.6ZM133.09.12h13.2a32.87,32.87,0,0,1,4.63.33,12.66,12.66,0,0,1,4.17,1.3,7.94,7.94,0,0,1,3,2.72,8.34,8.34,0,0,1,1.15,4.65,7.48,7.48,0,0,1-1.67,5,9.13,9.13,0,0,1-4.43,2.82V17a10.28,10.28,0,0,1,3.18,1,8.51,8.51,0,0,1,2.45,1.85,7.79,7.79,0,0,1,1.57,2.62,9.16,9.16,0,0,1,.55,3.2,8.52,8.52,0,0,1-1.2,4.68,9.32,9.32,0,0,1-3.1,3A13.38,13.38,0,0,1,152.32,35a22.5,22.5,0,0,1-4.73.5h-14.5Zm7.8,14.15h5.65a7.65,7.65,0,0,0,1.78-.2,4.78,4.78,0,0,0,1.57-.65,3.43,3.43,0,0,0,1.13-1.2,3.63,3.63,0,0,0,.42-1.8A3.3,3.3,0,0,0,151,8.6a3.42,3.42,0,0,0-1.23-1.13A6.07,6.07,0,0,0,148,6.9a9.9,9.9,0,0,0-1.85-.18h-5.3Zm0,14.65h7a8.27,8.27,0,0,0,1.83-.2,4.67,4.67,0,0,0,1.67-.7,3.93,3.93,0,0,0,1.23-1.3,3.8,3.8,0,0,0,.47-1.95,3.16,3.16,0,0,0-.62-2,4,4,0,0,0-1.58-1.18,8.23,8.23,0,0,0-2-.55,15.12,15.12,0,0,0-2.05-.15h-5.9Z"/></svg>';
+
   // ---------------------------------------------------------- markup pieces
 
   const posterArt = (m) => `
     <div style="width:100%;aspect-ratio:2/3;border-radius:14px;background:${m.bg};position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:11px;box-shadow:0 10px 24px -18px rgba(11,21,51,.5)">
-      <div style="position:absolute;top:-26px;right:-10px;font-size:120px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>
+      ${m.poster
+        ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 42%,rgba(5,9,24,.82))"></div>`
+        : `<div style="position:absolute;top:-26px;right:-10px;font-size:120px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
       <div style="position:absolute;top:9px;left:9px;background:rgba(5,9,24,.55);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px">${esc(m.platform)}</div>
       <div style="position:relative;color:#fff;font-weight:700;font-size:13.5px;line-height:1.25;text-shadow:0 1px 8px rgba(0,0,0,.4)">${esc(m.t)}</div>
     </div>`;
@@ -179,9 +187,15 @@
   function createPortal(root) {
     const props = {
       defaultTab: root.getAttribute('data-default-tab') || 'profile',
-      showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true')
+      showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
+      endpoint: root.getAttribute('data-endpoint') || ''
     };
-    const INDEX = buildIndex();
+    // Live catalog data — starts as the built-in curated lists, replaced
+    // per-array by whatever the watch endpoint returns (TMDB catalog and/or
+    // ESPN sport fixtures).
+    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT };
+    let INDEX = buildIndex(data);
+    let dataSource = 'built-in';
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', year: 'All Years', sort: 'Recommended' };
 
     const state = {
@@ -310,11 +324,11 @@
       const sub = state.subWatch;
       const posterRows = [];
       if (!searching) {
-        if (sub === 'All' || sub === 'Movies') posterRows.push({ h: 'Trending Movies', items: MOVIES });
-        if (sub === 'All' || sub === 'Series') posterRows.push({ h: 'Trending Series', items: SERIES });
-        if (sub === 'Documentaries') posterRows.push({ h: 'Documentaries', items: INDEX.filter((x) => x.genre === 'Docs') });
+        if (sub === 'All' || sub === 'Movies') posterRows.push({ h: 'Trending Movies', items: data.movies });
+        if (sub === 'All' || sub === 'Series') posterRows.push({ h: 'Trending Series', items: data.series });
+        if (sub === 'Documentaries') posterRows.push({ h: 'Documentaries', items: INDEX.filter((x) => /^(Docs|Documentary)$/.test(x.genre)) });
         if (sub === 'Kids') posterRows.push({ h: 'Kids & Family', items: INDEX.filter((x) => x.genre === 'Kids' || x.genre === 'Family') });
-        if (sub === 'All' || sub === 'New This Week') posterRows.push({ h: 'New This Week', items: NEW_WEEK });
+        if (sub === 'All' || sub === 'New This Week') posterRows.push({ h: 'New This Week', items: data.newWeek });
       }
 
       const filterCount = Object.keys(FILTER_DEFAULTS).filter((k) => state[k] !== FILTER_DEFAULTS[k]).length;
@@ -366,7 +380,7 @@
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
         <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
-          ${SPORT.map((s) => `
+          ${data.sport.map((s) => `
             <div style="flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(s.comp)}</span>
@@ -401,6 +415,11 @@
         </div>
       </div>` : ''}
   `}
+  ${dataSource === 'tmdb' ? `
+  <p style="margin:22px 2px 0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:11px;color:rgba(11,21,51,.45)">
+    <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="TMDB" style="display:inline-flex;flex:none">${TMDB_LOGO}</a>
+    <span>Listings and artwork from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+  </p>` : ''}
 </section>`;
     }
 
@@ -544,6 +563,58 @@ ${(SECTIONS[state.section] || profileSection)()}
     });
 
     render();
+
+    // Pull live catalog + sport data from the watch endpoint (WP REST in
+    // production, the preview server's /api/watch locally). Each array is
+    // applied independently; anything missing or unhealthy leaves the
+    // built-in curated list in place.
+    if (props.endpoint && typeof fetch === 'function') {
+      const prep = (arr) => (Array.isArray(arr) ? arr : [])
+        .filter((x) => x && x.t)
+        .map((x) => ({ ...x, initial: String(x.t)[0], bg: bg(x.genre) }));
+
+      // "Sat · 15:00" in the viewer's own timezone, from the event's ISO date.
+      const fmtKick = (iso) => {
+        const d = new Date(iso);
+        if (isNaN(d)) return '';
+        const now = new Date();
+        const midnight = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+        const days = Math.round((midnight(d) - midnight(now)) / 86400000);
+        const day = days === 0 ? 'Today'
+          : days === 1 ? 'Tomorrow'
+          : d.toLocaleDateString([], days > 6 ? { weekday: 'short', day: 'numeric', month: 'short' } : { weekday: 'short' });
+        return `${day} · ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      };
+
+      const prepSport = (arr) => (Array.isArray(arr) ? arr : [])
+        .filter((s) => s && s.fx)
+        .map((s) => ({
+          comp: s.comp || '',
+          fx: s.fx,
+          ch: s.ch || '',
+          live: !!s.live,
+          time: s.live ? (s.time || 'LIVE now') : (s.iso ? fmtKick(s.iso) : (s.time || ''))
+        }));
+
+      fetch(props.endpoint)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (!payload || payload.source === 'fallback') return;
+          const movies = prep(payload.movies);
+          const series = prep(payload.series);
+          const newWeek = prep(payload.newWeek);
+          const sport = prepSport(payload.sport);
+          if (!movies.length && !series.length && !sport.length) return;
+          if (movies.length) data.movies = movies;
+          if (series.length) data.series = series;
+          if (newWeek.length) data.newWeek = newWeek;
+          if (sport.length) data.sport = sport;
+          if (movies.length || series.length) dataSource = 'tmdb';
+          INDEX = buildIndex(data);
+          render(true);
+        })
+        .catch(() => { /* endpoint unreachable — curated lists stay */ });
+    }
   }
 
   // ------------------------------------------------------------------- init
