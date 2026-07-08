@@ -84,6 +84,14 @@
     { name: 'Award Season Catch-Up', count: '10 titles', desc: 'Everything nominated, in one row.', h: 25 }
   ].map((c) => ({ ...c, bg: `linear-gradient(135deg, oklch(0.42 0.12 ${c.h}), oklch(0.24 0.09 ${(c.h + 50) % 360}))` }));
 
+  const EDITOR_FALLBACK = [
+    { t: 'The Colour of Home', genre: 'Drama', platform: '★ 8.4', meta: '2024', type: 'Movies', country: 'South Africa', rank: 1 },
+    { t: 'Harmattan', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', type: 'Series', country: 'Nigeria', rank: 2 },
+    { t: 'Salt & Silver', genre: 'Docs', platform: '★ 7.9', meta: '2022', type: 'Movies', country: 'Kenya', rank: 3 },
+    { t: 'The Long Dry', genre: 'Drama', platform: '★ 7.7', meta: '2021', type: 'Movies', country: 'South Africa', rank: 4 },
+    { t: 'Northern Lights', genre: 'Family', platform: '★ 7.5', meta: 'TV · 2020', type: 'Series', country: 'United Kingdom', rank: 5 },
+  ].map((p) => ({ ...p, initial: p.t[0], bg: bg(p.genre) }));
+
   const TIPS_DATA = [
     { tag: 'Setup', h: 250, title: 'Setup Tips', items: ['Use a stable WiFi connection before starting.', 'Make sure the FireStick is fully signed into an Amazon account.', 'Complete all FireStick updates before installing apps.', 'Keep the remote nearby during every install step.'] },
     { tag: 'Permissions', h: 290, title: 'FireStick Permission Tips', items: ['Developer permissions may need to be enabled before downloads work.', 'Allow install permissions when prompted.', 'If an app will not install, check FireStick permission settings first.', 'Restart the FireStick if permissions do not apply immediately.'] },
@@ -191,18 +199,20 @@
     const props = {
       defaultTab: root.getAttribute('data-default-tab') || 'profile',
       showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
-      endpoint: root.getAttribute('data-endpoint') || ''
+      endpoint: root.getAttribute('data-endpoint') || '',
+      editorEndpoint: root.getAttribute('data-editor-endpoint') || ''
     };
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or
     // ESPN sport fixtures).
-    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT, catalog: [] };
+    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT, catalog: [], editorPicks: EDITOR_FALLBACK };
     let INDEX = buildIndex(data);
     let dataSource = 'built-in';
+    let editorSource = 'built-in';
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' };
 
     const state = {
-      section: ['profile', 'watch', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      section: ['profile', 'watch', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       helpTab: 'Quick Fixes',
       accIdx: 0,
@@ -431,6 +441,51 @@
 </section>`;
     }
 
+    function editorSection() {
+      const picks = data.editorPicks || [];
+      const hero = picks[0];
+      const rest = picks.slice(1);
+      const heroArt = (m) => m.poster
+        ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
+        : `<div style="position:absolute;top:-30px;right:-6px;font-size:200px;font-weight:800;color:rgba(255,255,255,.10);line-height:1;user-select:none">${esc(m.initial)}</div>`;
+
+      return `
+<section data-screen-label="Editor Picks">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Editor Picks</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Curated by the AfriStream editors — a hand-picked watchlist, refreshed regularly.</p>
+  </div>
+  ${hero ? `
+  <div style="position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
+    <div style="position:absolute;inset:0">${heroArt(hero)}<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,24,.86) 0%,rgba(5,9,24,.55) 46%,rgba(5,9,24,.2) 100%)"></div></div>
+    <div style="position:relative;padding:clamp(22px,4vw,40px);max-width:620px;display:flex;flex-direction:column;gap:12px">
+      <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#F4C56B">★ Editors' No.1</span>
+      <div style="font-size:clamp(26px,4.5vw,40px);font-weight:800;letter-spacing:-0.02em;line-height:1.05">${esc(hero.t)}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;flex-wrap:wrap"><span style="font-weight:700">${esc(hero.genre)}</span><span>·</span><span>${esc(hero.meta)}</span>${hero.country ? `<span>·</span><span>${esc(hero.country)}</span>` : ''}<span>·</span><span>${esc(hero.platform)}</span></div>
+    </div>
+  </div>` : ''}
+  ${rest.length ? `
+  <h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">More from the list</h2>
+  <div data-dragscroll style="display:flex;gap:16px;overflow-x:auto;padding-bottom:12px">
+    ${rest.map((m) => `
+      <div class="as-editor-card" style="flex:none;width:174px;scroll-snap-align:start">
+        <div style="width:100%;aspect-ratio:2/3;border-radius:16px;background:${m.bg};position:relative;overflow:hidden;box-shadow:0 14px 30px -20px rgba(11,21,51,.6)">
+          ${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 48%,rgba(5,9,24,.82))"></div>` : `<div style="position:absolute;top:-22px;right:-8px;font-size:130px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
+          <div style="position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;background:rgba(5,9,24,.6);color:#F4C56B;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(244,197,107,.5)">${m.rank || ''}</div>
+        </div>
+        <div style="margin-top:9px;font-size:13.5px;font-weight:700;line-height:1.25">${esc(m.t)}</div>
+        <div style="margin-top:3px;font-size:11.5px;color:rgba(11,21,51,.55)">${esc(m.genre)} · ${esc(m.meta)}</div>
+      </div>`).join('')}
+  </div>` : ''}
+  ${!picks.length ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">The editors' list is refreshing — check back shortly.</div>` : ''}
+  ${editorSource === 'imdb' ? `
+  <p style="margin:22px 2px 0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:11px;color:rgba(11,21,51,.45)">
+    <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="TMDB" style="display:inline-flex;flex:none">${TMDB_LOGO}</a>
+    <span>Listings and artwork from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+  </p>` : ''}
+</section>`;
+    }
+
     function tipsSection() {
       return `
 <section data-screen-label="Tips and Tricks">
@@ -497,10 +552,11 @@
     const NAV = [
       { id: 'profile', label: 'Profile' },
       { id: 'watch', label: 'What to Watch' },
+      { id: 'editor', label: 'Editor Picks' },
       { id: 'tips', label: 'Tips & Tricks' },
       { id: 'help', label: 'Troubleshooting' }
     ];
-    const SECTIONS = { profile: profileSection, watch: watchSection, tips: tipsSection, help: helpSection };
+    const SECTIONS = { profile: profileSection, watch: watchSection, editor: editorSection, tips: tipsSection, help: helpSection };
 
     function render(preserveFocus) {
       let caret = 0;
@@ -660,6 +716,23 @@ ${(SECTIONS[state.section] || profileSection)()}
           render(true);
         })
         .catch(() => { /* endpoint unreachable — curated lists stay */ });
+    }
+
+    if (props.editorEndpoint && typeof fetch === 'function') {
+      const prepPicks = (arr) => (Array.isArray(arr) ? arr : [])
+        .filter((x) => x && x.t)
+        .map((x) => ({ ...x, initial: String(x.t)[0], bg: bg(x.genre) }));
+      fetch(props.editorEndpoint)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (!payload || payload.source === 'fallback') return;
+          const picks = prepPicks(payload.picks);
+          if (!picks.length) return;
+          data.editorPicks = picks;
+          editorSource = 'imdb';
+          if (state.section === 'editor') render(true);
+        })
+        .catch(() => { /* endpoint unreachable — built-in picks stay */ });
     }
   }
 

@@ -58,3 +58,14 @@
 .afristream-portal [data-dragscroll] {
   cursor: grab;
 }
+
+.afristream-portal .as-editor-card {
+  transition: transform .18s ease;
+}
+.afristream-portal .as-editor-card:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+@media (prefers-reduced-motion: reduce) {
+  .afristream-portal .as-editor-card { transition: none; }
+  .afristream-portal .as-editor-card:hover { transform: none; }
+}

@@ -142,6 +142,23 @@ test('editor-picks fixture endpoint returns ranked picks', async ({ request }) =
   expect(json.picks[0]).toHaveProperty('t');
 });
 
+test('editor picks tab renders a premium hero and ranked rail from fixture', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Picks' })).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Listings and artwork from')).toBeVisible();
+});
+
+test('editor picks tab shows the built-in list when the endpoint is offline', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  await expect(page.getByRole('heading', { name: 'Editor Picks' })).toBeVisible();
+  // At least one built-in fallback pick renders.
+  await expect(page.locator('[data-screen-label="Editor Picks"]')).toContainText('Curated by');
+});
+
 test('troubleshooting accordion and device tabs work', async ({ page }) => {
   await page.getByRole('button', { name: 'Troubleshooting' }).click();
 
