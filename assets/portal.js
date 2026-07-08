@@ -568,6 +568,7 @@ ${(SECTIONS[state.section] || profileSection)()}
     let drag = null;
     let draggedClick = false;
     root.addEventListener('pointerdown', (e) => {
+      draggedClick = false;
       if (e.button !== 0) return;
       const row = e.target.closest('[data-dragscroll]');
       if (!row || !root.contains(row)) return;
