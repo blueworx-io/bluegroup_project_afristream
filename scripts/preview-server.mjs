@@ -101,7 +101,7 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
     t: hit.title || hit.name || fallbackTitle || '',
     genre: genres[hit.genre_ids?.[0]] || type,
     platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'IMDb',
-    meta: type === 'Series' ? `TV · ${year}` : year,
+    meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,
     poster: hit.poster_path ? `https://image.tmdb.org/t/p/w342${hit.poster_path}` : null,
     type,
     country: (hit.origin_country && hit.origin_country[0] && COUNTRIES[hit.origin_country[0]]) || '',
@@ -147,12 +147,16 @@ let watchCache = null;
 let watchCacheAt = 0;
 
 async function tmdbGet(path, params = {}) {
-  const url = new URL(TMDB + path);
-  url.searchParams.set('api_key', process.env.TMDB_API_KEY);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const url = new URL(TMDB + path);
+    url.searchParams.set('api_key', process.env.TMDB_API_KEY);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 // Same mapping the plugin's PHP does — keep the two in sync.
@@ -200,7 +204,7 @@ async function discoverCountry(kind, cc, genres) {
       t: row.title || row.name || '',
       genre: genres[row.genre_ids?.[0]] || type,
       platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'New',
-      meta: type === 'Series' ? `TV · ${year}` : year,
+      meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,
       poster: row.poster_path ? `https://image.tmdb.org/t/p/w342${row.poster_path}` : null,
       type,
       country: COUNTRIES[cc],
