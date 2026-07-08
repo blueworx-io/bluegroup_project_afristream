@@ -374,7 +374,7 @@
       ${results.map(posterGridItem).join('')}
     </div>
     ${results.length === 0 ? `
-      <div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">Nothing matches your search — try a different title, genre or platform.</div>` : ''}
+      <div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">Nothing matches your search — try a different title, genre or country.</div>` : ''}
   ` : `
     ${posterRows.map((row) => `
       <div style="margin-bottom:28px">
