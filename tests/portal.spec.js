@@ -64,7 +64,7 @@ test('watch API endpoint responds with a valid source', async ({ request }) => {
   const res = await request.get('/api/watch');
   expect(res.ok()).toBeTruthy();
   const json = await res.json();
-  expect(['tmdb', 'fallback']).toContain(json.source);
+  expect(['live', 'fallback']).toContain(json.source);
 });
 
 test('watch section consumes API data when the endpoint provides it', async ({ page }) => {
