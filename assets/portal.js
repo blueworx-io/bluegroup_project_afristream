@@ -371,7 +371,7 @@
     ${posterRows.map((row) => `
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">${esc(row.h)}</h2>
-        <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity">
+        <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity">
           ${row.items.map(posterRowItem).join('')}
         </div>
       </div>`).join('')}
@@ -379,7 +379,7 @@
     ${showSport ? `
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
-        <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
+        <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${data.sport.map((s) => `
             <div style="flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -393,7 +393,7 @@
       </div>
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live TV Channels</h2>
-        <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px">
+        <div data-dragscroll style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px">
           ${LIVE_TV.map((t) => `
             <div style="flex:none;width:158px;aspect-ratio:16/10;border-radius:13px;background:${t.bg};color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px;text-align:center">
               <div style="font-size:13.5px;font-weight:800;line-height:1.2">${esc(t.name)}</div>
@@ -405,7 +405,7 @@
     ${showColl ? `
       <div>
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Collections</h2>
-        <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
+        <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${COLLECTIONS.map((c) => `
             <div style="flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
               <div style="font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(c.name)}</div>
@@ -561,6 +561,41 @@ ${(SECTIONS[state.section] || profileSection)()}
         render(true);
       }
     });
+
+    // Mouse drag-to-scroll for any [data-dragscroll] row. Pointer-based so it
+    // unifies with wheel/touch scroll; a 5px threshold preserves poster clicks,
+    // and once a real drag starts we swallow the trailing click.
+    let drag = null;
+    let draggedClick = false;
+    root.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const row = e.target.closest('[data-dragscroll]');
+      if (!row || !root.contains(row)) return;
+      drag = { row, startX: e.clientX, startScroll: row.scrollLeft };
+    });
+    root.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.startX;
+      if (!draggedClick && Math.abs(dx) < 5) return;
+      draggedClick = true;
+      drag.row.style.cursor = 'grabbing';
+      drag.row.style.userSelect = 'none';
+      drag.row.scrollLeft = drag.startScroll - dx;
+      e.preventDefault();
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      drag.row.style.cursor = '';
+      drag.row.style.userSelect = '';
+      drag = null;
+    };
+    root.addEventListener('pointerup', endDrag);
+    root.addEventListener('pointercancel', endDrag);
+    root.addEventListener('pointerleave', endDrag);
+    // Capture phase so this runs before the bubbling click handler below.
+    root.addEventListener('click', (e) => {
+      if (draggedClick) { draggedClick = false; e.stopPropagation(); e.preventDefault(); }
+    }, true);
 
     render();
 

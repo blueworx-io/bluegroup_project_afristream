@@ -54,3 +54,7 @@
 .afristream-portal .as-hover-chip:hover { background: #E5E7EF !important; }
 .afristream-portal .as-hover-ghost:hover { background: #F2F3F7 !important; }
 .afristream-portal .as-hover-light:hover { background: #E8EDFB !important; }
+
+.afristream-portal [data-dragscroll] {
+  cursor: grab;
+}

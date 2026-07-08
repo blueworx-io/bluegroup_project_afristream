@@ -83,6 +83,22 @@ test('watch section consumes API data when the endpoint provides it', async ({ p
   await expect(page.getByText('1 result', { exact: true })).toBeVisible();
 });
 
+test('poster rows drag-scroll with the mouse', async ({ page }) => {
+  await page.getByRole('button', { name: 'What to Watch' }).click();
+  const row = page.locator('[data-dragscroll]').first();
+  await expect(row).toBeVisible();
+  const box = await row.boundingBox();
+  const startLeft = await row.evaluate((el) => el.scrollLeft);
+
+  await page.mouse.move(box.x + box.width - 20, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 20, box.y + box.height / 2, { steps: 12 });
+  await page.mouse.up();
+
+  const endLeft = await row.evaluate((el) => el.scrollLeft);
+  expect(endLeft).toBeGreaterThan(startLeft);
+});
+
 test('troubleshooting accordion and device tabs work', async ({ page }) => {
   await page.getByRole('button', { name: 'Troubleshooting' }).click();
 
