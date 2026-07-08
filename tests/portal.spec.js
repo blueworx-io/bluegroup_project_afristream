@@ -157,6 +157,7 @@ test('editor picks tab shows the built-in list when the endpoint is offline', as
   await expect(page.getByRole('heading', { name: 'Editor Picks' })).toBeVisible();
   // At least one built-in fallback pick renders.
   await expect(page.locator('[data-screen-label="Editor Picks"]')).toContainText('Curated by');
+  await expect(page.getByText('The Colour of Home')).toBeVisible();
 });
 
 test('troubleshooting accordion and device tabs work', async ({ page }) => {
