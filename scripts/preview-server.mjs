@@ -129,6 +129,9 @@ async function editorPicksPayload() {
     );
     const picks = resolved.filter(Boolean);
     if (!picks.length) throw new Error('none resolved');
+    // Re-sequence ranks gap-free over the resolved set, matching the PHP side
+    // (which only increments $rank on a successful pick).
+    picks.forEach((p, i) => { p.rank = i + 1; });
 
     editorCache = { source: 'imdb', updated: new Date().toISOString(), picks };
     editorCacheAt = Date.now();
