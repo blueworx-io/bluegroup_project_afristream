@@ -18,7 +18,7 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 
 **Movies & series (TMDB key):** trending movies/series and new releases come from [TMDB](https://www.themoviedb.org/) (free API key, non-commercial use, attribution shown). Without a key the portal falls back to its built-in curated lists — nothing breaks.
 
-- **WordPress:** add `define( 'AFRISTREAM_TMDB_API_KEY', 'your-key' );` to `wp-config.php` (or set the `afristream_tmdb_api_key` option). Never commit the key.
+- **WordPress:** paste the key under **Settings → AfriStream Portal** in wp-admin (no `wp-config.php` access needed). If `AFRISTREAM_TMDB_API_KEY` is defined in `wp-config.php` it takes precedence. Never commit the key.
 - **Local preview:** set the `TMDB_API_KEY` environment variable before `npm run preview`.
 - Get a key: themoviedb.org → sign up → Settings → API → request a key (choose "Developer"/non-commercial).
 - Cached 12 hours (WP transient / in-memory locally).

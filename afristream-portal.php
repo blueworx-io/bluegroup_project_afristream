@@ -313,3 +313,127 @@ function afristream_portal_register_rest_routes() {
 	);
 }
 add_action( 'rest_api_init', 'afristream_portal_register_rest_routes' );
+
+/**
+ * Settings → AfriStream Portal: lets the TMDB key be configured from wp-admin
+ * (no wp-config.php access needed). The key is stored in the
+ * afristream_tmdb_api_key option; the AFRISTREAM_TMDB_API_KEY constant still
+ * takes precedence when defined.
+ */
+function afristream_portal_register_settings() {
+	register_setting(
+		'afristream_portal',
+		'afristream_tmdb_api_key',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'afristream_portal_sanitize_tmdb_key',
+			'default'           => '',
+		)
+	);
+
+	add_settings_section(
+		'afristream_portal_data',
+		__( 'Live data sources', 'afristream-portal' ),
+		'afristream_portal_settings_intro',
+		'afristream-portal'
+	);
+
+	add_settings_field(
+		'afristream_tmdb_api_key',
+		__( 'TMDB API key', 'afristream-portal' ),
+		'afristream_portal_tmdb_key_field',
+		'afristream-portal',
+		'afristream_portal_data',
+		array( 'label_for' => 'afristream_tmdb_api_key' )
+	);
+}
+add_action( 'admin_init', 'afristream_portal_register_settings' );
+
+function afristream_portal_sanitize_tmdb_key( $value ) {
+	// A new (or cleared) key should refetch immediately, not wait out the cache.
+	delete_transient( 'afristream_portal_tmdb' );
+	return sanitize_text_field( (string) $value );
+}
+
+function afristream_portal_settings_intro() {
+	echo '<p>' . esc_html__( 'Sport fixtures need no configuration — they come from a free public feed. Trending movies, series and new releases come from TMDB once an API key is saved; without one the portal shows its built-in lists.', 'afristream-portal' ) . '</p>';
+}
+
+function afristream_portal_tmdb_key_field() {
+	if ( defined( 'AFRISTREAM_TMDB_API_KEY' ) && AFRISTREAM_TMDB_API_KEY ) {
+		echo '<p><em>' . esc_html__( 'The key is defined in wp-config.php (AFRISTREAM_TMDB_API_KEY), which takes precedence over this setting.', 'afristream-portal' ) . '</em></p>';
+		return;
+	}
+	printf(
+		'<input type="text" class="regular-text code" name="afristream_tmdb_api_key" id="afristream_tmdb_api_key" value="%s" autocomplete="off">',
+		esc_attr( get_option( 'afristream_tmdb_api_key', '' ) )
+	);
+	echo '<p class="description">' . wp_kses(
+		__( 'Free API key (v3 auth) from <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">themoviedb.org</a> (sign up → Settings → API). Saving refreshes the catalog immediately.', 'afristream-portal' ),
+		array(
+			'a' => array(
+				'href'   => array(),
+				'target' => array(),
+				'rel'    => array(),
+			),
+		)
+	) . '</p>';
+}
+
+function afristream_portal_add_settings_page() {
+	add_options_page(
+		__( 'AfriStream Portal', 'afristream-portal' ),
+		__( 'AfriStream Portal', 'afristream-portal' ),
+		'manage_options',
+		'afristream-portal',
+		'afristream_portal_render_settings_page'
+	);
+}
+add_action( 'admin_menu', 'afristream_portal_add_settings_page' );
+
+function afristream_portal_render_settings_page() {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+	$connected = (bool) afristream_portal_tmdb_key();
+	?>
+	<div class="wrap">
+		<h1><?php esc_html_e( 'AfriStream Portal', 'afristream-portal' ); ?></h1>
+		<p>
+			<?php if ( $connected ) : ?>
+				<strong style="color:#00a32a">&#9679;</strong>
+				<?php esc_html_e( 'TMDB connected — trending movies, series and new releases are live.', 'afristream-portal' ); ?>
+			<?php else : ?>
+				<strong style="color:#d63638">&#9679;</strong>
+				<?php esc_html_e( 'No TMDB key saved — the movie and series rows are showing the built-in lists.', 'afristream-portal' ); ?>
+			<?php endif; ?>
+		</p>
+		<form action="options.php" method="post">
+			<?php
+			settings_fields( 'afristream_portal' );
+			do_settings_sections( 'afristream-portal' );
+			submit_button();
+			?>
+		</form>
+		<hr>
+		<p>
+			<?php
+			printf(
+				/* translators: %s: shortcode example. */
+				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|tips|help", show_sport="true|false").', 'afristream-portal' ),
+				'<code>[afristream_portal]</code>'
+			);
+			?>
+		</p>
+	</div>
+	<?php
+}
+
+function afristream_portal_action_links( $links ) {
+	array_unshift(
+		$links,
+		'<a href="' . esc_url( admin_url( 'options-general.php?page=afristream-portal' ) ) . '">' . esc_html__( 'Settings', 'afristream-portal' ) . '</a>'
+	);
+	return $links;
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'afristream_portal_action_links' );
