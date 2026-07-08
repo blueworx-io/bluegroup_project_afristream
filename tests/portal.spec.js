@@ -83,6 +83,16 @@ test('watch section consumes API data when the endpoint provides it', async ({ p
   await expect(page.getByText('1 result', { exact: true })).toBeVisible();
 });
 
+test('watch fixture payload carries a deep catalog with country data', async ({ request }) => {
+  const res = await request.get('/api/watch?fixture=1');
+  const json = await res.json();
+  expect(Array.isArray(json.catalog)).toBeTruthy();
+  expect(json.catalog.length).toBeGreaterThan(3);
+  const withCountry = json.catalog.find((x) => x.country);
+  expect(withCountry).toBeTruthy();
+  expect(withCountry).toHaveProperty('type');
+});
+
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   const row = page.locator('[data-dragscroll]').first();

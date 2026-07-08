@@ -147,6 +147,57 @@ function afristream_portal_tmdb_map( $json, $genres, $type, $limit, $meta_label 
 }
 
 /**
+ * Origin countries for the deep, filterable catalog. ISO 3166-1 → display name.
+ */
+function afristream_portal_countries() {
+	return array(
+		'US' => 'United States', 'GB' => 'United Kingdom', 'ZA' => 'South Africa',
+		'NG' => 'Nigeria', 'KE' => 'Kenya', 'IN' => 'India', 'FR' => 'France',
+		'ES' => 'Spain', 'KR' => 'South Korea', 'JP' => 'Japan', 'BR' => 'Brazil',
+		'DE' => 'Germany', 'AU' => 'Australia', 'EG' => 'Egypt',
+	);
+}
+
+/**
+ * One page of TMDB discover results for a given media kind and origin country,
+ * mapped onto the portal item shape with a country name attached.
+ */
+function afristream_portal_tmdb_discover( $kind, $cc, $country_name, $genres ) {
+	$json = afristream_portal_tmdb_get(
+		'/discover/' . $kind,
+		array(
+			'sort_by'            => 'popularity.desc',
+			'with_origin_country' => $cc,
+			'vote_count.gte'     => 20,
+			'page'               => 1,
+		)
+	);
+	$type    = ( 'movie' === $kind ) ? 'Movies' : 'Series';
+	$items   = array();
+	$results = ( $json && ! empty( $json['results'] ) ) ? $json['results'] : array();
+	foreach ( $results as $row ) {
+		$title = isset( $row['title'] ) ? $row['title'] : ( isset( $row['name'] ) ? $row['name'] : '' );
+		if ( '' === $title ) {
+			continue;
+		}
+		$date     = isset( $row['release_date'] ) ? $row['release_date'] : ( isset( $row['first_air_date'] ) ? $row['first_air_date'] : '' );
+		$year     = substr( (string) $date, 0, 4 );
+		$genre_id = ! empty( $row['genre_ids'] ) ? $row['genre_ids'][0] : 0;
+		$rating   = isset( $row['vote_average'] ) ? (float) $row['vote_average'] : 0;
+		$items[]  = array(
+			't'        => $title,
+			'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
+			'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'New',
+			'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
+			'poster'   => ! empty( $row['poster_path'] ) ? 'https://image.tmdb.org/t/p/w342' . $row['poster_path'] : null,
+			'type'     => $type,
+			'country'  => $country_name,
+		);
+	}
+	return $items;
+}
+
+/**
  * Movie/series catalog from TMDB. Returns the mapped arrays, or null when no
  * key is configured or TMDB is unreachable (only successful fetches are
  * cached, for 12 hours).
@@ -180,6 +231,21 @@ function afristream_portal_tmdb_catalog() {
 		return null;
 	}
 
+	$deep = array();
+	$seen = array();
+	foreach ( afristream_portal_countries() as $cc => $country_name ) {
+		$rows = array_merge(
+			afristream_portal_tmdb_discover( 'movie', $cc, $country_name, $movie_genres ),
+			afristream_portal_tmdb_discover( 'tv', $cc, $country_name, $tv_genres )
+		);
+		foreach ( $rows as $item ) {
+			if ( ! isset( $seen[ $item['t'] ] ) ) {
+				$seen[ $item['t'] ] = true;
+				$deep[]             = $item;
+			}
+		}
+	}
+
 	$catalog = array(
 		'movies'  => afristream_portal_tmdb_map( $trending_movies, $movie_genres, 'Movies', 10 ),
 		'series'  => afristream_portal_tmdb_map( $trending_tv, $tv_genres, 'Series', 10 ),
@@ -187,6 +253,7 @@ function afristream_portal_tmdb_catalog() {
 			afristream_portal_tmdb_map( $new_movies, $movie_genres, 'Movies', 4, 'New release' ),
 			afristream_portal_tmdb_map( $on_air, $tv_genres, 'Series', 4, 'New episodes' )
 		),
+		'catalog' => $deep,
 	);
 
 	set_transient( 'afristream_portal_tmdb', $catalog, 12 * HOUR_IN_SECONDS );

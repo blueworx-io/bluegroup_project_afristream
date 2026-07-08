@@ -36,6 +36,13 @@ const FIXTURE = {
   newWeek: [
     { t: 'Fixture New Arrival', genre: 'Comedy', platform: '★ 7.0', meta: 'New episodes', poster: null, type: 'Series' },
   ],
+  catalog: [
+    { t: 'Jozi Heat', genre: 'Crime', platform: '★ 7.8', meta: '2023', poster: null, type: 'Movies', country: 'South Africa' },
+    { t: 'Lagos Lights', genre: 'Drama', platform: '★ 8.0', meta: '2019', poster: null, type: 'Movies', country: 'Nigeria' },
+    { t: 'Seoul Signal', genre: 'Thriller', platform: '★ 8.4', meta: 'TV · 2021', poster: null, type: 'Series', country: 'South Korea' },
+    { t: 'London Fog', genre: 'Mystery', platform: '★ 7.2', meta: '2008', poster: null, type: 'Movies', country: 'United Kingdom' },
+    { t: 'Nairobi Nights', genre: 'Drama', platform: '★ 7.5', meta: 'TV · 1998', poster: null, type: 'Series', country: 'Kenya' },
+  ],
 };
 
 const TMDB = 'https://api.themoviedb.org/3';
@@ -74,6 +81,36 @@ function mapItems(json, genres, type, limit, metaLabel = '') {
 
 const DAY = 24 * 60 * 60 * 1000;
 
+// Origin countries for the deep, filterable catalog. ISO 3166-1 → display name.
+const COUNTRIES = {
+  US: 'United States', GB: 'United Kingdom', ZA: 'South Africa', NG: 'Nigeria',
+  KE: 'Kenya', IN: 'India', FR: 'France', ES: 'Spain', KR: 'South Korea',
+  JP: 'Japan', BR: 'Brazil', DE: 'Germany', AU: 'Australia', EG: 'Egypt',
+};
+
+async function discoverCountry(kind, cc, genres) {
+  const json = await tmdbGet(`/discover/${kind}`, {
+    sort_by: 'popularity.desc',
+    with_origin_country: cc,
+    'vote_count.gte': 20,
+    page: 1,
+  });
+  const type = kind === 'movie' ? 'Movies' : 'Series';
+  return (json?.results ?? []).map((row) => {
+    const year = String(row.release_date || row.first_air_date || '').slice(0, 4);
+    const rating = Number(row.vote_average) || 0;
+    return {
+      t: row.title || row.name || '',
+      genre: genres[row.genre_ids?.[0]] || type,
+      platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'New',
+      meta: type === 'Series' ? `TV · ${year}` : year,
+      poster: row.poster_path ? `https://image.tmdb.org/t/p/w342${row.poster_path}` : null,
+      type,
+      country: COUNTRIES[cc],
+    };
+  }).filter((x) => x.t);
+}
+
 async function tmdbCatalog() {
   if (!process.env.TMDB_API_KEY) return null;
   const iso = (ms) => new Date(ms).toISOString().slice(0, 10);
@@ -95,6 +132,18 @@ async function tmdbCatalog() {
     ]);
     if (!trendingMovies && !trendingTv) return null;
 
+    const perCountry = await Promise.all(
+      Object.keys(COUNTRIES).flatMap((cc) => [
+        discoverCountry('movie', cc, movieGenres),
+        discoverCountry('tv', cc, tvGenres),
+      ])
+    );
+    const seen = new Set();
+    const catalog = [];
+    for (const item of perCountry.flat()) {
+      if (!seen.has(item.t)) { seen.add(item.t); catalog.push(item); }
+    }
+
     return {
       movies: mapItems(trendingMovies, movieGenres, 'Movies', 10),
       series: mapItems(trendingTv, tvGenres, 'Series', 10),
@@ -102,6 +151,7 @@ async function tmdbCatalog() {
         ...mapItems(newMovies, movieGenres, 'Movies', 4, 'New release'),
         ...mapItems(onAir, tvGenres, 'Series', 4, 'New episodes'),
       ],
+      catalog,
     };
   } catch {
     return null;
