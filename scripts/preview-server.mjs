@@ -45,6 +45,100 @@ const FIXTURE = {
   ],
 };
 
+const IMDB_WATCHLIST_URL = process.env.IMDB_WATCHLIST_URL
+  || 'https://www.imdb.com/user/p.oaowjxrmiacczaqrabkib5cpdi/watchlist/';
+
+const EDITOR_FIXTURE = {
+  source: 'imdb',
+  picks: [
+    { t: 'Fixture Pick One', genre: 'Drama', platform: '★ 8.5', meta: '2024', poster: null, type: 'Movies', country: 'South Africa', rank: 1 },
+    { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2 },
+    { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3 },
+  ],
+};
+
+let editorCache = null;
+let editorCacheAt = 0;
+
+// Walk the IMDb watchlist page's embedded JSON for ordered tt-ids + titles.
+function parseImdbWatchlist(html) {
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!m) return [];
+  let data;
+  try { data = JSON.parse(m[1]); } catch { return []; }
+  const out = [];
+  const seen = new Set();
+  const walk = (node) => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) { node.forEach(walk); return; }
+    const id = node.titleId || node.constId || node.id;
+    if (typeof id === 'string' && /^tt\d+$/.test(id) && !seen.has(id)) {
+      seen.add(id);
+      const title = node.titleText?.text || node.originalTitleText?.text || node.title || '';
+      out.push({ id, title });
+    }
+    for (const k of Object.keys(node)) walk(node[k]);
+  };
+  walk(data);
+  return out;
+}
+
+async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
+  const json = await tmdbGet('/find/' + imdbId, { external_source: 'imdb_id' });
+  const movie = json?.movie_results?.[0];
+  const tv = json?.tv_results?.[0];
+  const hit = movie || tv;
+  if (!hit) {
+    return fallbackTitle
+      ? { t: fallbackTitle, genre: 'Film', platform: 'IMDb', meta: '', poster: null, type: 'Movies', country: '', rank }
+      : null;
+  }
+  const type = movie ? 'Movies' : 'Series';
+  const genres = movie ? movieGenres : tvGenres;
+  const year = String(hit.release_date || hit.first_air_date || '').slice(0, 4);
+  const rating = Number(hit.vote_average) || 0;
+  return {
+    t: hit.title || hit.name || fallbackTitle || '',
+    genre: genres[hit.genre_ids?.[0]] || type,
+    platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'IMDb',
+    meta: type === 'Series' ? `TV · ${year}` : year,
+    poster: hit.poster_path ? `https://image.tmdb.org/t/p/w342${hit.poster_path}` : null,
+    type,
+    country: (hit.origin_country && hit.origin_country[0] && COUNTRIES[hit.origin_country[0]]) || '',
+    rank,
+  };
+}
+
+async function editorPicksPayload() {
+  if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
+  if (editorCache && Date.now() - editorCacheAt < 12 * 60 * 60 * 1000) return editorCache;
+  try {
+    const res = await fetch(IMDB_WATCHLIST_URL, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (AfriStream portal)' },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) throw new Error('imdb ' + res.status);
+    const entries = parseImdbWatchlist(await res.text()).slice(0, 24);
+    if (!entries.length) throw new Error('no entries');
+
+    const genreList = async (type) =>
+      Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
+    const [movieGenres, tvGenres] = await Promise.all([genreList('movie'), genreList('tv')]);
+    const resolved = await Promise.all(
+      entries.map((e, i) => resolvePick(e.id, e.title, i + 1, movieGenres, tvGenres))
+    );
+    const picks = resolved.filter(Boolean);
+    if (!picks.length) throw new Error('none resolved');
+
+    editorCache = { source: 'imdb', updated: new Date().toISOString(), picks };
+    editorCacheAt = Date.now();
+    return editorCache;
+  } catch {
+    // Last-good cache survives an IMDb hiccup; otherwise the front-end falls back.
+    return editorCache || { source: 'fallback', reason: 'unavailable' };
+  }
+}
+
 const TMDB = 'https://api.themoviedb.org/3';
 let watchCache = null;
 let watchCacheAt = 0;
@@ -262,6 +356,12 @@ const server = createServer(async (req, res) => {
     let path = decodeURIComponent(url.pathname);
     if (path === '/api/watch') {
       const payload = url.searchParams.get('fixture') === '1' ? FIXTURE : await watchPayload();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+    if (path === '/api/editor-picks') {
+      const payload = url.searchParams.get('fixture') === '1' ? EDITOR_FIXTURE : await editorPicksPayload();
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(payload));
       return;

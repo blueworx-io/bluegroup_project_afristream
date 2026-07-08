@@ -61,10 +61,11 @@ function afristream_portal_shortcode( $atts ) {
 	wp_enqueue_script( 'afristream-portal' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
-		esc_url( rest_url( 'afristream/v1/watch' ) )
+		esc_url( rest_url( 'afristream/v1/watch' ) ),
+		esc_url( rest_url( 'afristream/v1/editor-picks' ) )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
@@ -385,6 +386,143 @@ function afristream_portal_watch_data() {
 	return rest_ensure_response( $data );
 }
 
+/**
+ * Editor Picks — curated from a public IMDb watchlist. The watchlist URL comes
+ * from the afristream_imdb_watchlist_url option (default: the provided list).
+ * We scrape the page's embedded JSON for IMDb ids, resolve each via TMDB for
+ * consistent artwork, and keep a last-good copy so an IMDb hiccup never blanks
+ * the page.
+ */
+function afristream_portal_imdb_watchlist_url() {
+	return get_option(
+		'afristream_imdb_watchlist_url',
+		'https://www.imdb.com/user/p.oaowjxrmiacczaqrabkib5cpdi/watchlist/'
+	);
+}
+
+function afristream_portal_imdb_walk( $node, &$out, &$seen ) {
+	if ( ! is_array( $node ) ) {
+		return;
+	}
+	foreach ( array( 'titleId', 'constId', 'id' ) as $key ) {
+		if ( isset( $node[ $key ] ) && is_string( $node[ $key ] ) && preg_match( '/^tt\d+$/', $node[ $key ] ) && ! isset( $seen[ $node[ $key ] ] ) ) {
+			$seen[ $node[ $key ] ] = true;
+			$title                 = '';
+			if ( isset( $node['titleText']['text'] ) ) {
+				$title = $node['titleText']['text'];
+			} elseif ( isset( $node['originalTitleText']['text'] ) ) {
+				$title = $node['originalTitleText']['text'];
+			} elseif ( isset( $node['title'] ) && is_string( $node['title'] ) ) {
+				$title = $node['title'];
+			}
+			$out[] = array( 'id' => $node[ $key ], 'title' => $title );
+			break;
+		}
+	}
+	foreach ( $node as $child ) {
+		if ( is_array( $child ) ) {
+			afristream_portal_imdb_walk( $child, $out, $seen );
+		}
+	}
+}
+
+function afristream_portal_imdb_entries( $html ) {
+	if ( ! preg_match( '#<script id="__NEXT_DATA__" type="application/json">(.*?)</script>#s', $html, $m ) ) {
+		return array();
+	}
+	$data = json_decode( $m[1], true );
+	if ( ! is_array( $data ) ) {
+		return array();
+	}
+	$out  = array();
+	$seen = array();
+	afristream_portal_imdb_walk( $data, $out, $seen );
+	return $out;
+}
+
+function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movie_genres, $tv_genres ) {
+	$json  = afristream_portal_tmdb_get( '/find/' . $imdb_id, array( 'external_source' => 'imdb_id' ) );
+	$movie = ! empty( $json['movie_results'] ) ? $json['movie_results'][0] : null;
+	$tv    = ! empty( $json['tv_results'] ) ? $json['tv_results'][0] : null;
+	$hit   = $movie ? $movie : $tv;
+	if ( ! $hit ) {
+		if ( '' === $fallback_title ) {
+			return null;
+		}
+		return array(
+			't' => $fallback_title, 'genre' => 'Film', 'platform' => 'IMDb',
+			'meta' => '', 'poster' => null, 'type' => 'Movies', 'country' => '', 'rank' => $rank,
+		);
+	}
+	$type      = $movie ? 'Movies' : 'Series';
+	$genres    = $movie ? $movie_genres : $tv_genres;
+	$date      = isset( $hit['release_date'] ) ? $hit['release_date'] : ( isset( $hit['first_air_date'] ) ? $hit['first_air_date'] : '' );
+	$year      = substr( (string) $date, 0, 4 );
+	$genre_id  = ! empty( $hit['genre_ids'] ) ? $hit['genre_ids'][0] : 0;
+	$rating    = isset( $hit['vote_average'] ) ? (float) $hit['vote_average'] : 0;
+	$countries = afristream_portal_countries();
+	$cc        = ! empty( $hit['origin_country'][0] ) ? $hit['origin_country'][0] : '';
+	$title     = isset( $hit['title'] ) ? $hit['title'] : ( isset( $hit['name'] ) ? $hit['name'] : $fallback_title );
+	return array(
+		't'        => $title,
+		'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
+		'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'IMDb',
+		'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
+		'poster'   => ! empty( $hit['poster_path'] ) ? 'https://image.tmdb.org/t/p/w342' . $hit['poster_path'] : null,
+		'type'     => $type,
+		'country'  => isset( $countries[ $cc ] ) ? $countries[ $cc ] : '',
+		'rank'     => $rank,
+	);
+}
+
+function afristream_portal_editor_picks() {
+	$cached = get_transient( 'afristream_portal_editor' );
+	if ( false !== $cached ) {
+		return $cached;
+	}
+	if ( ! afristream_portal_tmdb_key() ) {
+		return array( 'source' => 'fallback', 'reason' => 'no-key' );
+	}
+
+	$response = wp_remote_get(
+		afristream_portal_imdb_watchlist_url(),
+		array( 'timeout' => 10, 'user-agent' => 'Mozilla/5.0 (AfriStream portal)' )
+	);
+	$last_good = get_option( 'afristream_portal_editor_lastgood', null );
+	if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+		return $last_good ? $last_good : array( 'source' => 'fallback', 'reason' => 'unavailable' );
+	}
+
+	$entries = array_slice( afristream_portal_imdb_entries( wp_remote_retrieve_body( $response ) ), 0, 24 );
+	if ( empty( $entries ) ) {
+		return $last_good ? $last_good : array( 'source' => 'fallback', 'reason' => 'no-entries' );
+	}
+
+	$movie_genres = afristream_portal_tmdb_genres( 'movie' );
+	$tv_genres    = afristream_portal_tmdb_genres( 'tv' );
+	$picks        = array();
+	$rank         = 1;
+	foreach ( $entries as $entry ) {
+		$pick = afristream_portal_resolve_pick( $entry['id'], $entry['title'], $rank, $movie_genres, $tv_genres );
+		if ( $pick ) {
+			$picks[] = $pick;
+			$rank++;
+		}
+	}
+	if ( empty( $picks ) ) {
+		return $last_good ? $last_good : array( 'source' => 'fallback', 'reason' => 'none-resolved' );
+	}
+
+	$payload = array( 'source' => 'imdb', 'updated' => gmdate( 'c' ), 'picks' => $picks );
+	set_transient( 'afristream_portal_editor', $payload, 12 * HOUR_IN_SECONDS );
+	update_option( 'afristream_portal_editor_lastgood', $payload, false );
+	return $payload;
+}
+
+function afristream_portal_editor_data() {
+	return rest_ensure_response( afristream_portal_editor_picks() );
+}
+
 function afristream_portal_register_rest_routes() {
 	register_rest_route(
 		'afristream/v1',
@@ -392,6 +530,16 @@ function afristream_portal_register_rest_routes() {
 		array(
 			'methods'             => 'GET',
 			'callback'            => 'afristream_portal_watch_data',
+			'permission_callback' => '__return_true',
+		)
+	);
+
+	register_rest_route(
+		'afristream/v1',
+		'/editor-picks',
+		array(
+			'methods'             => 'GET',
+			'callback'            => 'afristream_portal_editor_data',
 			'permission_callback' => '__return_true',
 		)
 	);
@@ -430,6 +578,25 @@ function afristream_portal_register_settings() {
 		'afristream_portal_data',
 		array( 'label_for' => 'afristream_tmdb_api_key' )
 	);
+
+	register_setting(
+		'afristream_portal',
+		'afristream_imdb_watchlist_url',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'afristream_portal_sanitize_imdb_url',
+			'default'           => 'https://www.imdb.com/user/p.oaowjxrmiacczaqrabkib5cpdi/watchlist/',
+		)
+	);
+
+	add_settings_field(
+		'afristream_imdb_watchlist_url',
+		__( 'Editor Picks IMDb watchlist', 'afristream-portal' ),
+		'afristream_portal_imdb_url_field',
+		'afristream-portal',
+		'afristream_portal_data',
+		array( 'label_for' => 'afristream_imdb_watchlist_url' )
+	);
 }
 add_action( 'admin_init', 'afristream_portal_register_settings' );
 
@@ -437,6 +604,19 @@ function afristream_portal_sanitize_tmdb_key( $value ) {
 	// A new (or cleared) key should refetch immediately, not wait out the cache.
 	delete_transient( 'afristream_portal_tmdb' );
 	return sanitize_text_field( (string) $value );
+}
+
+function afristream_portal_sanitize_imdb_url( $value ) {
+	delete_transient( 'afristream_portal_editor' );
+	return esc_url_raw( trim( (string) $value ) );
+}
+
+function afristream_portal_imdb_url_field() {
+	printf(
+		'<input type="url" class="regular-text code" name="afristream_imdb_watchlist_url" id="afristream_imdb_watchlist_url" value="%s" autocomplete="off">',
+		esc_attr( afristream_portal_imdb_watchlist_url() )
+	);
+	echo '<p class="description">' . esc_html__( 'Public IMDb watchlist URL powering the Editor Picks page. Titles are resolved through TMDB for artwork (needs a TMDB key). Saving refreshes the list immediately.', 'afristream-portal' ) . '</p>';
 }
 
 function afristream_portal_settings_intro() {

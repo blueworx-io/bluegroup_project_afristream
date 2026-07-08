@@ -133,6 +133,15 @@ test('poster rows drag-scroll with the mouse', async ({ page }) => {
   expect(endLeft).toBeGreaterThan(startLeft);
 });
 
+test('editor-picks fixture endpoint returns ranked picks', async ({ request }) => {
+  const res = await request.get('/api/editor-picks?fixture=1');
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+  expect(Array.isArray(json.picks)).toBeTruthy();
+  expect(json.picks.length).toBeGreaterThan(1);
+  expect(json.picks[0]).toHaveProperty('t');
+});
+
 test('troubleshooting accordion and device tabs work', async ({ page }) => {
   await page.getByRole('button', { name: 'Troubleshooting' }).click();
 
