@@ -93,6 +93,14 @@ test('watch fixture payload carries a deep catalog with country data', async ({ 
   expect(withCountry).toHaveProperty('type');
 });
 
+test('watch fixture items carry a TMDB id for detail lookups', async ({ request }) => {
+  const res = await request.get('/api/watch?fixture=1');
+  const json = await res.json();
+  expect(json.movies[0]).toHaveProperty('id');
+  expect(typeof json.movies[0].id).toBe('number');
+  expect(json.catalog[0]).toHaveProperty('id');
+});
+
 test('filter drawer exposes country and decade facets from the catalog', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Filters', exact: true }).click();
@@ -170,6 +178,13 @@ test('editor-picks fixture endpoint returns ranked picks', async ({ request }) =
   expect(Array.isArray(json.picks)).toBeTruthy();
   expect(json.picks.length).toBeGreaterThan(1);
   expect(json.picks[0]).toHaveProperty('t');
+});
+
+test('editor-picks fixture items carry a TMDB id', async ({ request }) => {
+  const res = await request.get('/api/editor-picks?fixture=1');
+  const json = await res.json();
+  expect(json.picks[0]).toHaveProperty('id');
+  expect(typeof json.picks[0].id).toBe('number');
 });
 
 test('editor picks tab renders a premium hero and ranked grid from fixture', async ({ page }) => {

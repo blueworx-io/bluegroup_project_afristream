@@ -28,24 +28,24 @@ const FIXTURE = {
     { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', live: false },
   ],
   movies: [
-    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies' },
-    { t: 'Fixture Movie Two', genre: 'Action', platform: '★ 7.4', meta: '2025', poster: null, type: 'Movies' },
+    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', id: 101 },
+    { t: 'Fixture Movie Two', genre: 'Action', platform: '★ 7.4', meta: '2025', poster: null, type: 'Movies', id: 102 },
   ],
   series: [
-    { t: 'Fixture Series One', genre: 'Crime', platform: '★ 8.6', meta: 'TV · 2026', poster: null, type: 'Series' },
+    { t: 'Fixture Series One', genre: 'Crime', platform: '★ 8.6', meta: 'TV · 2026', poster: null, type: 'Series', id: 201 },
   ],
   newWeek: [
-    { t: 'Fixture New Arrival', genre: 'Comedy', platform: '★ 7.0', meta: 'New episodes', poster: null, type: 'Series' },
+    { t: 'Fixture New Arrival', genre: 'Comedy', platform: '★ 7.0', meta: 'New episodes', poster: null, type: 'Series', id: 301 },
   ],
   catalog: [
-    { t: 'Jozi Heat', genre: 'Crime', platform: '★ 7.8', meta: '2023', poster: null, type: 'Movies', country: 'South Africa' },
-    { t: 'Lagos Lights', genre: 'Drama', platform: '★ 8.0', meta: '2019', poster: null, type: 'Movies', country: 'Nigeria' },
-    { t: 'Seoul Signal', genre: 'Thriller', platform: '★ 8.4', meta: 'TV · 2021', poster: null, type: 'Series', country: 'South Korea' },
-    { t: 'London Fog', genre: 'Mystery', platform: '★ 7.2', meta: '2008', poster: null, type: 'Movies', country: 'United Kingdom' },
-    { t: 'Nairobi Nights', genre: 'Drama', platform: '★ 7.5', meta: 'TV · 1998', poster: null, type: 'Series', country: 'Kenya' },
+    { t: 'Jozi Heat', genre: 'Crime', platform: '★ 7.8', meta: '2023', poster: null, type: 'Movies', country: 'South Africa', id: 401 },
+    { t: 'Lagos Lights', genre: 'Drama', platform: '★ 8.0', meta: '2019', poster: null, type: 'Movies', country: 'Nigeria', id: 402 },
+    { t: 'Seoul Signal', genre: 'Thriller', platform: '★ 8.4', meta: 'TV · 2021', poster: null, type: 'Series', country: 'South Korea', id: 403 },
+    { t: 'London Fog', genre: 'Mystery', platform: '★ 7.2', meta: '2008', poster: null, type: 'Movies', country: 'United Kingdom', id: 404 },
+    { t: 'Nairobi Nights', genre: 'Drama', platform: '★ 7.5', meta: 'TV · 1998', poster: null, type: 'Series', country: 'Kenya', id: 405 },
     // Shares a title with a trending row (Fixture Movie One) to exercise the
     // country back-fill: the deduped trending copy should inherit this country.
-    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', country: 'United States' },
+    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', country: 'United States', id: 406 },
   ],
 };
 
@@ -62,9 +62,9 @@ function parseEditorIds(raw) {
 const EDITOR_FIXTURE = {
   source: 'imdb',
   picks: [
-    { t: 'Fixture Pick One', genre: 'Drama', platform: '★ 8.5', meta: '2024', poster: null, type: 'Movies', country: 'South Africa', rank: 1 },
-    { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2 },
-    { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3 },
+    { t: 'Fixture Pick One', genre: 'Drama', platform: '★ 8.5', meta: '2024', poster: null, type: 'Movies', country: 'South Africa', rank: 1, id: 501 },
+    { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2, id: 502 },
+    { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3, id: 503 },
   ],
 };
 
@@ -78,7 +78,7 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
   const hit = movie || tv;
   if (!hit) {
     return fallbackTitle
-      ? { t: fallbackTitle, genre: 'Film', platform: 'IMDb', meta: '', poster: null, type: 'Movies', country: '', rank }
+      ? { t: fallbackTitle, genre: 'Film', platform: 'IMDb', meta: '', poster: null, type: 'Movies', country: '', rank, id: 0 }
       : null;
   }
   const type = movie ? 'Movies' : 'Series';
@@ -87,6 +87,7 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
   const rating = Number(hit.vote_average) || 0;
   return {
     t: hit.title || hit.name || fallbackTitle || '',
+    id: Number(hit.id) || 0,
     genre: genres[hit.genre_ids?.[0]] || type,
     platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'IMDb',
     meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,
@@ -152,6 +153,7 @@ function mapItems(json, genres, type, limit, metaLabel = '') {
     const rating = Number(row.vote_average) || 0;
     items.push({
       t: title,
+      id: Number(row.id) || 0,
       genre: genres[row.genre_ids?.[0]] || type,
       platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'New',
       meta: metaLabel || (type === 'Series' ? `TV · ${year}` : year),
@@ -184,6 +186,7 @@ async function discoverCountry(kind, cc, genres) {
     const rating = Number(row.vote_average) || 0;
     return {
       t: row.title || row.name || '',
+      id: Number(row.id) || 0,
       genre: genres[row.genre_ids?.[0]] || type,
       platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'New',
       meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,

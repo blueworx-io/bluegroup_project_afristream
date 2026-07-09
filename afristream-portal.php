@@ -137,6 +137,7 @@ function afristream_portal_tmdb_map( $json, $genres, $type, $limit, $meta_label 
 		}
 		$items[] = array(
 			't'        => $title,
+			'id'       => isset( $row['id'] ) ? (int) $row['id'] : 0,
 			'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
 			'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'New',
 			'meta'     => $meta,
@@ -187,6 +188,7 @@ function afristream_portal_tmdb_discover( $kind, $cc, $country_name, $genres ) {
 		$rating   = isset( $row['vote_average'] ) ? (float) $row['vote_average'] : 0;
 		$items[]  = array(
 			't'        => $title,
+			'id'       => isset( $row['id'] ) ? (int) $row['id'] : 0,
 			'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
 			'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'New',
 			'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
@@ -418,7 +420,7 @@ function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movi
 		}
 		return array(
 			't' => $fallback_title, 'genre' => 'Film', 'platform' => 'IMDb',
-			'meta' => '', 'poster' => null, 'type' => 'Movies', 'country' => '', 'rank' => $rank,
+			'meta' => '', 'poster' => null, 'type' => 'Movies', 'country' => '', 'rank' => $rank, 'id' => 0,
 		);
 	}
 	$type      = $movie ? 'Movies' : 'Series';
@@ -432,6 +434,7 @@ function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movi
 	$title     = isset( $hit['title'] ) ? $hit['title'] : ( isset( $hit['name'] ) ? $hit['name'] : $fallback_title );
 	return array(
 		't'        => $title,
+		'id'       => isset( $hit['id'] ) ? (int) $hit['id'] : 0,
 		'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
 		'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'IMDb',
 		'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
