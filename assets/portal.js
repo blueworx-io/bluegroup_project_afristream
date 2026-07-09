@@ -215,7 +215,8 @@
       defaultTab: root.getAttribute('data-default-tab') || 'profile',
       showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
       endpoint: root.getAttribute('data-endpoint') || '',
-      editorEndpoint: root.getAttribute('data-editor-endpoint') || ''
+      editorEndpoint: root.getAttribute('data-editor-endpoint') || '',
+      detailEndpoint: root.getAttribute('data-detail-endpoint') || ''
     };
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or

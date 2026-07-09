@@ -61,11 +61,12 @@ function afristream_portal_shortcode( $atts ) {
 	wp_enqueue_script( 'afristream-portal' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
-		esc_url( rest_url( 'afristream/v1/editor-picks' ) )
+		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
+		esc_url( rest_url( 'afristream/v1/detail' ) )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
