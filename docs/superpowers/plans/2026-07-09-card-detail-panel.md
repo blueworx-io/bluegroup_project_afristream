@@ -589,17 +589,23 @@ In `assets/portal.js`, in `watchSection`, the Collections card outer `<div>` (in
             <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: c.count, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
 ```
 
-- [ ] **Step 7: Register the Editor hero + ranked rail**
+- [ ] **Step 7: Register the Editor hero + grid cards**
 
-In `assets/portal.js`, in `editorSection`:
+> NOTE (reconciled with concurrent refactor): Editor Picks is now a filterable **grid** rendered via an `editorCard(m)` helper (outer `<div class="as-editor-card">`) plus a hero, inside `editorSection`. There is no `rest` variable or `width:174px` rail anymore.
 
-The hero wrapper `<div style="position:relative;border-radius:22px;…">` gets `${cardAttrs(hero)}` and `cursor:pointer` prepended to its style.
-
-Each ranked-rail card (`rest.map((m) => …)`) — its outer `<div class="as-editor-card" style="flex:none;width:174px;…">` — gets `${cardAttrs(m)}` and `cursor:pointer`:
+In `assets/portal.js`, in `editorCard(m)`, add card attributes + `cursor:pointer` to the outer div:
 
 ```javascript
-      <div class="as-editor-card" ${cardAttrs(m)} style="cursor:pointer;flex:none;width:174px;scroll-snap-align:start">
+      <div class="as-editor-card" ${cardAttrs(m)} style="cursor:pointer">
 ```
+
+In `editorSection`, the hero wrapper `<div style="position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);…">` gets `${cardAttrs(hero)}` added and `cursor:pointer;` prepended to its inline `style`:
+
+```javascript
+  <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
+```
+
+`hero` and each `m` passed to `editorCard` are raw pick items (they already carry `id`, `type`, `genre`, `meta`, `platform`, `country`, `poster`, `bg`, `initial`), so they register as `detailKind: 'title'` with no wrapper object needed.
 
 - [ ] **Step 8: Run tests to verify they pass**
 
@@ -733,21 +739,15 @@ Finalizes the release per the deployment rules.
 - Modify: `package.json` (`version`)
 - Modify: `CHANGELOG.md`
 
-- [ ] **Step 1: Bump the version in three places**
+- [ ] **Step 1: Version is already at 0.5.0 — do NOT bump**
 
-In `afristream-portal.php`, change the header `Version:     0.4.0` to `Version:     0.5.0`, and `define( 'AFRISTREAM_PORTAL_VERSION', '0.4.0' );` to `'0.5.0'`.
+> RECONCILED: a concurrent change already bumped `afristream-portal.php` (header + `AFRISTREAM_PORTAL_VERSION`) and `package.json` to `0.5.0`. This feature ships within the same 0.5.0 release, so leave all three untouched. Verify they read `0.5.0` and move on.
 
-In `package.json`, change `"version": "0.4.0"` to `"0.5.0"`.
+- [ ] **Step 2: Add to the EXISTING 0.5.0 changelog entry**
 
-- [ ] **Step 2: Add the changelog entry**
-
-In `CHANGELOG.md`, add above the `## [0.4.0]` section:
+`CHANGELOG.md` already has a `## [0.5.0] - 2026-07-09` section (added by the concurrent Editor Picks filters change). Do NOT create a second 0.5.0 heading. Instead add this bullet under that section's existing `### Added` list (append after the "Editor Picks filters" bullet):
 
 ```markdown
-## [0.5.0] - 2026-07-09
-
-### Added
-
 - **Card detail panel** — every card in What to Watch and Editor Picks is now clickable (mouse, or keyboard via Enter/Space), sliding in a right-hand detail panel with the item's poster, genre, rating, year, country and type. For films and series the panel lazy-loads a plot synopsis from TMDB via a new `afristream/v1/detail` endpoint (cached 24h; empty when no key or TMDB is unreachable), with a brief loading state and per-item client caching. Sport fixtures, Live TV channels and Collections open panels scaled to their own data. Closes via the ✕ button, the scrim, or Escape. Every mapped item now carries its TMDB id to support the lookup.
 ```
 
@@ -764,9 +764,10 @@ Expected: PASS. Present any findings to the user; do not auto-fix in a loop.
 - [ ] **Step 5: Commit the release metadata**
 
 ```bash
-git add afristream-portal.php package.json CHANGELOG.md
-git commit -m "Release 0.5.0: clickable card detail panel"
+git add CHANGELOG.md
+git commit -m "Changelog: card detail panel (0.5.0)"
 ```
+(Version files are already at 0.5.0 from the concurrent change — nothing to stage there.)
 
 - [ ] **Step 6: Build and zip the plugin**
 
