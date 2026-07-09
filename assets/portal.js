@@ -154,11 +154,18 @@
       ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg })),
       ...(data.catalog || []).map((x) => ({ ...x, type: x.type || 'Movies' })),
     ];
+    // Only the deep catalog carries origin country; the trending/newWeek copies
+    // of the same title don't. Map title→country from the catalog so a title
+    // deduped to its trending copy still matches its Country facet.
+    const countryByTitle = new Map();
+    for (const x of (data.catalog || [])) {
+      if (x.country && !countryByTitle.has(x.t)) countryByTitle.set(x.t, x.country);
+    }
     for (const x of src) {
       if (!seen.has(x.t)) {
         seen.add(x.t);
         const year = yr(x.meta);
-        index.push({ ...x, year, country: x.country || '', decade: decadeOf(year) });
+        index.push({ ...x, year, country: x.country || countryByTitle.get(x.t) || '', decade: decadeOf(year) });
       }
     }
     return index;
@@ -450,7 +457,7 @@
       const hero = picks[0];
       const rest = picks.slice(1);
       const heroArt = (m) => m.poster
-        ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
+        ? `<img src="${esc(m.poster)}" alt="${esc(m.t)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
         : `<div style="position:absolute;top:-30px;right:-6px;font-size:200px;font-weight:800;color:rgba(255,255,255,.10);line-height:1;user-select:none">${esc(m.initial)}</div>`;
 
       return `

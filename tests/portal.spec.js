@@ -117,6 +117,18 @@ test('filter drawer filters the catalog by country', async ({ page }) => {
   await expect(page.getByText('Seoul Signal')).not.toBeVisible();
 });
 
+test('a trending title also in the catalog inherits its origin country', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  const drawer = page.getByTestId('filters-drawer');
+  // "Fixture Movie One" is a trending row (no country) that the catalog also
+  // lists as United States — it should match the United States country facet.
+  await drawer.getByRole('button', { name: 'United States', exact: true }).click();
+  await drawer.getByRole('button', { name: /^Show \d+ results?$/ }).click();
+  await expect(page.getByText('Fixture Movie One')).toBeVisible();
+  await expect(page.getByText('Lagos Lights')).not.toBeVisible();
+});
+
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   const row = page.locator('[data-dragscroll]').first();

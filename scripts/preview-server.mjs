@@ -42,6 +42,9 @@ const FIXTURE = {
     { t: 'Seoul Signal', genre: 'Thriller', platform: '★ 8.4', meta: 'TV · 2021', poster: null, type: 'Series', country: 'South Korea' },
     { t: 'London Fog', genre: 'Mystery', platform: '★ 7.2', meta: '2008', poster: null, type: 'Movies', country: 'United Kingdom' },
     { t: 'Nairobi Nights', genre: 'Drama', platform: '★ 7.5', meta: 'TV · 1998', poster: null, type: 'Series', country: 'Kenya' },
+    // Shares a title with a trending row (Fixture Movie One) to exercise the
+    // country back-fill: the deduped trending copy should inherit this country.
+    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', country: 'United States' },
   ],
 };
 
@@ -60,26 +63,35 @@ const EDITOR_FIXTURE = {
 let editorCache = null;
 let editorCacheAt = 0;
 
+// Defensive caps for parsing untrusted remote HTML: cap the body before regex,
+// and cap recursion depth + total nodes visited in the walk. Kept identical to
+// the PHP side (afristream_portal_imdb_entries / _walk).
+const IMDB_MAX_BYTES = 5_000_000;
+const IMDB_MAX_DEPTH = 200;
+const IMDB_MAX_NODES = 200_000;
+
 // Walk the IMDb watchlist page's embedded JSON for ordered tt-ids + titles.
 function parseImdbWatchlist(html) {
-  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  const m = String(html).slice(0, IMDB_MAX_BYTES).match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
   if (!m) return [];
   let data;
   try { data = JSON.parse(m[1]); } catch { return []; }
   const out = [];
   const seen = new Set();
-  const walk = (node) => {
-    if (!node || typeof node !== 'object') return;
-    if (Array.isArray(node)) { node.forEach(walk); return; }
+  let budget = IMDB_MAX_NODES;
+  const walk = (node, depth) => {
+    if (budget <= 0 || depth > IMDB_MAX_DEPTH || !node || typeof node !== 'object') return;
+    budget--;
+    if (Array.isArray(node)) { for (const child of node) walk(child, depth + 1); return; }
     const id = node.titleId || node.constId || node.id;
     if (typeof id === 'string' && /^tt\d+$/.test(id) && !seen.has(id)) {
       seen.add(id);
       const title = node.titleText?.text || node.originalTitleText?.text || node.title || '';
       out.push({ id, title });
     }
-    for (const k of Object.keys(node)) walk(node[k]);
+    for (const k of Object.keys(node)) walk(node[k], depth + 1);
   };
-  walk(data);
+  walk(data, 0);
   return out;
 }
 

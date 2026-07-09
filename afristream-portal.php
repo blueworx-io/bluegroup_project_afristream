@@ -400,10 +400,13 @@ function afristream_portal_imdb_watchlist_url() {
 	);
 }
 
-function afristream_portal_imdb_walk( $node, &$out, &$seen ) {
-	if ( ! is_array( $node ) ) {
+function afristream_portal_imdb_walk( $node, &$out, &$seen, &$budget, $depth = 0 ) {
+	// Depth + node caps defend against hostile/huge JSON (mirrors the preview
+	// server's IMDB_MAX_DEPTH / IMDB_MAX_NODES).
+	if ( $budget <= 0 || $depth > 200 || ! is_array( $node ) ) {
 		return;
 	}
+	$budget--;
 	foreach ( array( 'titleId', 'constId', 'id' ) as $key ) {
 		if ( isset( $node[ $key ] ) && is_string( $node[ $key ] ) && preg_match( '/^tt\d+$/', $node[ $key ] ) && ! isset( $seen[ $node[ $key ] ] ) ) {
 			$seen[ $node[ $key ] ] = true;
@@ -421,12 +424,14 @@ function afristream_portal_imdb_walk( $node, &$out, &$seen ) {
 	}
 	foreach ( $node as $child ) {
 		if ( is_array( $child ) ) {
-			afristream_portal_imdb_walk( $child, $out, $seen );
+			afristream_portal_imdb_walk( $child, $out, $seen, $budget, $depth + 1 );
 		}
 	}
 }
 
 function afristream_portal_imdb_entries( $html ) {
+	// Cap the body before parsing untrusted remote HTML (mirrors IMDB_MAX_BYTES).
+	$html = substr( (string) $html, 0, 5000000 );
 	if ( ! preg_match( '#<script id="__NEXT_DATA__" type="application/json">(.*?)</script>#s', $html, $m ) ) {
 		return array();
 	}
@@ -434,9 +439,10 @@ function afristream_portal_imdb_entries( $html ) {
 	if ( ! is_array( $data ) ) {
 		return array();
 	}
-	$out  = array();
-	$seen = array();
-	afristream_portal_imdb_walk( $data, $out, $seen );
+	$out    = array();
+	$seen   = array();
+	$budget = 200000;
+	afristream_portal_imdb_walk( $data, $out, $seen, $budget );
 	return $out;
 }
 
