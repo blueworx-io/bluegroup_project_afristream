@@ -485,6 +485,31 @@ function afristream_portal_editor_data() {
 	return rest_ensure_response( afristream_portal_editor_picks() );
 }
 
+/**
+ * Single-item synopsis for the card detail panel. Given a TMDB id and kind
+ * (movie|tv), returns { overview }. Cached per id+kind for 24h; an empty
+ * string whenever no key is set or TMDB is unreachable.
+ */
+function afristream_portal_detail_data( $request ) {
+	$id   = absint( $request->get_param( 'id' ) );
+	$type = 'tv' === $request->get_param( 'type' ) ? 'tv' : 'movie';
+	if ( ! $id ) {
+		return rest_ensure_response( array( 'overview' => '' ) );
+	}
+	$cache_key = 'afristream_portal_detail_' . $type . '_' . $id;
+	$cached    = get_transient( $cache_key );
+	if ( false !== $cached ) {
+		return rest_ensure_response( array( 'overview' => $cached ) );
+	}
+	if ( ! afristream_portal_tmdb_key() ) {
+		return rest_ensure_response( array( 'overview' => '' ) );
+	}
+	$json     = afristream_portal_tmdb_get( '/' . $type . '/' . $id );
+	$overview = ( $json && ! empty( $json['overview'] ) ) ? (string) $json['overview'] : '';
+	set_transient( $cache_key, $overview, 24 * HOUR_IN_SECONDS );
+	return rest_ensure_response( array( 'overview' => $overview ) );
+}
+
 function afristream_portal_register_rest_routes() {
 	register_rest_route(
 		'afristream/v1',
@@ -502,6 +527,16 @@ function afristream_portal_register_rest_routes() {
 		array(
 			'methods'             => 'GET',
 			'callback'            => 'afristream_portal_editor_data',
+			'permission_callback' => '__return_true',
+		)
+	);
+
+	register_rest_route(
+		'afristream/v1',
+		'/detail',
+		array(
+			'methods'             => 'GET',
+			'callback'            => 'afristream_portal_detail_data',
 			'permission_callback' => '__return_true',
 		)
 	);

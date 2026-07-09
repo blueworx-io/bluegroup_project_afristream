@@ -187,6 +187,14 @@ test('editor-picks fixture items carry a TMDB id', async ({ request }) => {
   expect(typeof json.picks[0].id).toBe('number');
 });
 
+test('detail fixture endpoint returns an overview for an id', async ({ request }) => {
+  const res = await request.get('/api/detail?fixture=1&id=101&type=movie');
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+  expect(json).toHaveProperty('overview');
+  expect(json.overview).toContain('101');
+});
+
 test('editor picks tab renders a premium hero and ranked grid from fixture', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();

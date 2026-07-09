@@ -334,6 +334,13 @@ async function watchPayload() {
   return watchCache;
 }
 
+async function detailPayload(id, type) {
+  const kind = type === 'tv' ? 'tv' : 'movie';
+  if (process.env.WATCH_OFFLINE === '1' || !id) return { overview: '' };
+  const json = await tmdbGet(`/${kind}/${id}`);
+  return { overview: (json && json.overview) || '' };
+}
+
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -359,6 +366,16 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/editor-picks') {
       const payload = url.searchParams.get('fixture') === '1' ? EDITOR_FIXTURE : await editorPicksPayload();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+    if (path === '/api/detail') {
+      const id = url.searchParams.get('id') || '';
+      const type = url.searchParams.get('type') || 'movie';
+      const payload = url.searchParams.get('fixture') === '1'
+        ? { overview: `Fixture synopsis for ${id}.` }
+        : await detailPayload(id, type);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(payload));
       return;
