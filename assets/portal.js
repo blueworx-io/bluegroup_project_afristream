@@ -613,6 +613,11 @@
     // render() pass since indices only need to stay stable within one pass.
     let cardRegistry = [];
     let detailFocusPending = false;
+    // Return focus to the card that opened the detail panel, once, on close.
+    let detailReturnCard = null;
+    let detailReturnPending = false;
+    // Original body overflow, saved while the panel scroll-locks the page.
+    let prevBodyOverflow = null;
     const reg = (obj) => cardRegistry.push(obj) - 1;
 
     const overviewCache = new Map();
@@ -739,6 +744,27 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         if (closeBtn) closeBtn.focus();
       }
 
+      // Scroll-lock the page while the modal panel is open; restore the
+      // original body overflow on close (so we don't clobber a host value).
+      const body = root.ownerDocument && root.ownerDocument.body;
+      if (body) {
+        if (state.detail && prevBodyOverflow === null) {
+          prevBodyOverflow = body.style.overflow;
+          body.style.overflow = 'hidden';
+        } else if (!state.detail && prevBodyOverflow !== null) {
+          body.style.overflow = prevBodyOverflow;
+          prevBodyOverflow = null;
+        }
+      }
+
+      // Return focus to the triggering card after the panel closes.
+      if (detailReturnPending) {
+        detailReturnPending = false;
+        const trigger = detailReturnCard != null && root.querySelector(`[data-card="${detailReturnCard}"]`);
+        if (trigger) trigger.focus();
+        detailReturnCard = null;
+      }
+
       if (state.detail) fillSynopsis();
     }
 
@@ -769,11 +795,12 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         }
         case 'go-help': setState({ section: 'help' }); break;
         case 'detail': {
-          const obj = cardRegistry[+el.getAttribute('data-card')];
-          if (obj) { detailFocusPending = true; setState({ detail: obj }); }
+          const idx = +el.getAttribute('data-card');
+          const obj = cardRegistry[idx];
+          if (obj) { detailReturnCard = idx; detailFocusPending = true; setState({ detail: obj }); }
           break;
         }
-        case 'close-detail': setState({ detail: null }); break;
+        case 'close-detail': detailReturnPending = true; setState({ detail: null }); break;
       }
     });
 
@@ -785,11 +812,29 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     });
 
     root.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && state.detail) { setState({ detail: null }); return; }
+      if (e.key === 'Escape' && state.detail) { detailReturnPending = true; setState({ detail: null }); return; }
+      // Trap Tab within the open panel so focus can't wander to the cards
+      // behind the scrim (honouring the drawer's aria-modal contract).
+      if (e.key === 'Tab' && state.detail) {
+        const drawer = root.querySelector('[data-testid="detail-drawer"]');
+        if (drawer) {
+          const f = drawer.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (f.length) {
+            const first = f[0];
+            const last = f[f.length - 1];
+            const activeEl = root.ownerDocument.activeElement;
+            if (!drawer.contains(activeEl)) { e.preventDefault(); first.focus(); }
+            else if (e.shiftKey && activeEl === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && activeEl === last) { e.preventDefault(); first.focus(); }
+          }
+        }
+        return;
+      }
       const card = e.target.closest && e.target.closest('[data-act="detail"]');
       if ((e.key === 'Enter' || e.key === ' ') && card) {
-        const obj = cardRegistry[+card.getAttribute('data-card')];
-        if (obj) { e.preventDefault(); detailFocusPending = true; setState({ detail: obj }); }
+        const idx = +card.getAttribute('data-card');
+        const obj = cardRegistry[idx];
+        if (obj) { e.preventDefault(); detailReturnCard = idx; detailFocusPending = true; setState({ detail: obj }); }
       }
     });
 

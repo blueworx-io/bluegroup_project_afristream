@@ -273,6 +273,38 @@ test('a title card opens the detail panel via keyboard', async ({ page }) => {
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
 });
 
+test('detail panel returns focus to the card it was opened from', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('detail-drawer')).not.toBeVisible();
+  // Focus returns to the triggering card (its aria-label names the title).
+  const label = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute('aria-label'));
+  expect(label).toContain('Fixture Movie One');
+});
+
+test('detail panel locks background scroll while open and restores on close', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).toBe('hidden');
+  await page.getByRole('button', { name: 'Close details' }).click();
+  await expect(page.getByTestId('detail-drawer')).not.toBeVisible();
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden');
+});
+
+test('detail panel traps Tab focus within the drawer', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+  const inDrawer = () => page.evaluate(() => !!(document.activeElement && document.activeElement.closest('[data-testid="detail-drawer"]')));
+  await page.keyboard.press('Tab');
+  expect(await inDrawer()).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  expect(await inDrawer()).toBe(true);
+});
+
 test('editor picks tab renders a premium hero and ranked grid from fixture', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
