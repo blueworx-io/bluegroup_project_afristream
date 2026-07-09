@@ -64,11 +64,11 @@
     mk('Tide Riders', 'Family', 'Disney+', 'Added Monday')
   ];
   const SPORT = [
-    { comp: 'FIFA World Cup', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
-    { comp: 'Premier League', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
-    { comp: 'Formula 1', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
-    { comp: 'UFC', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
-    { comp: 'NBA', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
+    { comp: 'FIFA World Cup', code: 'Football', country: 'International', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
+    { comp: 'Premier League', code: 'Football', country: 'England', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
+    { comp: 'Formula 1', code: 'Motorsport', country: 'International', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
+    { comp: 'UFC', code: 'MMA', country: 'International', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
+    { comp: 'NBA', code: 'Basketball', country: 'United States', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
   ];
   const LIVE_TV = [
     { name: 'ESPN', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
@@ -149,7 +149,7 @@
       ...data.movies.map((x) => ({ ...x, type: x.type || 'Movies' })),
       ...data.series.map((x) => ({ ...x, type: x.type || 'Series' })),
       ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
-      ...data.sport.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
+      ...data.sport.map((s) => ({ t: s.fx, genre: s.code || 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', country: s.country || '', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
       ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg })),
       ...(data.catalog || []).map((x) => ({ ...x, type: x.type || 'Movies' })),
@@ -312,7 +312,7 @@
     function filtersDrawer(results, searching) {
       const groups = [
         { key: 'type', label: 'Type', options: ['All Types', ...uniq(facetPool('type'), 'type').sort()] },
-        { key: 'genre', label: 'Genre', options: ['All Genres', ...uniq(facetPool('genre'), 'genre').sort()] },
+        { key: 'genre', label: state.type === 'Sport' ? 'Sport Type' : 'Genre', options: ['All Genres', ...uniq(facetPool('genre'), 'genre').sort()] },
         { key: 'country', label: 'Country', options: ['All Countries', ...uniq(facetPool('country').filter((x) => x.country), 'country').sort()] },
         { key: 'decade', label: 'Decade', options: ['All Decades', ...uniq(facetPool('decade').filter((x) => x.decade), 'decade').sort((a, b) => parseInt(b, 10) - parseInt(a, 10))] },
         { key: 'sort', label: 'Sort by', options: ['Recommended', 'A–Z', 'Newest', 'Top Rated'] },
@@ -697,6 +697,8 @@ ${(SECTIONS[state.section] || profileSection)()}
         .filter((s) => s && s.fx)
         .map((s) => ({
           comp: s.comp || '',
+          code: s.code || '',
+          country: s.country || '',
           fx: s.fx,
           ch: s.ch || '',
           live: !!s.live,

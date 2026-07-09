@@ -129,6 +129,24 @@ test('a trending title also in the catalog inherits its origin country', async (
   await expect(page.getByText('Lagos Lights')).not.toBeVisible();
 });
 
+test('sport can be filtered by sport type and country', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  const drawer = page.getByTestId('filters-drawer');
+  // Selecting the Sport type relabels the Genre facet to "Sport Type" and lists
+  // the sporting codes (target buttons by facet key to avoid the Live TV
+  // "Sport" genre tag colliding on the word "Sport").
+  await drawer.locator('button[data-key="type"][data-val="Sport"]').click();
+  await expect(drawer.getByText('Sport Type', { exact: true })).toBeVisible();
+  await expect(drawer.locator('button[data-key="genre"][data-val="Football"]')).toBeVisible();
+  await expect(drawer.locator('button[data-key="genre"][data-val="Tennis"]')).toBeVisible();
+  // Country narrows sport too: Australia keeps the tennis fixture, drops the football one.
+  await drawer.locator('button[data-key="country"][data-val="Australia"]').click();
+  await drawer.getByRole('button', { name: /^Show \d+ results?$/ }).click();
+  await expect(page.getByText('A. Player vs B. Player')).toBeVisible();
+  await expect(page.getByText('Fixture FC vs Test United')).not.toBeVisible();
+});
+
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   const row = page.locator('[data-dragscroll]').first();

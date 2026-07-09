@@ -270,37 +270,42 @@ function afristream_portal_tmdb_catalog() {
  * means the portal keeps its curated sport list.
  */
 function afristream_portal_sport_events() {
+	// Each league maps to array( label, code, country ): `code` is the sporting
+	// code (drives the "Sport Type" filter) and `country` the host nation (or
+	// 'International' for global competitions). Keep in sync with the preview
+	// server's ESPN_LEAGUES.
 	$leagues = array(
 		// Football (soccer) — mostly European seasons, so quiet over the summer.
-		'soccer/fifa.world'       => 'FIFA World Cup',
-		'soccer/eng.1'            => 'Premier League',
-		'soccer/esp.1'            => 'LaLiga',
-		'soccer/ita.1'            => 'Serie A',
-		'soccer/ger.1'            => 'Bundesliga',
-		'soccer/fra.1'            => 'Ligue 1',
-		'soccer/uefa.champions'   => 'Champions League',
-		'soccer/uefa.europa'      => 'Europa League',
-		'soccer/usa.1'            => 'MLS',
+		'soccer/fifa.world'       => array( 'FIFA World Cup', 'Football', 'International' ),
+		'soccer/eng.1'            => array( 'Premier League', 'Football', 'England' ),
+		'soccer/esp.1'            => array( 'LaLiga', 'Football', 'Spain' ),
+		'soccer/ita.1'            => array( 'Serie A', 'Football', 'Italy' ),
+		'soccer/ger.1'            => array( 'Bundesliga', 'Football', 'Germany' ),
+		'soccer/fra.1'            => array( 'Ligue 1', 'Football', 'France' ),
+		'soccer/uefa.champions'   => array( 'Champions League', 'Football', 'International' ),
+		'soccer/uefa.europa'      => array( 'Europa League', 'Football', 'International' ),
+		'soccer/usa.1'            => array( 'MLS', 'Football', 'United States' ),
 		// Motorsport & combat.
-		'racing/f1'               => 'Formula 1',
-		'mma/ufc'                 => 'UFC',
+		'racing/f1'               => array( 'Formula 1', 'Motorsport', 'International' ),
+		'mma/ufc'                 => array( 'UFC', 'MMA', 'International' ),
 		// North American major leagues.
-		'football/nfl'            => 'NFL',
-		'basketball/nba'          => 'NBA',
-		'baseball/mlb'            => 'MLB',
-		'hockey/nhl'              => 'NHL',
+		'football/nfl'            => array( 'NFL', 'American Football', 'United States' ),
+		'basketball/nba'          => array( 'NBA', 'Basketball', 'United States' ),
+		'baseball/mlb'            => array( 'MLB', 'Baseball', 'United States' ),
+		'hockey/nhl'              => array( 'NHL', 'Ice Hockey', 'United States' ),
 		// Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for
 		// some of these; the mapping falls back to the competition label.
-		'rugby/270557'            => 'URC Rugby',
-		'tennis/atp'              => 'ATP Tennis',
-		'tennis/wta'              => 'WTA Tennis',
-		'golf/pga'                => 'PGA Tour',
-		'australian-football/afl' => 'AFL',
+		'rugby/270557'            => array( 'URC Rugby', 'Rugby', 'International' ),
+		'tennis/atp'              => array( 'ATP Tennis', 'Tennis', 'International' ),
+		'tennis/wta'              => array( 'WTA Tennis', 'Tennis', 'International' ),
+		'golf/pga'                => array( 'PGA Tour', 'Golf', 'United States' ),
+		'australian-football/afl' => array( 'AFL', 'Aussie Rules', 'Australia' ),
 	);
 	$range  = gmdate( 'Ymd' ) . '-' . gmdate( 'Ymd', time() + 7 * DAY_IN_SECONDS );
 	$events = array();
 
-	foreach ( $leagues as $path => $label ) {
+	foreach ( $leagues as $path => $meta ) {
+		list( $label, $code, $country ) = $meta;
 		$response = wp_remote_get(
 			'https://site.api.espn.com/apis/site/v2/sports/' . $path . '/scoreboard?dates=' . $range,
 			array( 'timeout' => 8 )
@@ -327,12 +332,14 @@ function afristream_portal_sport_events() {
 			}
 			$channel  = isset( $event['competitions'][0]['broadcasts'][0]['names'][0] ) ? $event['competitions'][0]['broadcasts'][0]['names'][0] : '';
 			$events[] = array(
-				'comp' => $label,
-				'fx'   => str_replace( ' at ', ' vs ', $name ),
-				'iso'  => isset( $event['date'] ) ? $event['date'] : '',
-				'time' => 'in' === $state ? 'LIVE now' : '',
-				'ch'   => '' !== $channel ? $channel : $label,
-				'live' => 'in' === $state,
+				'comp'    => $label,
+				'code'    => $code,
+				'country' => $country,
+				'fx'      => str_replace( ' at ', ' vs ', $name ),
+				'iso'     => isset( $event['date'] ) ? $event['date'] : '',
+				'time'    => 'in' === $state ? 'LIVE now' : '',
+				'ch'      => '' !== $channel ? $channel : $label,
+				'live'    => 'in' === $state,
 			);
 			$count++;
 		}

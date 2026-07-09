@@ -24,7 +24,8 @@ const FIXTURE = {
   updated: 'fixture',
   tmdb: true,
   sport: [
-    { comp: 'Fixture League', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
+    { comp: 'Fixture League', code: 'Football', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
+    { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', live: false },
   ],
   movies: [
     { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies' },
@@ -242,32 +243,35 @@ async function tmdbCatalog() {
 
 // Major global sporting events from ESPN's public scoreboard API — keyless.
 // Same league list and mapping as the plugin's PHP; keep the two in sync.
+// Each league maps to { label, code, country }: `code` is the sporting code
+// (drives the "Sport Type" filter) and `country` the host nation (or
+// 'International' for global competitions). Keep in sync with the PHP $leagues.
 const ESPN_LEAGUES = {
   // Football (soccer) — mostly European seasons, so quiet over the summer.
-  'soccer/fifa.world': 'FIFA World Cup',
-  'soccer/eng.1': 'Premier League',
-  'soccer/esp.1': 'LaLiga',
-  'soccer/ita.1': 'Serie A',
-  'soccer/ger.1': 'Bundesliga',
-  'soccer/fra.1': 'Ligue 1',
-  'soccer/uefa.champions': 'Champions League',
-  'soccer/uefa.europa': 'Europa League',
-  'soccer/usa.1': 'MLS',
+  'soccer/fifa.world': { label: 'FIFA World Cup', code: 'Football', country: 'International' },
+  'soccer/eng.1': { label: 'Premier League', code: 'Football', country: 'England' },
+  'soccer/esp.1': { label: 'LaLiga', code: 'Football', country: 'Spain' },
+  'soccer/ita.1': { label: 'Serie A', code: 'Football', country: 'Italy' },
+  'soccer/ger.1': { label: 'Bundesliga', code: 'Football', country: 'Germany' },
+  'soccer/fra.1': { label: 'Ligue 1', code: 'Football', country: 'France' },
+  'soccer/uefa.champions': { label: 'Champions League', code: 'Football', country: 'International' },
+  'soccer/uefa.europa': { label: 'Europa League', code: 'Football', country: 'International' },
+  'soccer/usa.1': { label: 'MLS', code: 'Football', country: 'United States' },
   // Motorsport & combat.
-  'racing/f1': 'Formula 1',
-  'mma/ufc': 'UFC',
+  'racing/f1': { label: 'Formula 1', code: 'Motorsport', country: 'International' },
+  'mma/ufc': { label: 'UFC', code: 'MMA', country: 'International' },
   // North American major leagues.
-  'football/nfl': 'NFL',
-  'basketball/nba': 'NBA',
-  'baseball/mlb': 'MLB',
-  'hockey/nhl': 'NHL',
+  'football/nfl': { label: 'NFL', code: 'American Football', country: 'United States' },
+  'basketball/nba': { label: 'NBA', code: 'Basketball', country: 'United States' },
+  'baseball/mlb': { label: 'MLB', code: 'Baseball', country: 'United States' },
+  'hockey/nhl': { label: 'NHL', code: 'Ice Hockey', country: 'United States' },
   // Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for some
   // of these; the mapping falls back to the competition label.
-  'rugby/270557': 'URC Rugby',
-  'tennis/atp': 'ATP Tennis',
-  'tennis/wta': 'WTA Tennis',
-  'golf/pga': 'PGA Tour',
-  'australian-football/afl': 'AFL',
+  'rugby/270557': { label: 'URC Rugby', code: 'Rugby', country: 'International' },
+  'tennis/atp': { label: 'ATP Tennis', code: 'Tennis', country: 'International' },
+  'tennis/wta': { label: 'WTA Tennis', code: 'Tennis', country: 'International' },
+  'golf/pga': { label: 'PGA Tour', code: 'Golf', country: 'United States' },
+  'australian-football/afl': { label: 'AFL', code: 'Aussie Rules', country: 'Australia' },
 };
 
 async function espnSport() {
@@ -275,7 +279,7 @@ async function espnSport() {
   const range = `${fmt(Date.now())}-${fmt(Date.now() + 7 * DAY)}`;
   const events = [];
 
-  await Promise.all(Object.entries(ESPN_LEAGUES).map(async ([path, label]) => {
+  await Promise.all(Object.entries(ESPN_LEAGUES).map(async ([path, meta]) => {
     try {
       const res = await fetch(
         `https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${range}`,
@@ -291,11 +295,13 @@ async function espnSport() {
         const name = ev?.name || ev?.shortName || '';
         if (!name) continue;
         events.push({
-          comp: label,
+          comp: meta.label,
+          code: meta.code,
+          country: meta.country,
           fx: name.replace(' at ', ' vs '),
           iso: ev.date || '',
           time: state === 'in' ? 'LIVE now' : '',
-          ch: ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || label,
+          ch: ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || meta.label,
           live: state === 'in',
         });
         count++;
