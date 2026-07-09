@@ -205,6 +205,24 @@ test('clicking a poster card opens a detail panel with its details', async ({ pa
   await expect(drawer.getByText('★ 8.1')).toBeVisible();
 });
 
+test('clicking a sport card opens its detail panel', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture FC vs Test United').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('Fixture Sports')).toBeVisible();
+  await expect(drawer.getByText('Fixture League')).toBeVisible();
+});
+
+test('clicking an editor pick card opens its detail panel', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  await page.getByText('Fixture Pick Two').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('Fixture Pick Two')).toBeVisible();
+});
+
 test('detail panel closes via the close button', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByText('Fixture Movie One').click();

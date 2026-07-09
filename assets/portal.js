@@ -416,7 +416,7 @@
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
         <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${data.sport.map((s) => `
-            <div style="flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
+            <div ${cardAttrs({ detailKind: 'sport', t: s.fx, comp: s.comp, time: s.time, ch: s.ch, live: s.live, bg: 'linear-gradient(150deg,#13264E,#0A142E)' })} style="cursor:pointer;flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(s.comp)}</span>
                 ${s.live ? '<span style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#FF5A6E"><span style="width:7px;height:7px;border-radius:50%;background:#FF5A6E;animation:asPulse 1.4s infinite"></span>LIVE</span>' : ''}
@@ -430,7 +430,7 @@
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live TV Channels</h2>
         <div data-dragscroll style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px">
           ${LIVE_TV.map((t) => `
-            <div style="flex:none;width:158px;aspect-ratio:16/10;border-radius:13px;background:${t.bg};color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px;text-align:center">
+            <div ${cardAttrs({ detailKind: 'channel', t: t.name, tag: t.tag, bg: t.bg })} style="cursor:pointer;flex:none;width:158px;aspect-ratio:16/10;border-radius:13px;background:${t.bg};color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px;text-align:center">
               <div style="font-size:13.5px;font-weight:800;line-height:1.2">${esc(t.name)}</div>
               <div style="font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(t.tag)}</div>
             </div>`).join('')}
@@ -442,7 +442,7 @@
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Collections</h2>
         <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${COLLECTIONS.map((c) => `
-            <div style="flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
+            <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: c.count, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
               <div style="font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(c.name)}</div>
               <div style="font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.8)">${esc(c.desc)}</div>
               <div style="margin-top:auto;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">${esc(c.count)}</div>
@@ -457,7 +457,7 @@
     // A single premium poster card in the Editor Picks grid.
     function editorCard(m) {
       return `
-      <div class="as-editor-card">
+      <div class="as-editor-card" ${cardAttrs(m)} style="cursor:pointer">
         <div style="width:100%;aspect-ratio:2/3;border-radius:16px;background:${m.bg};position:relative;overflow:hidden;box-shadow:0 14px 30px -20px rgba(11,21,51,.6)">
           ${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 48%,rgba(5,9,24,.82))"></div>` : `<div style="position:absolute;top:-22px;right:-8px;font-size:130px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
           <div style="position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;background:rgba(5,9,24,.6);color:#F4C56B;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(244,197,107,.5)">${esc(m.rank || '')}</div>
@@ -516,7 +516,7 @@
     ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
   </div>` : ''}
   ${hero ? `
-  <div style="position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
+  <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
     <div style="position:absolute;inset:0">${heroArt(hero)}<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,24,.86) 0%,rgba(5,9,24,.55) 46%,rgba(5,9,24,.2) 100%)"></div></div>
     <div style="position:relative;padding:clamp(22px,4vw,40px);max-width:620px;display:flex;flex-direction:column;gap:12px">
       <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#F4C56B">★ Editors' No.1</span>
@@ -621,10 +621,21 @@
     const posterRowItem = (m) => `<div ${cardAttrs(m)} style="flex:none;width:148px;scroll-snap-align:start;cursor:pointer">${posterArt(m)}${posterMeta(m)}</div>`;
 
     function detailDrawer(obj) {
-      const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
-        .filter(Boolean)
-        .map((c) => `<span style="font-size:12px;font-weight:700;color:#0B1533;background:#EEF3FE;border:1px solid rgba(46,91,230,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`)
-        .join('');
+      let body;
+      if (obj.detailKind === 'sport') {
+        const rows = [['Competition', obj.comp], ['When', obj.time], ['Channel', obj.ch], obj.live ? ['Status', 'LIVE now'] : null].filter(Boolean);
+        body = `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#0B1533;text-align:right">${esc(v)}</span></div>`).join('')}</div>`;
+      } else if (obj.detailKind === 'channel') {
+        body = `<div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"><span style="font-weight:700">${esc(obj.tag)}</span> · Live channel</div>`;
+      } else if (obj.detailKind === 'collection') {
+        body = `<div style="display:flex;flex-direction:column;gap:10px"><div style="font-size:12px;font-weight:700;color:rgba(11,21,51,.55)">${esc(obj.count || '')}</div><div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div></div>`;
+      } else {
+        const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
+          .filter(Boolean)
+          .map((c) => `<span style="font-size:12px;font-weight:700;color:#0B1533;background:#EEF3FE;border:1px solid rgba(46,91,230,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`)
+          .join('');
+        body = `<div style="display:flex;flex-direction:column;gap:16px"><div style="display:flex;gap:8px;flex-wrap:wrap">${chips}</div><div data-detail-synopsis style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"></div></div>`;
+      }
       const art = obj.poster
         ? `<img src="${esc(obj.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 40%,rgba(5,9,24,.85))"></div>`
         : `<div style="position:absolute;top:-30px;right:-8px;font-size:180px;font-weight:800;color:rgba(255,255,255,.12);line-height:1;user-select:none">${esc(obj.initial || (obj.t || '')[0] || '')}</div>`;
@@ -637,8 +648,7 @@
         <div style="position:relative;font-size:22px;font-weight:800;line-height:1.15;text-shadow:0 1px 8px rgba(0,0,0,.5)">${esc(obj.t)}</div>
       </div>
       <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">${chips}</div>
-        <div data-detail-synopsis style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"></div>
+        ${body}
       </div>
     </div>`;
     }
