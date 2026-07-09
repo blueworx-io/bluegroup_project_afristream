@@ -197,9 +197,6 @@
   const posterMeta = (m) => `
     <div style="margin-top:7px;font-size:11.5px;color:rgba(11,21,51,.55);display:flex;gap:6px;flex-wrap:wrap"><span style="font-weight:700;color:rgba(11,21,51,.7)">${esc(m.genre)}</span><span>·</span><span>${esc(m.meta)}</span></div>`;
 
-  const posterGridItem = (m) => `<div>${posterArt(m)}${posterMeta(m)}</div>`;
-  const posterRowItem = (m) => `<div style="flex:none;width:148px;scroll-snap-align:start">${posterArt(m)}${posterMeta(m)}</div>`;
-
   // Shared TMDB attribution block — rendered under any section backed by live
   // TMDB data (watch catalog, editor picks). Byte-identical for both callers.
   const tmdbAttribution = () => `
@@ -243,7 +240,8 @@
       editorGenre: 'All',
       editorSort: "Editor's order",
       open: {},
-      filtersOpen: false
+      filtersOpen: false,
+      detail: null
     };
     let copyTimer = null;
 
@@ -609,7 +607,44 @@
     ];
     const SECTIONS = { profile: profileSection, watch: watchSection, editor: editorSection, tips: tipsSection, help: helpSection };
 
+    // Render-scoped registry of clickable cards: reg(obj) stashes the item
+    // and returns its index so a data-card="<idx>" attribute can look it up
+    // again in the click/keyboard handlers below. Reset at the top of every
+    // render() pass since indices only need to stay stable within one pass.
+    let cardRegistry = [];
+    let detailFocusPending = false;
+    const reg = (obj) => cardRegistry.push(obj) - 1;
+
+    const cardAttrs = (obj) => `data-act="detail" data-card="${reg(obj)}" role="button" tabindex="0" aria-label="View details for ${esc(obj.t)}"`;
+
+    const posterGridItem = (m) => `<div ${cardAttrs(m)} style="cursor:pointer">${posterArt(m)}${posterMeta(m)}</div>`;
+    const posterRowItem = (m) => `<div ${cardAttrs(m)} style="flex:none;width:148px;scroll-snap-align:start;cursor:pointer">${posterArt(m)}${posterMeta(m)}</div>`;
+
+    function detailDrawer(obj) {
+      const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
+        .filter(Boolean)
+        .map((c) => `<span style="font-size:12px;font-weight:700;color:#0B1533;background:#EEF3FE;border:1px solid rgba(46,91,230,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`)
+        .join('');
+      const art = obj.poster
+        ? `<img src="${esc(obj.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 40%,rgba(5,9,24,.85))"></div>`
+        : `<div style="position:absolute;top:-30px;right:-8px;font-size:180px;font-weight:800;color:rgba(255,255,255,.12);line-height:1;user-select:none">${esc(obj.initial || (obj.t || '')[0] || '')}</div>`;
+      return `
+    <div data-act="close-detail" style="position:fixed;inset:0;background:rgba(11,21,51,.5);z-index:70"></div>
+    <div data-testid="detail-drawer" role="dialog" aria-modal="true" aria-label="${esc(obj.t)} details" style="position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);background:#fff;z-index:71;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5);display:flex;flex-direction:column;overflow-y:auto">
+      <div style="position:relative;min-height:220px;background:${obj.bg || '#0B1533'};color:#fff;display:flex;align-items:flex-end;padding:18px">
+        ${art}
+        <button data-act="close-detail" aria-label="Close details" style="position:absolute;top:14px;right:14px;background:rgba(5,9,24,.55);border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:15px;color:#fff;font-family:inherit;z-index:1">✕</button>
+        <div style="position:relative;font-size:22px;font-weight:800;line-height:1.15;text-shadow:0 1px 8px rgba(0,0,0,.5)">${esc(obj.t)}</div>
+      </div>
+      <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${chips}</div>
+        <div data-detail-synopsis style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"></div>
+      </div>
+    </div>`;
+    }
+
     function render(preserveFocus) {
+      cardRegistry = [];
       let caret = 0;
       let hadFocus = false;
       const active = document.activeElement;
@@ -632,6 +667,7 @@
 ${(SECTIONS[state.section] || profileSection)()}
 </main>
 <footer style="border-top:1px solid rgba(11,21,51,.08);padding:20px clamp(16px,3vw,32px);text-align:center;font-size:12px;color:rgba(11,21,51,.5)">Need help? <a href="mailto:support@afristream.io">support@afristream.io</a> · © 2026 AfriStream</footer>
+${state.detail ? detailDrawer(state.detail) : ''}
 </div>`;
 
       if (hadFocus) {
@@ -640,6 +676,12 @@ ${(SECTIONS[state.section] || profileSection)()}
           input.focus();
           try { input.setSelectionRange(caret, caret); } catch (e) { /* type=search quirk — ignore */ }
         }
+      }
+
+      if (detailFocusPending) {
+        detailFocusPending = false;
+        const closeBtn = root.querySelector('[data-testid="detail-drawer"] [aria-label="Close details"]');
+        if (closeBtn) closeBtn.focus();
       }
     }
 
@@ -669,6 +711,12 @@ ${(SECTIONS[state.section] || profileSection)()}
           break;
         }
         case 'go-help': setState({ section: 'help' }); break;
+        case 'detail': {
+          const obj = cardRegistry[+el.getAttribute('data-card')];
+          if (obj) { detailFocusPending = true; setState({ detail: obj }); }
+          break;
+        }
+        case 'close-detail': setState({ detail: null }); break;
       }
     });
 
@@ -676,6 +724,14 @@ ${(SECTIONS[state.section] || profileSection)()}
       if (e.target.getAttribute && e.target.getAttribute('data-act') === 'query') {
         state.query = e.target.value;
         render(true);
+      }
+    });
+
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.detail) { setState({ detail: null }); return; }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && e.target.getAttribute('data-act') === 'detail') {
+        const obj = cardRegistry[+e.target.getAttribute('data-card')];
+        if (obj) { e.preventDefault(); detailFocusPending = true; setState({ detail: obj }); }
       }
     });
 

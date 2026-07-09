@@ -195,6 +195,33 @@ test('detail fixture endpoint returns an overview for an id', async ({ request }
   expect(json.overview).toContain('101');
 });
 
+test('clicking a poster card opens a detail panel with its details', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('Fixture Movie One')).toBeVisible();
+  await expect(drawer.getByText('Drama')).toBeVisible();
+  await expect(drawer.getByText('★ 8.1')).toBeVisible();
+});
+
+test('detail panel closes via the close button', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+  await drawer.getByRole('button', { name: 'Close details' }).click();
+  await expect(drawer).not.toBeVisible();
+});
+
+test('detail panel closes on Escape', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('detail-drawer')).not.toBeVisible();
+});
+
 test('editor picks tab renders a premium hero and ranked grid from fixture', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
