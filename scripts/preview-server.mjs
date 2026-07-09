@@ -48,8 +48,15 @@ const FIXTURE = {
   ],
 };
 
-const IMDB_WATCHLIST_URL = process.env.IMDB_WATCHLIST_URL
-  || 'https://www.imdb.com/user/p.oaowjxrmiacczaqrabkib5cpdi/watchlist/';
+// Editor Picks are driven by a hand-curated list of IMDb title IDs (IMDb's
+// watchlist page itself is behind AWS WAF and can't be scraped server-side).
+// Locally the IDs come from the EDITOR_PICKS_IDS env var; in the plugin they
+// come from the afristream_editor_picks_ids option. Any tt-id (or a pasted
+// IMDb URL containing one) is accepted; order is preserved, capped at 24.
+function parseEditorIds(raw) {
+  const ids = String(raw || '').match(/tt\d+/g) || [];
+  return [...new Set(ids)].slice(0, 24);
+}
 
 const EDITOR_FIXTURE = {
   source: 'imdb',
@@ -62,38 +69,6 @@ const EDITOR_FIXTURE = {
 
 let editorCache = null;
 let editorCacheAt = 0;
-
-// Defensive caps for parsing untrusted remote HTML: cap the body before regex,
-// and cap recursion depth + total nodes visited in the walk. Kept identical to
-// the PHP side (afristream_portal_imdb_entries / _walk).
-const IMDB_MAX_BYTES = 5_000_000;
-const IMDB_MAX_DEPTH = 200;
-const IMDB_MAX_NODES = 200_000;
-
-// Walk the IMDb watchlist page's embedded JSON for ordered tt-ids + titles.
-function parseImdbWatchlist(html) {
-  const m = String(html).slice(0, IMDB_MAX_BYTES).match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-  if (!m) return [];
-  let data;
-  try { data = JSON.parse(m[1]); } catch { return []; }
-  const out = [];
-  const seen = new Set();
-  let budget = IMDB_MAX_NODES;
-  const walk = (node, depth) => {
-    if (budget <= 0 || depth > IMDB_MAX_DEPTH || !node || typeof node !== 'object') return;
-    budget--;
-    if (Array.isArray(node)) { for (const child of node) walk(child, depth + 1); return; }
-    const id = node.titleId || node.constId || node.id;
-    if (typeof id === 'string' && /^tt\d+$/.test(id) && !seen.has(id)) {
-      seen.add(id);
-      const title = node.titleText?.text || node.originalTitleText?.text || node.title || '';
-      out.push({ id, title });
-    }
-    for (const k of Object.keys(node)) walk(node[k], depth + 1);
-  };
-  walk(data, 0);
-  return out;
-}
 
 async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
   const json = await tmdbGet('/find/' + imdbId, { external_source: 'imdb_id' });
@@ -124,20 +99,14 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
 async function editorPicksPayload() {
   if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
   if (editorCache && Date.now() - editorCacheAt < 12 * 60 * 60 * 1000) return editorCache;
+  const ids = parseEditorIds(process.env.EDITOR_PICKS_IDS);
+  if (!ids.length) return editorCache || { source: 'fallback', reason: 'no-ids' };
   try {
-    const res = await fetch(IMDB_WATCHLIST_URL, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (AfriStream portal)' },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) throw new Error('imdb ' + res.status);
-    const entries = parseImdbWatchlist(await res.text()).slice(0, 24);
-    if (!entries.length) throw new Error('no entries');
-
     const genreList = async (type) =>
       Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
     const [movieGenres, tvGenres] = await Promise.all([genreList('movie'), genreList('tv')]);
     const resolved = await Promise.all(
-      entries.map((e, i) => resolvePick(e.id, e.title, i + 1, movieGenres, tvGenres))
+      ids.map((id, i) => resolvePick(id, '', i + 1, movieGenres, tvGenres))
     );
     const picks = resolved.filter(Boolean);
     if (!picks.length) throw new Error('none resolved');
