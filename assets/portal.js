@@ -615,6 +615,45 @@
     let detailFocusPending = false;
     const reg = (obj) => cardRegistry.push(obj) - 1;
 
+    const overviewCache = new Map();
+
+    function fillSynopsis() {
+      if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
+      const box = root.querySelector('[data-detail-synopsis]');
+      if (!box) return;
+      const obj = state.detail;
+      if (!obj.id || !props.detailEndpoint || typeof fetch !== 'function') {
+        box.textContent = 'No synopsis available.';
+        return;
+      }
+      const kind = obj.type === 'Series' ? 'tv' : 'movie';
+      const cacheKey = kind + ':' + obj.id;
+      if (overviewCache.has(cacheKey)) {
+        box.textContent = overviewCache.get(cacheKey) || 'No synopsis available.';
+        return;
+      }
+      box.textContent = 'Loading synopsis…';
+      const sep = props.detailEndpoint.includes('?') ? '&' : '?';
+      const url = props.detailEndpoint + sep + 'id=' + encodeURIComponent(obj.id) + '&type=' + kind;
+      fetch(url)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          const text = (payload && payload.overview) || '';
+          overviewCache.set(cacheKey, text);
+          // Only fill if the same item is still open.
+          if (state.detail === obj) {
+            const el = root.querySelector('[data-detail-synopsis]');
+            if (el) el.textContent = text || 'No synopsis available.';
+          }
+        })
+        .catch(() => {
+          if (state.detail === obj) {
+            const el = root.querySelector('[data-detail-synopsis]');
+            if (el) el.textContent = 'No synopsis available.';
+          }
+        });
+    }
+
     const cardAttrs = (obj) => `data-act="detail" data-card="${reg(obj)}" role="button" tabindex="0" aria-label="View details for ${esc(obj.t)}"`;
 
     const posterGridItem = (m) => `<div ${cardAttrs(m)} style="cursor:pointer">${posterArt(m)}${posterMeta(m)}</div>`;
@@ -693,6 +732,8 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         const closeBtn = root.querySelector('[data-testid="detail-drawer"] [aria-label="Close details"]');
         if (closeBtn) closeBtn.focus();
       }
+
+      if (state.detail) fillSynopsis();
     }
 
     // -------------------------------------------------------------- events

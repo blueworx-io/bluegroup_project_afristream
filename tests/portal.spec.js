@@ -205,6 +205,15 @@ test('clicking a poster card opens a detail panel with its details', async ({ pa
   await expect(drawer.getByText('★ 8.1')).toBeVisible();
 });
 
+test('detail panel loads a synopsis for a title card', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByText('Fixture Movie One').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+  // Fixture id 101 → canned "Fixture synopsis for 101."
+  await expect(drawer.getByText('Fixture synopsis for 101.')).toBeVisible();
+});
+
 test('clicking a sport card opens its detail panel', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByText('Fixture FC vs Test United').click();
