@@ -238,6 +238,9 @@
       country: 'All Countries',
       decade: 'All Decades',
       sort: 'Recommended',
+      editorType: 'All',
+      editorGenre: 'All',
+      editorSort: "Editor's order",
       open: {},
       filtersOpen: false
     };
@@ -452,13 +455,53 @@
 </section>`;
     }
 
+    // A single premium poster card in the Editor Picks grid.
+    function editorCard(m) {
+      return `
+      <div class="as-editor-card">
+        <div style="width:100%;aspect-ratio:2/3;border-radius:16px;background:${m.bg};position:relative;overflow:hidden;box-shadow:0 14px 30px -20px rgba(11,21,51,.6)">
+          ${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 48%,rgba(5,9,24,.82))"></div>` : `<div style="position:absolute;top:-22px;right:-8px;font-size:130px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
+          <div style="position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;background:rgba(5,9,24,.6);color:#F4C56B;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(244,197,107,.5)">${esc(m.rank || '')}</div>
+        </div>
+        <div style="margin-top:9px;font-size:13.5px;font-weight:700;line-height:1.25">${esc(m.t)}</div>
+        <div style="margin-top:3px;font-size:11.5px;color:rgba(11,21,51,.55)">${esc(m.genre)} · ${esc(m.meta)}</div>
+      </div>`;
+    }
+
     function editorSection() {
       const picks = data.editorPicks || [];
-      const hero = picks[0];
-      const rest = picks.slice(1);
+      const EDITOR_DEFAULTS = { editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" };
+      const filtering = Object.keys(EDITOR_DEFAULTS).some((k) => state[k] !== EDITOR_DEFAULTS[k]);
+
+      // Chip options derived from the picks themselves (only what's present).
+      const typeOpts = ['All', ...[...new Set(picks.map((p) => p.type).filter(Boolean))]];
+      const genreOpts = ['All', ...[...new Set(picks.map((p) => p.genre).filter(Boolean))].sort()];
+      const sortOpts = ["Editor's order", 'Top Rated', 'A–Z', 'Newest'];
+
+      const rate = (x) => { const m = String(x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
+      const yr = (x) => { const m = String(x.meta).match(/\d{4}/); return m ? +m[0] : -1; };
+
+      let list = picks.filter((p) =>
+        (state.editorType === 'All' || p.type === state.editorType) &&
+        (state.editorGenre === 'All' || p.genre === state.editorGenre)
+      );
+      if (state.editorSort === 'Top Rated') list = [...list].sort((a, b) => rate(b) - rate(a));
+      else if (state.editorSort === 'A–Z') list = [...list].sort((a, b) => a.t.localeCompare(b.t));
+      else if (state.editorSort === 'Newest') list = [...list].sort((a, b) => yr(b) - yr(a));
+      else list = [...list].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+      const hero = filtering ? null : list[0];
+      const grid = hero ? list.slice(1) : list;
+
       const heroArt = (m) => m.poster
         ? `<img src="${esc(m.poster)}" alt="${esc(m.t)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
         : `<div style="position:absolute;top:-30px;right:-6px;font-size:200px;font-weight:800;color:rgba(255,255,255,.10);line-height:1;user-select:none">${esc(m.initial)}</div>`;
+
+      const chipRow = (label, key, options) => options.length <= 1 ? '' : `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="flex:none;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);min-width:52px">${esc(label)}</span>
+      ${options.map((o) => `<button style="${subBtn(String(state[key]) === String(o))}" data-act="editor-filter" data-key="${key}" data-val="${esc(o)}">${esc(o)}</button>`).join('')}
+    </div>`;
 
       return `
 <section data-screen-label="Editor Picks">
@@ -466,6 +509,13 @@
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Editor Picks</h1>
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Curated by the AfriStream editors — a hand-picked watchlist, refreshed regularly.</p>
   </div>
+  ${picks.length ? `
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+    ${chipRow('Type', 'editorType', typeOpts)}
+    ${chipRow('Genre', 'editorGenre', genreOpts)}
+    ${chipRow('Sort', 'editorSort', sortOpts)}
+    ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+  </div>` : ''}
   ${hero ? `
   <div style="position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
     <div style="position:absolute;inset:0">${heroArt(hero)}<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,24,.86) 0%,rgba(5,9,24,.55) 46%,rgba(5,9,24,.2) 100%)"></div></div>
@@ -475,19 +525,12 @@
       <div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;flex-wrap:wrap"><span style="font-weight:700">${esc(hero.genre)}</span><span>·</span><span>${esc(hero.meta)}</span>${hero.country ? `<span>·</span><span>${esc(hero.country)}</span>` : ''}<span>·</span><span>${esc(hero.platform)}</span></div>
     </div>
   </div>` : ''}
-  ${rest.length ? `
-  <h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">More from the list</h2>
-  <div data-dragscroll style="display:flex;gap:16px;overflow-x:auto;padding-bottom:12px">
-    ${rest.map((m) => `
-      <div class="as-editor-card" style="flex:none;width:174px;scroll-snap-align:start">
-        <div style="width:100%;aspect-ratio:2/3;border-radius:16px;background:${m.bg};position:relative;overflow:hidden;box-shadow:0 14px 30px -20px rgba(11,21,51,.6)">
-          ${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 48%,rgba(5,9,24,.82))"></div>` : `<div style="position:absolute;top:-22px;right:-8px;font-size:130px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
-          <div style="position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;background:rgba(5,9,24,.6);color:#F4C56B;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(244,197,107,.5)">${esc(m.rank || '')}</div>
-        </div>
-        <div style="margin-top:9px;font-size:13.5px;font-weight:700;line-height:1.25">${esc(m.t)}</div>
-        <div style="margin-top:3px;font-size:11.5px;color:rgba(11,21,51,.55)">${esc(m.genre)} · ${esc(m.meta)}</div>
-      </div>`).join('')}
+  ${grid.length ? `
+  ${hero ? `<h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">More from the list</h2>` : ''}
+  <div data-testid="editor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px">
+    ${grid.map(editorCard).join('')}
   </div>` : ''}
+  ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
   ${!picks.length ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">The editors' list is refreshing — check back shortly.</div>` : ''}
   ${editorSource === 'imdb' ? tmdbAttribution() : ''}
 </section>`;
@@ -615,6 +658,8 @@ ${(SECTIONS[state.section] || profileSection)()}
         case 'close-filters': setState({ filtersOpen: false }); break;
         case 'clear-filters': setState({ query: '', type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' }); break;
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
+        case 'editor-filter': setState({ [el.getAttribute('data-key')]: val }); break;
+        case 'clear-editor-filters': setState({ editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" }); break;
         case 'helptab': setState({ helpTab: val }); break;
         case 'toggle-guide': {
           const i = +val;

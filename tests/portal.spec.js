@@ -172,13 +172,55 @@ test('editor-picks fixture endpoint returns ranked picks', async ({ request }) =
   expect(json.picks[0]).toHaveProperty('t');
 });
 
-test('editor picks tab renders a premium hero and ranked rail from fixture', async ({ page }) => {
+test('editor picks tab renders a premium hero and ranked grid from fixture', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
   await expect(page.getByRole('heading', { name: 'Editor Picks' })).toBeVisible();
   await expect(page.getByText('Fixture Pick One')).toBeVisible();
   await expect(page.getByText('Fixture Pick Two')).toBeVisible();
   await expect(page.getByText('Listings and artwork from')).toBeVisible();
+});
+
+test('editor picks filters by type and hides the hero while filtering', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+
+  // Default view: the No.1 hero plus every pick.
+  await expect(section.getByText(/Editors.*No\.1/)).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+
+  // Type + Sort chip rows are present.
+  await expect(section.getByRole('button', { name: 'Movies', exact: true })).toBeVisible();
+  await expect(section.getByRole('button', { name: 'Series', exact: true })).toBeVisible();
+  await expect(section.getByRole('button', { name: 'Top Rated', exact: true })).toBeVisible();
+
+  // Filter to Series: hero collapses, only the one series pick remains.
+  await section.getByRole('button', { name: 'Series', exact: true }).click();
+  await expect(section.getByText(/Editors.*No\.1/)).toHaveCount(0);
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+
+  // Reset restores the hero and all picks.
+  await section.getByRole('button', { name: 'Reset filters' }).click();
+  await expect(section.getByText(/Editors.*No\.1/)).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+});
+
+test('editor picks A–Z sort reorders the grid', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  const cards = section.locator('[data-testid="editor-grid"] .as-editor-card');
+
+  // Default (editor order): the hero is Pick One, so the grid starts at Pick Two.
+  await expect(cards.first()).toContainText('Fixture Pick Two');
+
+  // A–Z: sorting collapses the hero and shows all picks alphabetically —
+  // "Fixture Pick One" now leads the grid.
+  await section.getByRole('button', { name: 'A–Z', exact: true }).click();
+  await expect(cards.first()).toContainText('Fixture Pick One');
 });
 
 test('editor picks tab shows the built-in list when the endpoint is offline', async ({ page }) => {
