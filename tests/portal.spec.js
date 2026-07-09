@@ -249,6 +249,30 @@ test('detail panel closes on Escape', async ({ page }) => {
   await expect(page.getByTestId('detail-drawer')).not.toBeVisible();
 });
 
+test('a title card opens the detail panel via keyboard', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  // The card title text sits inside a nested div — focus() on that text node
+  // is a no-op (it isn't focusable), so real keyboard focus lands on the
+  // outer [data-act="detail"] card (tabindex="0"). Exercise that baseline
+  // path with a real Enter keypress.
+  const card = page.locator('[data-act="detail"]').filter({ hasText: 'Fixture Movie One' }).first();
+  await card.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('detail-drawer')).not.toBeVisible();
+
+  // Also cover a keydown that bubbles up from a descendant of the card
+  // (e.g. assistive tech dispatching to inner markup) — this is what the
+  // handler's closest('[data-act="detail"]') resolution specifically
+  // hardens, mirroring the click handler's existing delegation. Dispatched
+  // directly since a non-focusable descendant can never itself receive
+  // real keyboard focus.
+  const title = page.getByText('Fixture Movie One').first();
+  await title.evaluate((el) => el.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })));
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+});
+
 test('editor picks tab renders a premium hero and ranked grid from fixture', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();

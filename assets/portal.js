@@ -616,6 +616,7 @@
     const reg = (obj) => cardRegistry.push(obj) - 1;
 
     const overviewCache = new Map();
+    const pendingSynopsis = new Set();
 
     function fillSynopsis() {
       if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
@@ -633,6 +634,8 @@
         return;
       }
       box.textContent = 'Loading synopsis…';
+      if (pendingSynopsis.has(cacheKey)) return;
+      pendingSynopsis.add(cacheKey);
       const sep = props.detailEndpoint.includes('?') ? '&' : '?';
       const url = props.detailEndpoint + sep + 'id=' + encodeURIComponent(obj.id) + '&type=' + kind;
       fetch(url)
@@ -651,6 +654,9 @@
             const el = root.querySelector('[data-detail-synopsis]');
             if (el) el.textContent = 'No synopsis available.';
           }
+        })
+        .finally(() => {
+          pendingSynopsis.delete(cacheKey);
         });
     }
 
@@ -780,8 +786,9 @@ ${state.detail ? detailDrawer(state.detail) : ''}
 
     root.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && state.detail) { setState({ detail: null }); return; }
-      if ((e.key === 'Enter' || e.key === ' ') && e.target.getAttribute && e.target.getAttribute('data-act') === 'detail') {
-        const obj = cardRegistry[+e.target.getAttribute('data-card')];
+      const card = e.target.closest && e.target.closest('[data-act="detail"]');
+      if ((e.key === 'Enter' || e.key === ' ') && card) {
+        const obj = cardRegistry[+card.getAttribute('data-card')];
         if (obj) { e.preventDefault(); detailFocusPending = true; setState({ detail: obj }); }
       }
     });
