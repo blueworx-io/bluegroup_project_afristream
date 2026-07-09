@@ -506,7 +506,9 @@ function afristream_portal_detail_data( $request ) {
 	}
 	$json     = afristream_portal_tmdb_get( '/' . $type . '/' . $id );
 	$overview = ( $json && ! empty( $json['overview'] ) ) ? (string) $json['overview'] : '';
-	set_transient( $cache_key, $overview, 24 * HOUR_IN_SECONDS );
+	if ( null !== $json ) {
+		set_transient( $cache_key, $overview, 24 * HOUR_IN_SECONDS );
+	}
 	return rest_ensure_response( array( 'overview' => $overview ) );
 }
 

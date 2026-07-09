@@ -337,7 +337,9 @@ async function watchPayload() {
 async function detailPayload(id, type) {
   const kind = type === 'tv' ? 'tv' : 'movie';
   if (process.env.WATCH_OFFLINE === '1' || !id) return { overview: '' };
-  const json = await tmdbGet(`/${kind}/${id}`);
+  if (!process.env.TMDB_API_KEY) return { overview: '' };
+  const safeId = Number(id) || 0;
+  const json = await tmdbGet(`/${kind}/${safeId}`);
   return { overview: (json && json.overview) || '' };
 }
 
