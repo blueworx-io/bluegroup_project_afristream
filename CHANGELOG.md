@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-07-11
+
+### Fixed
+
+- **Full-width rendering** — the portal now fills the full width of whatever content area it's placed in, instead of being boxed into a narrow, centered column by the surrounding theme or dashboard shell (e.g. SureCart's customer dashboard). A `:has()`-scoped rule lifts the width cap on the element that directly wraps the shortcode output, so only that wrapper is affected — the rest of the page, including any sidebar/account menu, is left untouched.
+
 ## [0.5.0] - 2026-07-09
 
 ### Added

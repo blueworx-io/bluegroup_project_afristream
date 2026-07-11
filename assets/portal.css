@@ -8,6 +8,18 @@
   font-family: 'Hanken Grotesk', system-ui, sans-serif;
   color: #0B1533;
   -webkit-font-smoothing: antialiased;
+  width: 100%;
+}
+
+/* Full width: some themes and dashboard shells (e.g. SureCart's customer
+   dashboard) wrap shortcode output in a narrow, centered content column, which
+   would box the portal in. Lift the width cap on the element that *directly*
+   wraps the portal so it fills the full content area it was dropped into.
+   Scoped with :has() so only the wrapper actually containing the portal is
+   affected — the rest of the page (and any sidebar) is left untouched. */
+:has(> .afristream-portal) {
+  max-width: none !important;
+  width: 100% !important;
 }
 
 .afristream-portal * {
