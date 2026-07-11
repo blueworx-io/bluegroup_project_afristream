@@ -24,31 +24,122 @@ const FIXTURE = {
   updated: 'fixture',
   tmdb: true,
   sport: [
-    { comp: 'Fixture League', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
+    { comp: 'Fixture League', code: 'Football', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
+    { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', live: false },
   ],
   movies: [
-    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies' },
-    { t: 'Fixture Movie Two', genre: 'Action', platform: '★ 7.4', meta: '2025', poster: null, type: 'Movies' },
+    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', id: 101 },
+    { t: 'Fixture Movie Two', genre: 'Action', platform: '★ 7.4', meta: '2025', poster: null, type: 'Movies', id: 102 },
   ],
   series: [
-    { t: 'Fixture Series One', genre: 'Crime', platform: '★ 8.6', meta: 'TV · 2026', poster: null, type: 'Series' },
+    { t: 'Fixture Series One', genre: 'Crime', platform: '★ 8.6', meta: 'TV · 2026', poster: null, type: 'Series', id: 201 },
   ],
   newWeek: [
-    { t: 'Fixture New Arrival', genre: 'Comedy', platform: '★ 7.0', meta: 'New episodes', poster: null, type: 'Series' },
+    { t: 'Fixture New Arrival', genre: 'Comedy', platform: '★ 7.0', meta: 'New episodes', poster: null, type: 'Series', id: 301 },
+  ],
+  catalog: [
+    { t: 'Jozi Heat', genre: 'Crime', platform: '★ 7.8', meta: '2023', poster: null, type: 'Movies', country: 'South Africa', id: 401 },
+    { t: 'Lagos Lights', genre: 'Drama', platform: '★ 8.0', meta: '2019', poster: null, type: 'Movies', country: 'Nigeria', id: 402 },
+    { t: 'Seoul Signal', genre: 'Thriller', platform: '★ 8.4', meta: 'TV · 2021', poster: null, type: 'Series', country: 'South Korea', id: 403 },
+    { t: 'London Fog', genre: 'Mystery', platform: '★ 7.2', meta: '2008', poster: null, type: 'Movies', country: 'United Kingdom', id: 404 },
+    { t: 'Nairobi Nights', genre: 'Drama', platform: '★ 7.5', meta: 'TV · 1998', poster: null, type: 'Series', country: 'Kenya', id: 405 },
+    // Shares a title with a trending row (Fixture Movie One) to exercise the
+    // country back-fill: the deduped trending copy should inherit this country.
+    { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', country: 'United States', id: 406 },
   ],
 };
+
+// Editor Picks are driven by a hand-curated list of IMDb title IDs (IMDb's
+// watchlist page itself is behind AWS WAF and can't be scraped server-side).
+// Locally the IDs come from the EDITOR_PICKS_IDS env var; in the plugin they
+// come from the afristream_editor_picks_ids option. Any tt-id (or a pasted
+// IMDb URL containing one) is accepted; order is preserved, capped at 24.
+function parseEditorIds(raw) {
+  const ids = String(raw || '').match(/tt\d+/g) || [];
+  return [...new Set(ids)].slice(0, 24);
+}
+
+const EDITOR_FIXTURE = {
+  source: 'imdb',
+  picks: [
+    { t: 'Fixture Pick One', genre: 'Drama', platform: '★ 8.5', meta: '2024', poster: null, type: 'Movies', country: 'South Africa', rank: 1, id: 501 },
+    { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2, id: 502 },
+    { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3, id: 503 },
+  ],
+};
+
+let editorCache = null;
+let editorCacheAt = 0;
+
+async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
+  const json = await tmdbGet('/find/' + imdbId, { external_source: 'imdb_id' });
+  const movie = json?.movie_results?.[0];
+  const tv = json?.tv_results?.[0];
+  const hit = movie || tv;
+  if (!hit) {
+    return fallbackTitle
+      ? { t: fallbackTitle, genre: 'Film', platform: 'IMDb', meta: '', poster: null, type: 'Movies', country: '', rank, id: 0 }
+      : null;
+  }
+  const type = movie ? 'Movies' : 'Series';
+  const genres = movie ? movieGenres : tvGenres;
+  const year = String(hit.release_date || hit.first_air_date || '').slice(0, 4);
+  const rating = Number(hit.vote_average) || 0;
+  return {
+    t: hit.title || hit.name || fallbackTitle || '',
+    id: Number(hit.id) || 0,
+    genre: genres[hit.genre_ids?.[0]] || type,
+    platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'IMDb',
+    meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,
+    poster: hit.poster_path ? `https://image.tmdb.org/t/p/w342${hit.poster_path}` : null,
+    type,
+    country: (hit.origin_country && hit.origin_country[0] && COUNTRIES[hit.origin_country[0]]) || '',
+    rank,
+  };
+}
+
+async function editorPicksPayload() {
+  if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
+  if (editorCache && Date.now() - editorCacheAt < 12 * 60 * 60 * 1000) return editorCache;
+  const ids = parseEditorIds(process.env.EDITOR_PICKS_IDS);
+  if (!ids.length) return editorCache || { source: 'fallback', reason: 'no-ids' };
+  try {
+    const genreList = async (type) =>
+      Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
+    const [movieGenres, tvGenres] = await Promise.all([genreList('movie'), genreList('tv')]);
+    const resolved = await Promise.all(
+      ids.map((id, i) => resolvePick(id, '', i + 1, movieGenres, tvGenres))
+    );
+    const picks = resolved.filter(Boolean);
+    if (!picks.length) throw new Error('none resolved');
+    // Re-sequence ranks gap-free over the resolved set, matching the PHP side
+    // (which only increments $rank on a successful pick).
+    picks.forEach((p, i) => { p.rank = i + 1; });
+
+    editorCache = { source: 'imdb', updated: new Date().toISOString(), picks };
+    editorCacheAt = Date.now();
+    return editorCache;
+  } catch {
+    // Last-good cache survives an IMDb hiccup; otherwise the front-end falls back.
+    return editorCache || { source: 'fallback', reason: 'unavailable' };
+  }
+}
 
 const TMDB = 'https://api.themoviedb.org/3';
 let watchCache = null;
 let watchCacheAt = 0;
 
 async function tmdbGet(path, params = {}) {
-  const url = new URL(TMDB + path);
-  url.searchParams.set('api_key', process.env.TMDB_API_KEY);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const url = new URL(TMDB + path);
+    url.searchParams.set('api_key', process.env.TMDB_API_KEY);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 // Same mapping the plugin's PHP does — keep the two in sync.
@@ -62,6 +153,7 @@ function mapItems(json, genres, type, limit, metaLabel = '') {
     const rating = Number(row.vote_average) || 0;
     items.push({
       t: title,
+      id: Number(row.id) || 0,
       genre: genres[row.genre_ids?.[0]] || type,
       platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'New',
       meta: metaLabel || (type === 'Series' ? `TV · ${year}` : year),
@@ -73,6 +165,37 @@ function mapItems(json, genres, type, limit, metaLabel = '') {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
+
+// Origin countries for the deep, filterable catalog. ISO 3166-1 → display name.
+const COUNTRIES = {
+  US: 'United States', GB: 'United Kingdom', ZA: 'South Africa', NG: 'Nigeria',
+  KE: 'Kenya', IN: 'India', FR: 'France', ES: 'Spain', KR: 'South Korea',
+  JP: 'Japan', BR: 'Brazil', DE: 'Germany', AU: 'Australia', EG: 'Egypt',
+};
+
+async function discoverCountry(kind, cc, genres) {
+  const json = await tmdbGet(`/discover/${kind}`, {
+    sort_by: 'popularity.desc',
+    with_origin_country: cc,
+    'vote_count.gte': 20,
+    page: 1,
+  });
+  const type = kind === 'movie' ? 'Movies' : 'Series';
+  return (json?.results ?? []).map((row) => {
+    const year = String(row.release_date || row.first_air_date || '').slice(0, 4);
+    const rating = Number(row.vote_average) || 0;
+    return {
+      t: row.title || row.name || '',
+      id: Number(row.id) || 0,
+      genre: genres[row.genre_ids?.[0]] || type,
+      platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'New',
+      meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,
+      poster: row.poster_path ? `https://image.tmdb.org/t/p/w342${row.poster_path}` : null,
+      type,
+      country: COUNTRIES[cc],
+    };
+  }).filter((x) => x.t);
+}
 
 async function tmdbCatalog() {
   if (!process.env.TMDB_API_KEY) return null;
@@ -95,6 +218,18 @@ async function tmdbCatalog() {
     ]);
     if (!trendingMovies && !trendingTv) return null;
 
+    const perCountry = await Promise.all(
+      Object.keys(COUNTRIES).flatMap((cc) => [
+        discoverCountry('movie', cc, movieGenres),
+        discoverCountry('tv', cc, tvGenres),
+      ])
+    );
+    const seen = new Set();
+    const catalog = [];
+    for (const item of perCountry.flat()) {
+      if (!seen.has(item.t)) { seen.add(item.t); catalog.push(item); }
+    }
+
     return {
       movies: mapItems(trendingMovies, movieGenres, 'Movies', 10),
       series: mapItems(trendingTv, tvGenres, 'Series', 10),
@@ -102,6 +237,7 @@ async function tmdbCatalog() {
         ...mapItems(newMovies, movieGenres, 'Movies', 4, 'New release'),
         ...mapItems(onAir, tvGenres, 'Series', 4, 'New episodes'),
       ],
+      catalog,
     };
   } catch {
     return null;
@@ -110,32 +246,35 @@ async function tmdbCatalog() {
 
 // Major global sporting events from ESPN's public scoreboard API — keyless.
 // Same league list and mapping as the plugin's PHP; keep the two in sync.
+// Each league maps to { label, code, country }: `code` is the sporting code
+// (drives the "Sport Type" filter) and `country` the host nation (or
+// 'International' for global competitions). Keep in sync with the PHP $leagues.
 const ESPN_LEAGUES = {
   // Football (soccer) — mostly European seasons, so quiet over the summer.
-  'soccer/fifa.world': 'FIFA World Cup',
-  'soccer/eng.1': 'Premier League',
-  'soccer/esp.1': 'LaLiga',
-  'soccer/ita.1': 'Serie A',
-  'soccer/ger.1': 'Bundesliga',
-  'soccer/fra.1': 'Ligue 1',
-  'soccer/uefa.champions': 'Champions League',
-  'soccer/uefa.europa': 'Europa League',
-  'soccer/usa.1': 'MLS',
+  'soccer/fifa.world': { label: 'FIFA World Cup', code: 'Football', country: 'International' },
+  'soccer/eng.1': { label: 'Premier League', code: 'Football', country: 'England' },
+  'soccer/esp.1': { label: 'LaLiga', code: 'Football', country: 'Spain' },
+  'soccer/ita.1': { label: 'Serie A', code: 'Football', country: 'Italy' },
+  'soccer/ger.1': { label: 'Bundesliga', code: 'Football', country: 'Germany' },
+  'soccer/fra.1': { label: 'Ligue 1', code: 'Football', country: 'France' },
+  'soccer/uefa.champions': { label: 'Champions League', code: 'Football', country: 'International' },
+  'soccer/uefa.europa': { label: 'Europa League', code: 'Football', country: 'International' },
+  'soccer/usa.1': { label: 'MLS', code: 'Football', country: 'United States' },
   // Motorsport & combat.
-  'racing/f1': 'Formula 1',
-  'mma/ufc': 'UFC',
+  'racing/f1': { label: 'Formula 1', code: 'Motorsport', country: 'International' },
+  'mma/ufc': { label: 'UFC', code: 'MMA', country: 'International' },
   // North American major leagues.
-  'football/nfl': 'NFL',
-  'basketball/nba': 'NBA',
-  'baseball/mlb': 'MLB',
-  'hockey/nhl': 'NHL',
+  'football/nfl': { label: 'NFL', code: 'American Football', country: 'United States' },
+  'basketball/nba': { label: 'NBA', code: 'Basketball', country: 'United States' },
+  'baseball/mlb': { label: 'MLB', code: 'Baseball', country: 'United States' },
+  'hockey/nhl': { label: 'NHL', code: 'Ice Hockey', country: 'United States' },
   // Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for some
   // of these; the mapping falls back to the competition label.
-  'rugby/270557': 'URC Rugby',
-  'tennis/atp': 'ATP Tennis',
-  'tennis/wta': 'WTA Tennis',
-  'golf/pga': 'PGA Tour',
-  'australian-football/afl': 'AFL',
+  'rugby/270557': { label: 'URC Rugby', code: 'Rugby', country: 'International' },
+  'tennis/atp': { label: 'ATP Tennis', code: 'Tennis', country: 'International' },
+  'tennis/wta': { label: 'WTA Tennis', code: 'Tennis', country: 'International' },
+  'golf/pga': { label: 'PGA Tour', code: 'Golf', country: 'United States' },
+  'australian-football/afl': { label: 'AFL', code: 'Aussie Rules', country: 'Australia' },
 };
 
 async function espnSport() {
@@ -143,7 +282,7 @@ async function espnSport() {
   const range = `${fmt(Date.now())}-${fmt(Date.now() + 7 * DAY)}`;
   const events = [];
 
-  await Promise.all(Object.entries(ESPN_LEAGUES).map(async ([path, label]) => {
+  await Promise.all(Object.entries(ESPN_LEAGUES).map(async ([path, meta]) => {
     try {
       const res = await fetch(
         `https://site.api.espn.com/apis/site/v2/sports/${path}/scoreboard?dates=${range}`,
@@ -159,11 +298,13 @@ async function espnSport() {
         const name = ev?.name || ev?.shortName || '';
         if (!name) continue;
         events.push({
-          comp: label,
+          comp: meta.label,
+          code: meta.code,
+          country: meta.country,
           fx: name.replace(' at ', ' vs '),
           iso: ev.date || '',
           time: state === 'in' ? 'LIVE now' : '',
-          ch: ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || label,
+          ch: ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || meta.label,
           live: state === 'in',
         });
         count++;
@@ -193,6 +334,15 @@ async function watchPayload() {
   return watchCache;
 }
 
+async function detailPayload(id, type) {
+  const kind = type === 'tv' ? 'tv' : 'movie';
+  if (process.env.WATCH_OFFLINE === '1' || !id) return { overview: '' };
+  if (!process.env.TMDB_API_KEY) return { overview: '' };
+  const safeId = Number(id) || 0;
+  const json = await tmdbGet(`/${kind}/${safeId}`);
+  return { overview: (json && json.overview) || '' };
+}
+
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -212,6 +362,22 @@ const server = createServer(async (req, res) => {
     let path = decodeURIComponent(url.pathname);
     if (path === '/api/watch') {
       const payload = url.searchParams.get('fixture') === '1' ? FIXTURE : await watchPayload();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+    if (path === '/api/editor-picks') {
+      const payload = url.searchParams.get('fixture') === '1' ? EDITOR_FIXTURE : await editorPicksPayload();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+    if (path === '/api/detail') {
+      const id = url.searchParams.get('id') || '';
+      const type = url.searchParams.get('type') || 'movie';
+      const payload = url.searchParams.get('fixture') === '1'
+        ? { overview: `Fixture synopsis for ${id}.` }
+        : await detailPayload(id, type);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(payload));
       return;

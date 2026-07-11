@@ -23,9 +23,10 @@
     .replace(/"/g, '&quot;');
 
   const yr = (meta) => {
-    const m = String(meta).match(/(20\d\d)/);
+    const m = String(meta).match(/((?:19|20)\d\d)/);
     return m ? +m[1] : 0;
   };
+  const decadeOf = (year) => (year ? `${Math.floor(year / 10) * 10}s` : '');
 
   // ------------------------------------------------------------------- data
 
@@ -63,11 +64,11 @@
     mk('Tide Riders', 'Family', 'Disney+', 'Added Monday')
   ];
   const SPORT = [
-    { comp: 'FIFA World Cup', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
-    { comp: 'Premier League', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
-    { comp: 'Formula 1', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
-    { comp: 'UFC', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
-    { comp: 'NBA', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
+    { comp: 'FIFA World Cup', code: 'Football', country: 'International', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
+    { comp: 'Premier League', code: 'Football', country: 'England', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
+    { comp: 'Formula 1', code: 'Motorsport', country: 'International', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
+    { comp: 'UFC', code: 'MMA', country: 'International', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
+    { comp: 'NBA', code: 'Basketball', country: 'United States', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
   ];
   const LIVE_TV = [
     { name: 'ESPN', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
@@ -82,6 +83,14 @@
     { name: 'Big Match Build-Up', count: '7 titles', desc: 'Sport docs to watch before kick-off.', h: 150 },
     { name: 'Award Season Catch-Up', count: '10 titles', desc: 'Everything nominated, in one row.', h: 25 }
   ].map((c) => ({ ...c, bg: `linear-gradient(135deg, oklch(0.42 0.12 ${c.h}), oklch(0.24 0.09 ${(c.h + 50) % 360}))` }));
+
+  const EDITOR_FALLBACK = [
+    { t: 'The Colour of Home', genre: 'Drama', platform: '★ 8.4', meta: '2024', type: 'Movies', country: 'South Africa', rank: 1 },
+    { t: 'Harmattan', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', type: 'Series', country: 'Nigeria', rank: 2 },
+    { t: 'Salt & Silver', genre: 'Docs', platform: '★ 7.9', meta: '2022', type: 'Movies', country: 'Kenya', rank: 3 },
+    { t: 'The Long Dry', genre: 'Drama', platform: '★ 7.7', meta: '2021', type: 'Movies', country: 'South Africa', rank: 4 },
+    { t: 'Northern Lights', genre: 'Family', platform: '★ 7.5', meta: 'TV · 2020', type: 'Series', country: 'United Kingdom', rank: 5 },
+  ].map((p) => ({ ...p, initial: p.t[0], bg: bg(p.genre) }));
 
   const TIPS_DATA = [
     { tag: 'Setup', h: 250, title: 'Setup Tips', items: ['Use a stable WiFi connection before starting.', 'Make sure the FireStick is fully signed into an Amazon account.', 'Complete all FireStick updates before installing apps.', 'Keep the remote nearby during every install step.'] },
@@ -140,14 +149,23 @@
       ...data.movies.map((x) => ({ ...x, type: x.type || 'Movies' })),
       ...data.series.map((x) => ({ ...x, type: x.type || 'Series' })),
       ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
-      ...data.sport.map((s) => ({ t: s.fx, genre: 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', initial: s.fx[0], bg: bg('Sport') })),
+      ...data.sport.map((s) => ({ t: s.fx, genre: s.code || 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', country: s.country || '', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
-      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg }))
+      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg })),
+      ...(data.catalog || []).map((x) => ({ ...x, type: x.type || 'Movies' })),
     ];
+    // Only the deep catalog carries origin country; the trending/newWeek copies
+    // of the same title don't. Map title→country from the catalog so a title
+    // deduped to its trending copy still matches its Country facet.
+    const countryByTitle = new Map();
+    for (const x of (data.catalog || [])) {
+      if (x.country && !countryByTitle.has(x.t)) countryByTitle.set(x.t, x.country);
+    }
     for (const x of src) {
       if (!seen.has(x.t)) {
         seen.add(x.t);
-        index.push({ ...x, year: yr(x.meta) });
+        const year = yr(x.meta);
+        index.push({ ...x, year, country: x.country || countryByTitle.get(x.t) || '', decade: decadeOf(year) });
       }
     }
     return index;
@@ -179,8 +197,13 @@
   const posterMeta = (m) => `
     <div style="margin-top:7px;font-size:11.5px;color:rgba(11,21,51,.55);display:flex;gap:6px;flex-wrap:wrap"><span style="font-weight:700;color:rgba(11,21,51,.7)">${esc(m.genre)}</span><span>·</span><span>${esc(m.meta)}</span></div>`;
 
-  const posterGridItem = (m) => `<div>${posterArt(m)}${posterMeta(m)}</div>`;
-  const posterRowItem = (m) => `<div style="flex:none;width:148px;scroll-snap-align:start">${posterArt(m)}${posterMeta(m)}</div>`;
+  // Shared TMDB attribution block — rendered under any section backed by live
+  // TMDB data (watch catalog, editor picks). Byte-identical for both callers.
+  const tmdbAttribution = () => `
+  <p style="margin:22px 2px 0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:11px;color:rgba(11,21,51,.45)">
+    <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="TMDB" style="display:inline-flex;flex:none">${TMDB_LOGO}</a>
+    <span>Listings and artwork from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+  </p>`;
 
   // ------------------------------------------------------------------ mount
 
@@ -188,30 +211,37 @@
     const props = {
       defaultTab: root.getAttribute('data-default-tab') || 'profile',
       showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
-      endpoint: root.getAttribute('data-endpoint') || ''
+      endpoint: root.getAttribute('data-endpoint') || '',
+      editorEndpoint: root.getAttribute('data-editor-endpoint') || '',
+      detailEndpoint: root.getAttribute('data-detail-endpoint') || ''
     };
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or
     // ESPN sport fixtures).
-    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT };
+    const data = { movies: MOVIES, series: SERIES, newWeek: NEW_WEEK, sport: SPORT, catalog: [], editorPicks: EDITOR_FALLBACK };
     let INDEX = buildIndex(data);
     let dataSource = 'built-in';
-    const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', year: 'All Years', sort: 'Recommended' };
+    let editorSource = 'built-in';
+    const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' };
 
     const state = {
-      section: ['profile', 'watch', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      section: ['profile', 'watch', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       helpTab: 'Quick Fixes',
       accIdx: 0,
       copied: '',
       query: '',
-      platform: 'All Platforms',
       genre: 'All Genres',
       type: 'All Types',
-      year: 'All Years',
+      country: 'All Countries',
+      decade: 'All Decades',
       sort: 'Recommended',
+      editorType: 'All',
+      editorGenre: 'All',
+      editorSort: "Editor's order",
       open: {},
-      filtersOpen: false
+      filtersOpen: false,
+      detail: null
     };
     let copyTimer = null;
 
@@ -224,10 +254,10 @@
       const q = state.query.trim().toLowerCase();
       return INDEX.filter((x) =>
         (!q || x.t.toLowerCase().includes(q)) &&
-        (exclude === 'platform' || state.platform === 'All Platforms' || x.platform === state.platform) &&
-        (exclude === 'genre' || state.genre === 'All Genres' || x.genre === state.genre) &&
         (exclude === 'type' || state.type === 'All Types' || x.type === state.type) &&
-        (exclude === 'year' || state.year === 'All Years' || String(x.year) === state.year)
+        (exclude === 'genre' || state.genre === 'All Genres' || x.genre === state.genre) &&
+        (exclude === 'country' || state.country === 'All Countries' || x.country === state.country) &&
+        (exclude === 'decade' || state.decade === 'All Decades' || x.decade === state.decade)
       );
     }
     const uniq = (list, key) => [...new Set(list.map((x) => x[key]))];
@@ -284,9 +314,10 @@
     function filtersDrawer(results, searching) {
       const groups = [
         { key: 'type', label: 'Type', options: ['All Types', ...uniq(facetPool('type'), 'type').sort()] },
-        { key: 'genre', label: 'Genre', options: ['All Genres', ...uniq(facetPool('genre'), 'genre').sort()] },
-        { key: 'year', label: 'Year', options: ['All Years', ...uniq(facetPool('year').filter((x) => x.year), 'year').sort((a, b) => b - a).map(String)] },
-        { key: 'sort', label: 'Sort by', options: ['Recommended', 'A–Z', 'Newest'] }
+        { key: 'genre', label: state.type === 'Sport' ? 'Sport Type' : 'Genre', options: ['All Genres', ...uniq(facetPool('genre'), 'genre').sort()] },
+        { key: 'country', label: 'Country', options: ['All Countries', ...uniq(facetPool('country').filter((x) => x.country), 'country').sort()] },
+        { key: 'decade', label: 'Decade', options: ['All Decades', ...uniq(facetPool('decade').filter((x) => x.decade), 'decade').sort((a, b) => parseInt(b, 10) - parseInt(a, 10))] },
+        { key: 'sort', label: 'Sort by', options: ['Recommended', 'A–Z', 'Newest', 'Top Rated'] },
       ];
       const filterGroups = groups.filter((g) => g.key === 'sort' || g.options.length > 2 || state[g.key] !== FILTER_DEFAULTS[g.key]);
       const applyLabel = searching ? `Show ${results.length} result${results.length === 1 ? '' : 's'}` : 'Done';
@@ -316,10 +347,14 @@
 
     function watchSection() {
       const q = state.query.trim().toLowerCase();
-      const searching = !!q || state.platform !== 'All Platforms' || state.genre !== 'All Genres' || state.type !== 'All Types' || state.year !== 'All Years' || state.sort !== 'Recommended';
+      const searching = !!q || state.type !== 'All Types' || state.genre !== 'All Genres' || state.country !== 'All Countries' || state.decade !== 'All Decades' || state.sort !== 'Recommended';
       let results = searching ? facetPool(null) : [];
       if (state.sort === 'A–Z') results = [...results].sort((a, b) => a.t.localeCompare(b.t));
       else if (state.sort === 'Newest') results = [...results].sort((a, b) => b.year - a.year);
+      else if (state.sort === 'Top Rated') {
+        const rate = (x) => { const m = String(x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
+        results = [...results].sort((a, b) => rate(b) - rate(a));
+      }
 
       const sub = state.subWatch;
       const posterRows = [];
@@ -366,12 +401,12 @@
       ${results.map(posterGridItem).join('')}
     </div>
     ${results.length === 0 ? `
-      <div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">Nothing matches your search — try a different title, genre or platform.</div>` : ''}
+      <div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">Nothing matches your search — try a different title, genre or country.</div>` : ''}
   ` : `
     ${posterRows.map((row) => `
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">${esc(row.h)}</h2>
-        <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity">
+        <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;scroll-snap-type:x proximity">
           ${row.items.map(posterRowItem).join('')}
         </div>
       </div>`).join('')}
@@ -379,9 +414,9 @@
     ${showSport ? `
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
-        <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
+        <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${data.sport.map((s) => `
-            <div style="flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
+            <div ${cardAttrs({ detailKind: 'sport', t: s.fx, comp: s.comp, time: s.time, ch: s.ch, live: s.live, bg: 'linear-gradient(150deg,#13264E,#0A142E)' })} style="cursor:pointer;flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(s.comp)}</span>
                 ${s.live ? '<span style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#FF5A6E"><span style="width:7px;height:7px;border-radius:50%;background:#FF5A6E;animation:asPulse 1.4s infinite"></span>LIVE</span>' : ''}
@@ -393,9 +428,9 @@
       </div>
       <div style="margin-bottom:28px">
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live TV Channels</h2>
-        <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px">
+        <div data-dragscroll style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px">
           ${LIVE_TV.map((t) => `
-            <div style="flex:none;width:158px;aspect-ratio:16/10;border-radius:13px;background:${t.bg};color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px;text-align:center">
+            <div ${cardAttrs({ detailKind: 'channel', t: t.name, tag: t.tag, bg: t.bg })} style="cursor:pointer;flex:none;width:158px;aspect-ratio:16/10;border-radius:13px;background:${t.bg};color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px;text-align:center">
               <div style="font-size:13.5px;font-weight:800;line-height:1.2">${esc(t.name)}</div>
               <div style="font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(t.tag)}</div>
             </div>`).join('')}
@@ -405,9 +440,9 @@
     ${showColl ? `
       <div>
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Collections</h2>
-        <div style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
+        <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${COLLECTIONS.map((c) => `
-            <div style="flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
+            <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: c.count, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
               <div style="font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(c.name)}</div>
               <div style="font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.8)">${esc(c.desc)}</div>
               <div style="margin-top:auto;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">${esc(c.count)}</div>
@@ -415,11 +450,88 @@
         </div>
       </div>` : ''}
   `}
-  ${dataSource === 'tmdb' ? `
-  <p style="margin:22px 2px 0;display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;font-size:11px;color:rgba(11,21,51,.45)">
-    <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer" aria-label="TMDB" style="display:inline-flex;flex:none">${TMDB_LOGO}</a>
-    <span>Listings and artwork from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
-  </p>` : ''}
+  ${dataSource === 'tmdb' ? tmdbAttribution() : ''}
+</section>`;
+    }
+
+    // A single premium poster card in the Editor Picks grid.
+    function editorCard(m) {
+      return `
+      <div class="as-editor-card" ${cardAttrs(m)} style="cursor:pointer">
+        <div style="width:100%;aspect-ratio:2/3;border-radius:16px;background:${m.bg};position:relative;overflow:hidden;box-shadow:0 14px 30px -20px rgba(11,21,51,.6)">
+          ${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 48%,rgba(5,9,24,.82))"></div>` : `<div style="position:absolute;top:-22px;right:-8px;font-size:130px;font-weight:800;color:rgba(255,255,255,.13);line-height:1;user-select:none">${esc(m.initial)}</div>`}
+          <div style="position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;background:rgba(5,9,24,.6);color:#F4C56B;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(244,197,107,.5)">${esc(m.rank || '')}</div>
+        </div>
+        <div style="margin-top:9px;font-size:13.5px;font-weight:700;line-height:1.25">${esc(m.t)}</div>
+        <div style="margin-top:3px;font-size:11.5px;color:rgba(11,21,51,.55)">${esc(m.genre)} · ${esc(m.meta)}</div>
+      </div>`;
+    }
+
+    function editorSection() {
+      const picks = data.editorPicks || [];
+      const EDITOR_DEFAULTS = { editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" };
+      const filtering = Object.keys(EDITOR_DEFAULTS).some((k) => state[k] !== EDITOR_DEFAULTS[k]);
+
+      // Chip options derived from the picks themselves (only what's present).
+      const typeOpts = ['All', ...[...new Set(picks.map((p) => p.type).filter(Boolean))]];
+      const genreOpts = ['All', ...[...new Set(picks.map((p) => p.genre).filter(Boolean))].sort()];
+      const sortOpts = ["Editor's order", 'Top Rated', 'A–Z', 'Newest'];
+
+      const rate = (x) => { const m = String(x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
+      const yr = (x) => { const m = String(x.meta).match(/\d{4}/); return m ? +m[0] : -1; };
+
+      let list = picks.filter((p) =>
+        (state.editorType === 'All' || p.type === state.editorType) &&
+        (state.editorGenre === 'All' || p.genre === state.editorGenre)
+      );
+      if (state.editorSort === 'Top Rated') list = [...list].sort((a, b) => rate(b) - rate(a));
+      else if (state.editorSort === 'A–Z') list = [...list].sort((a, b) => a.t.localeCompare(b.t));
+      else if (state.editorSort === 'Newest') list = [...list].sort((a, b) => yr(b) - yr(a));
+      else list = [...list].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
+      const hero = filtering ? null : list[0];
+      const grid = hero ? list.slice(1) : list;
+
+      const heroArt = (m) => m.poster
+        ? `<img src="${esc(m.poster)}" alt="${esc(m.t)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
+        : `<div style="position:absolute;top:-30px;right:-6px;font-size:200px;font-weight:800;color:rgba(255,255,255,.10);line-height:1;user-select:none">${esc(m.initial)}</div>`;
+
+      const chipRow = (label, key, options) => options.length <= 1 ? '' : `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="flex:none;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);min-width:52px">${esc(label)}</span>
+      ${options.map((o) => `<button style="${subBtn(String(state[key]) === String(o))}" data-act="editor-filter" data-key="${key}" data-val="${esc(o)}">${esc(o)}</button>`).join('')}
+    </div>`;
+
+      return `
+<section data-screen-label="Editor Picks">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Editor Picks</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Curated by the AfriStream editors — a hand-picked watchlist, refreshed regularly.</p>
+  </div>
+  ${picks.length ? `
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+    ${chipRow('Type', 'editorType', typeOpts)}
+    ${chipRow('Genre', 'editorGenre', genreOpts)}
+    ${chipRow('Sort', 'editorSort', sortOpts)}
+    ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+  </div>` : ''}
+  ${hero ? `
+  <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
+    <div style="position:absolute;inset:0">${heroArt(hero)}<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,24,.86) 0%,rgba(5,9,24,.55) 46%,rgba(5,9,24,.2) 100%)"></div></div>
+    <div style="position:relative;padding:clamp(22px,4vw,40px);max-width:620px;display:flex;flex-direction:column;gap:12px">
+      <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#F4C56B">★ Editors' No.1</span>
+      <div style="font-size:clamp(26px,4.5vw,40px);font-weight:800;letter-spacing:-0.02em;line-height:1.05">${esc(hero.t)}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;flex-wrap:wrap"><span style="font-weight:700">${esc(hero.genre)}</span><span>·</span><span>${esc(hero.meta)}</span>${hero.country ? `<span>·</span><span>${esc(hero.country)}</span>` : ''}<span>·</span><span>${esc(hero.platform)}</span></div>
+    </div>
+  </div>` : ''}
+  ${grid.length ? `
+  ${hero ? `<h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">More from the list</h2>` : ''}
+  <div data-testid="editor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px">
+    ${grid.map(editorCard).join('')}
+  </div>` : ''}
+  ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+  ${!picks.length ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">The editors' list is refreshing — check back shortly.</div>` : ''}
+  ${editorSource === 'imdb' ? tmdbAttribution() : ''}
 </section>`;
     }
 
@@ -489,12 +601,110 @@
     const NAV = [
       { id: 'profile', label: 'Profile' },
       { id: 'watch', label: 'What to Watch' },
+      { id: 'editor', label: 'Editor Picks' },
       { id: 'tips', label: 'Tips & Tricks' },
       { id: 'help', label: 'Troubleshooting' }
     ];
-    const SECTIONS = { profile: profileSection, watch: watchSection, tips: tipsSection, help: helpSection };
+    const SECTIONS = { profile: profileSection, watch: watchSection, editor: editorSection, tips: tipsSection, help: helpSection };
+
+    // Render-scoped registry of clickable cards: reg(obj) stashes the item
+    // and returns its index so a data-card="<idx>" attribute can look it up
+    // again in the click/keyboard handlers below. Reset at the top of every
+    // render() pass since indices only need to stay stable within one pass.
+    let cardRegistry = [];
+    let detailFocusPending = false;
+    // Return focus to the card that opened the detail panel, once, on close.
+    let detailReturnCard = null;
+    let detailReturnPending = false;
+    // Original body overflow, saved while the panel scroll-locks the page.
+    let prevBodyOverflow = null;
+    const reg = (obj) => cardRegistry.push(obj) - 1;
+
+    const overviewCache = new Map();
+    const pendingSynopsis = new Set();
+
+    function fillSynopsis() {
+      if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
+      const box = root.querySelector('[data-detail-synopsis]');
+      if (!box) return;
+      const obj = state.detail;
+      if (!obj.id || !props.detailEndpoint || typeof fetch !== 'function') {
+        box.textContent = 'No synopsis available.';
+        return;
+      }
+      const kind = obj.type === 'Series' ? 'tv' : 'movie';
+      const cacheKey = kind + ':' + obj.id;
+      if (overviewCache.has(cacheKey)) {
+        box.textContent = overviewCache.get(cacheKey) || 'No synopsis available.';
+        return;
+      }
+      box.textContent = 'Loading synopsis…';
+      if (pendingSynopsis.has(cacheKey)) return;
+      pendingSynopsis.add(cacheKey);
+      const sep = props.detailEndpoint.includes('?') ? '&' : '?';
+      const url = props.detailEndpoint + sep + 'id=' + encodeURIComponent(obj.id) + '&type=' + kind;
+      fetch(url)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          const text = (payload && payload.overview) || '';
+          overviewCache.set(cacheKey, text);
+          // Only fill if the same item is still open.
+          if (state.detail === obj) {
+            const el = root.querySelector('[data-detail-synopsis]');
+            if (el) el.textContent = text || 'No synopsis available.';
+          }
+        })
+        .catch(() => {
+          if (state.detail === obj) {
+            const el = root.querySelector('[data-detail-synopsis]');
+            if (el) el.textContent = 'No synopsis available.';
+          }
+        })
+        .finally(() => {
+          pendingSynopsis.delete(cacheKey);
+        });
+    }
+
+    const cardAttrs = (obj) => `data-act="detail" data-card="${reg(obj)}" role="button" tabindex="0" aria-label="View details for ${esc(obj.t)}"`;
+
+    const posterGridItem = (m) => `<div ${cardAttrs(m)} style="cursor:pointer">${posterArt(m)}${posterMeta(m)}</div>`;
+    const posterRowItem = (m) => `<div ${cardAttrs(m)} style="flex:none;width:148px;scroll-snap-align:start;cursor:pointer">${posterArt(m)}${posterMeta(m)}</div>`;
+
+    function detailDrawer(obj) {
+      let body;
+      if (obj.detailKind === 'sport') {
+        const rows = [['Competition', obj.comp], ['When', obj.time], ['Channel', obj.ch], obj.live ? ['Status', 'LIVE now'] : null].filter(Boolean);
+        body = `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#0B1533;text-align:right">${esc(v)}</span></div>`).join('')}</div>`;
+      } else if (obj.detailKind === 'channel') {
+        body = `<div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"><span style="font-weight:700">${esc(obj.tag)}</span> · Live channel</div>`;
+      } else if (obj.detailKind === 'collection') {
+        body = `<div style="display:flex;flex-direction:column;gap:10px"><div style="font-size:12px;font-weight:700;color:rgba(11,21,51,.55)">${esc(obj.count || '')}</div><div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div></div>`;
+      } else {
+        const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
+          .filter(Boolean)
+          .map((c) => `<span style="font-size:12px;font-weight:700;color:#0B1533;background:#EEF3FE;border:1px solid rgba(46,91,230,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`)
+          .join('');
+        body = `<div style="display:flex;flex-direction:column;gap:16px"><div style="display:flex;gap:8px;flex-wrap:wrap">${chips}</div><div data-detail-synopsis style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"></div></div>`;
+      }
+      const art = obj.poster
+        ? `<img src="${esc(obj.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 40%,rgba(5,9,24,.85))"></div>`
+        : `<div style="position:absolute;top:-30px;right:-8px;font-size:180px;font-weight:800;color:rgba(255,255,255,.12);line-height:1;user-select:none">${esc(obj.initial || (obj.t || '')[0] || '')}</div>`;
+      return `
+    <div data-act="close-detail" style="position:fixed;inset:0;background:rgba(11,21,51,.5);z-index:70"></div>
+    <div data-testid="detail-drawer" role="dialog" aria-modal="true" aria-label="${esc(obj.t)} details" style="position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);background:#fff;z-index:71;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5);display:flex;flex-direction:column;overflow-y:auto">
+      <div style="position:relative;min-height:220px;background:${obj.bg || '#0B1533'};color:#fff;display:flex;align-items:flex-end;padding:18px">
+        ${art}
+        <button data-act="close-detail" aria-label="Close details" style="position:absolute;top:14px;right:14px;background:rgba(5,9,24,.55);border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:15px;color:#fff;font-family:inherit;z-index:1">✕</button>
+        <div style="position:relative;font-size:22px;font-weight:800;line-height:1.15;text-shadow:0 1px 8px rgba(0,0,0,.5)">${esc(obj.t)}</div>
+      </div>
+      <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+        ${body}
+      </div>
+    </div>`;
+    }
 
     function render(preserveFocus) {
+      cardRegistry = [];
       let caret = 0;
       let hadFocus = false;
       const active = document.activeElement;
@@ -517,6 +727,7 @@
 ${(SECTIONS[state.section] || profileSection)()}
 </main>
 <footer style="border-top:1px solid rgba(11,21,51,.08);padding:20px clamp(16px,3vw,32px);text-align:center;font-size:12px;color:rgba(11,21,51,.5)">Need help? <a href="mailto:support@afristream.io">support@afristream.io</a> · © 2026 AfriStream</footer>
+${state.detail ? detailDrawer(state.detail) : ''}
 </div>`;
 
       if (hadFocus) {
@@ -526,6 +737,35 @@ ${(SECTIONS[state.section] || profileSection)()}
           try { input.setSelectionRange(caret, caret); } catch (e) { /* type=search quirk — ignore */ }
         }
       }
+
+      if (detailFocusPending) {
+        detailFocusPending = false;
+        const closeBtn = root.querySelector('[data-testid="detail-drawer"] [aria-label="Close details"]');
+        if (closeBtn) closeBtn.focus();
+      }
+
+      // Scroll-lock the page while the modal panel is open; restore the
+      // original body overflow on close (so we don't clobber a host value).
+      const body = root.ownerDocument && root.ownerDocument.body;
+      if (body) {
+        if (state.detail && prevBodyOverflow === null) {
+          prevBodyOverflow = body.style.overflow;
+          body.style.overflow = 'hidden';
+        } else if (!state.detail && prevBodyOverflow !== null) {
+          body.style.overflow = prevBodyOverflow;
+          prevBodyOverflow = null;
+        }
+      }
+
+      // Return focus to the triggering card after the panel closes.
+      if (detailReturnPending) {
+        detailReturnPending = false;
+        const trigger = detailReturnCard != null && root.querySelector(`[data-card="${detailReturnCard}"]`);
+        if (trigger) trigger.focus();
+        detailReturnCard = null;
+      }
+
+      if (state.detail) fillSynopsis();
     }
 
     // -------------------------------------------------------------- events
@@ -542,8 +782,10 @@ ${(SECTIONS[state.section] || profileSection)()}
         case 'quicknav': setState({ subWatch: val }); break;
         case 'open-filters': setState({ filtersOpen: true }); break;
         case 'close-filters': setState({ filtersOpen: false }); break;
-        case 'clear-filters': setState({ query: '', platform: 'All Platforms', genre: 'All Genres', type: 'All Types', year: 'All Years', sort: 'Recommended' }); break;
+        case 'clear-filters': setState({ query: '', type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' }); break;
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
+        case 'editor-filter': setState({ [el.getAttribute('data-key')]: val }); break;
+        case 'clear-editor-filters': setState({ editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" }); break;
         case 'helptab': setState({ helpTab: val }); break;
         case 'toggle-guide': {
           const i = +val;
@@ -552,6 +794,13 @@ ${(SECTIONS[state.section] || profileSection)()}
           break;
         }
         case 'go-help': setState({ section: 'help' }); break;
+        case 'detail': {
+          const idx = +el.getAttribute('data-card');
+          const obj = cardRegistry[idx];
+          if (obj) { detailReturnCard = idx; detailFocusPending = true; setState({ detail: obj }); }
+          break;
+        }
+        case 'close-detail': detailReturnPending = true; setState({ detail: null }); break;
       }
     });
 
@@ -561,6 +810,69 @@ ${(SECTIONS[state.section] || profileSection)()}
         render(true);
       }
     });
+
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.detail) { detailReturnPending = true; setState({ detail: null }); return; }
+      // Trap Tab within the open panel so focus can't wander to the cards
+      // behind the scrim (honouring the drawer's aria-modal contract).
+      if (e.key === 'Tab' && state.detail) {
+        const drawer = root.querySelector('[data-testid="detail-drawer"]');
+        if (drawer) {
+          const f = drawer.querySelectorAll('a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+          if (f.length) {
+            const first = f[0];
+            const last = f[f.length - 1];
+            const activeEl = root.ownerDocument.activeElement;
+            if (!drawer.contains(activeEl)) { e.preventDefault(); first.focus(); }
+            else if (e.shiftKey && activeEl === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && activeEl === last) { e.preventDefault(); first.focus(); }
+          }
+        }
+        return;
+      }
+      const card = e.target.closest && e.target.closest('[data-act="detail"]');
+      if ((e.key === 'Enter' || e.key === ' ') && card) {
+        const idx = +card.getAttribute('data-card');
+        const obj = cardRegistry[idx];
+        if (obj) { e.preventDefault(); detailReturnCard = idx; detailFocusPending = true; setState({ detail: obj }); }
+      }
+    });
+
+    // Mouse drag-to-scroll for any [data-dragscroll] row. Pointer-based so it
+    // unifies with wheel/touch scroll; a 5px threshold preserves poster clicks,
+    // and once a real drag starts we swallow the trailing click.
+    let drag = null;
+    let draggedClick = false;
+    root.addEventListener('pointerdown', (e) => {
+      draggedClick = false;
+      if (e.button !== 0) return;
+      const row = e.target.closest('[data-dragscroll]');
+      if (!row || !root.contains(row)) return;
+      drag = { row, startX: e.clientX, startScroll: row.scrollLeft };
+    });
+    root.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.startX;
+      if (!draggedClick && Math.abs(dx) < 5) return;
+      draggedClick = true;
+      drag.row.style.cursor = 'grabbing';
+      drag.row.style.userSelect = 'none';
+      drag.row.scrollLeft = drag.startScroll - dx;
+      e.preventDefault();
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      drag.row.style.cursor = '';
+      drag.row.style.userSelect = '';
+      drag = null;
+    };
+    root.addEventListener('pointerup', endDrag);
+    root.addEventListener('pointercancel', endDrag);
+    root.addEventListener('pointerleave', endDrag);
+    // Capture phase so this runs before the bubbling click handler below.
+    root.addEventListener('click', (e) => {
+      if (draggedClick) { draggedClick = false; e.stopPropagation(); e.preventDefault(); }
+    }, true);
 
     render();
 
@@ -590,6 +902,8 @@ ${(SECTIONS[state.section] || profileSection)()}
         .filter((s) => s && s.fx)
         .map((s) => ({
           comp: s.comp || '',
+          code: s.code || '',
+          country: s.country || '',
           fx: s.fx,
           ch: s.ch || '',
           live: !!s.live,
@@ -603,17 +917,36 @@ ${(SECTIONS[state.section] || profileSection)()}
           const movies = prep(payload.movies);
           const series = prep(payload.series);
           const newWeek = prep(payload.newWeek);
+          const catalog = prep(payload.catalog);
           const sport = prepSport(payload.sport);
-          if (!movies.length && !series.length && !sport.length) return;
+          if (!movies.length && !series.length && !sport.length && !catalog.length) return;
           if (movies.length) data.movies = movies;
           if (series.length) data.series = series;
           if (newWeek.length) data.newWeek = newWeek;
+          if (catalog.length) data.catalog = catalog;
           if (sport.length) data.sport = sport;
-          if (movies.length || series.length) dataSource = 'tmdb';
+          if (movies.length || series.length || catalog.length) dataSource = 'tmdb';
           INDEX = buildIndex(data);
           render(true);
         })
         .catch(() => { /* endpoint unreachable — curated lists stay */ });
+    }
+
+    if (props.editorEndpoint && typeof fetch === 'function') {
+      const prepPicks = (arr) => (Array.isArray(arr) ? arr : [])
+        .filter((x) => x && x.t)
+        .map((x) => ({ ...x, initial: String(x.t)[0], bg: bg(x.genre) }));
+      fetch(props.editorEndpoint)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (!payload || payload.source === 'fallback') return;
+          const picks = prepPicks(payload.picks);
+          if (!picks.length) return;
+          data.editorPicks = picks;
+          editorSource = 'imdb';
+          if (state.section === 'editor') render(true);
+        })
+        .catch(() => { /* endpoint unreachable — built-in picks stay */ });
     }
   }
 

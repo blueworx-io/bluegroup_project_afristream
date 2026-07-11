@@ -3,7 +3,7 @@
  * Plugin Name: AfriStream Customer Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.3.0
+ * Version:     0.5.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: afristream-portal
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.3.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.5.0' );
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
@@ -61,10 +61,12 @@ function afristream_portal_shortcode( $atts ) {
 	wp_enqueue_script( 'afristream-portal' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
-		esc_url( rest_url( 'afristream/v1/watch' ) )
+		esc_url( rest_url( 'afristream/v1/watch' ) ),
+		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
+		esc_url( rest_url( 'afristream/v1/detail' ) )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
@@ -136,11 +138,64 @@ function afristream_portal_tmdb_map( $json, $genres, $type, $limit, $meta_label 
 		}
 		$items[] = array(
 			't'        => $title,
+			'id'       => isset( $row['id'] ) ? (int) $row['id'] : 0,
 			'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
 			'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'New',
 			'meta'     => $meta,
 			'poster'   => ! empty( $row['poster_path'] ) ? 'https://image.tmdb.org/t/p/w342' . $row['poster_path'] : null,
 			'type'     => $type,
+		);
+	}
+	return $items;
+}
+
+/**
+ * Origin countries for the deep, filterable catalog. ISO 3166-1 → display name.
+ */
+function afristream_portal_countries() {
+	return array(
+		'US' => 'United States', 'GB' => 'United Kingdom', 'ZA' => 'South Africa',
+		'NG' => 'Nigeria', 'KE' => 'Kenya', 'IN' => 'India', 'FR' => 'France',
+		'ES' => 'Spain', 'KR' => 'South Korea', 'JP' => 'Japan', 'BR' => 'Brazil',
+		'DE' => 'Germany', 'AU' => 'Australia', 'EG' => 'Egypt',
+	);
+}
+
+/**
+ * One page of TMDB discover results for a given media kind and origin country,
+ * mapped onto the portal item shape with a country name attached.
+ */
+function afristream_portal_tmdb_discover( $kind, $cc, $country_name, $genres ) {
+	$json = afristream_portal_tmdb_get(
+		'/discover/' . $kind,
+		array(
+			'sort_by'            => 'popularity.desc',
+			'with_origin_country' => $cc,
+			'vote_count.gte'     => 20,
+			'page'               => 1,
+		)
+	);
+	$type    = ( 'movie' === $kind ) ? 'Movies' : 'Series';
+	$items   = array();
+	$results = ( $json && ! empty( $json['results'] ) ) ? $json['results'] : array();
+	foreach ( $results as $row ) {
+		$title = isset( $row['title'] ) ? $row['title'] : ( isset( $row['name'] ) ? $row['name'] : '' );
+		if ( '' === $title ) {
+			continue;
+		}
+		$date     = isset( $row['release_date'] ) ? $row['release_date'] : ( isset( $row['first_air_date'] ) ? $row['first_air_date'] : '' );
+		$year     = substr( (string) $date, 0, 4 );
+		$genre_id = ! empty( $row['genre_ids'] ) ? $row['genre_ids'][0] : 0;
+		$rating   = isset( $row['vote_average'] ) ? (float) $row['vote_average'] : 0;
+		$items[]  = array(
+			't'        => $title,
+			'id'       => isset( $row['id'] ) ? (int) $row['id'] : 0,
+			'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
+			'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'New',
+			'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
+			'poster'   => ! empty( $row['poster_path'] ) ? 'https://image.tmdb.org/t/p/w342' . $row['poster_path'] : null,
+			'type'     => $type,
+			'country'  => $country_name,
 		);
 	}
 	return $items;
@@ -180,6 +235,21 @@ function afristream_portal_tmdb_catalog() {
 		return null;
 	}
 
+	$deep = array();
+	$seen = array();
+	foreach ( afristream_portal_countries() as $cc => $country_name ) {
+		$rows = array_merge(
+			afristream_portal_tmdb_discover( 'movie', $cc, $country_name, $movie_genres ),
+			afristream_portal_tmdb_discover( 'tv', $cc, $country_name, $tv_genres )
+		);
+		foreach ( $rows as $item ) {
+			if ( ! isset( $seen[ $item['t'] ] ) ) {
+				$seen[ $item['t'] ] = true;
+				$deep[]             = $item;
+			}
+		}
+	}
+
 	$catalog = array(
 		'movies'  => afristream_portal_tmdb_map( $trending_movies, $movie_genres, 'Movies', 10 ),
 		'series'  => afristream_portal_tmdb_map( $trending_tv, $tv_genres, 'Series', 10 ),
@@ -187,6 +257,7 @@ function afristream_portal_tmdb_catalog() {
 			afristream_portal_tmdb_map( $new_movies, $movie_genres, 'Movies', 4, 'New release' ),
 			afristream_portal_tmdb_map( $on_air, $tv_genres, 'Series', 4, 'New episodes' )
 		),
+		'catalog' => $deep,
 	);
 
 	set_transient( 'afristream_portal_tmdb', $catalog, 12 * HOUR_IN_SECONDS );
@@ -202,37 +273,42 @@ function afristream_portal_tmdb_catalog() {
  * means the portal keeps its curated sport list.
  */
 function afristream_portal_sport_events() {
+	// Each league maps to array( label, code, country ): `code` is the sporting
+	// code (drives the "Sport Type" filter) and `country` the host nation (or
+	// 'International' for global competitions). Keep in sync with the preview
+	// server's ESPN_LEAGUES.
 	$leagues = array(
 		// Football (soccer) — mostly European seasons, so quiet over the summer.
-		'soccer/fifa.world'       => 'FIFA World Cup',
-		'soccer/eng.1'            => 'Premier League',
-		'soccer/esp.1'            => 'LaLiga',
-		'soccer/ita.1'            => 'Serie A',
-		'soccer/ger.1'            => 'Bundesliga',
-		'soccer/fra.1'            => 'Ligue 1',
-		'soccer/uefa.champions'   => 'Champions League',
-		'soccer/uefa.europa'      => 'Europa League',
-		'soccer/usa.1'            => 'MLS',
+		'soccer/fifa.world'       => array( 'FIFA World Cup', 'Football', 'International' ),
+		'soccer/eng.1'            => array( 'Premier League', 'Football', 'England' ),
+		'soccer/esp.1'            => array( 'LaLiga', 'Football', 'Spain' ),
+		'soccer/ita.1'            => array( 'Serie A', 'Football', 'Italy' ),
+		'soccer/ger.1'            => array( 'Bundesliga', 'Football', 'Germany' ),
+		'soccer/fra.1'            => array( 'Ligue 1', 'Football', 'France' ),
+		'soccer/uefa.champions'   => array( 'Champions League', 'Football', 'International' ),
+		'soccer/uefa.europa'      => array( 'Europa League', 'Football', 'International' ),
+		'soccer/usa.1'            => array( 'MLS', 'Football', 'United States' ),
 		// Motorsport & combat.
-		'racing/f1'               => 'Formula 1',
-		'mma/ufc'                 => 'UFC',
+		'racing/f1'               => array( 'Formula 1', 'Motorsport', 'International' ),
+		'mma/ufc'                 => array( 'UFC', 'MMA', 'International' ),
 		// North American major leagues.
-		'football/nfl'            => 'NFL',
-		'basketball/nba'          => 'NBA',
-		'baseball/mlb'            => 'MLB',
-		'hockey/nhl'              => 'NHL',
+		'football/nfl'            => array( 'NFL', 'American Football', 'United States' ),
+		'basketball/nba'          => array( 'NBA', 'Basketball', 'United States' ),
+		'baseball/mlb'            => array( 'MLB', 'Baseball', 'United States' ),
+		'hockey/nhl'              => array( 'NHL', 'Ice Hockey', 'United States' ),
 		// Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for
 		// some of these; the mapping falls back to the competition label.
-		'rugby/270557'            => 'URC Rugby',
-		'tennis/atp'              => 'ATP Tennis',
-		'tennis/wta'              => 'WTA Tennis',
-		'golf/pga'                => 'PGA Tour',
-		'australian-football/afl' => 'AFL',
+		'rugby/270557'            => array( 'URC Rugby', 'Rugby', 'International' ),
+		'tennis/atp'              => array( 'ATP Tennis', 'Tennis', 'International' ),
+		'tennis/wta'              => array( 'WTA Tennis', 'Tennis', 'International' ),
+		'golf/pga'                => array( 'PGA Tour', 'Golf', 'United States' ),
+		'australian-football/afl' => array( 'AFL', 'Aussie Rules', 'Australia' ),
 	);
 	$range  = gmdate( 'Ymd' ) . '-' . gmdate( 'Ymd', time() + 7 * DAY_IN_SECONDS );
 	$events = array();
 
-	foreach ( $leagues as $path => $label ) {
+	foreach ( $leagues as $path => $meta ) {
+		list( $label, $code, $country ) = $meta;
 		$response = wp_remote_get(
 			'https://site.api.espn.com/apis/site/v2/sports/' . $path . '/scoreboard?dates=' . $range,
 			array( 'timeout' => 8 )
@@ -259,12 +335,14 @@ function afristream_portal_sport_events() {
 			}
 			$channel  = isset( $event['competitions'][0]['broadcasts'][0]['names'][0] ) ? $event['competitions'][0]['broadcasts'][0]['names'][0] : '';
 			$events[] = array(
-				'comp' => $label,
-				'fx'   => str_replace( ' at ', ' vs ', $name ),
-				'iso'  => isset( $event['date'] ) ? $event['date'] : '',
-				'time' => 'in' === $state ? 'LIVE now' : '',
-				'ch'   => '' !== $channel ? $channel : $label,
-				'live' => 'in' === $state,
+				'comp'    => $label,
+				'code'    => $code,
+				'country' => $country,
+				'fx'      => str_replace( ' at ', ' vs ', $name ),
+				'iso'     => isset( $event['date'] ) ? $event['date'] : '',
+				'time'    => 'in' === $state ? 'LIVE now' : '',
+				'ch'      => '' !== $channel ? $channel : $label,
+				'live'    => 'in' === $state,
 			);
 			$count++;
 		}
@@ -318,6 +396,123 @@ function afristream_portal_watch_data() {
 	return rest_ensure_response( $data );
 }
 
+/**
+ * Editor Picks — a hand-curated list of IMDb title IDs (IMDb's watchlist page
+ * is behind AWS WAF and can't be scraped server-side, so the editor pastes the
+ * IDs from their watchlist into the afristream_editor_picks_ids option). Each
+ * ID is resolved via TMDB for consistent artwork, and a last-good copy is kept
+ * so a TMDB hiccup never blanks the page.
+ */
+function afristream_portal_editor_ids() {
+	// Accept any tt-id, whether pasted bare, comma/newline separated, or inside
+	// a full IMDb title URL. Order preserved, deduped, capped at 24.
+	preg_match_all( '/tt\d+/', (string) get_option( 'afristream_editor_picks_ids', '' ), $m );
+	return array_slice( array_values( array_unique( $m[0] ) ), 0, 24 );
+}
+
+function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movie_genres, $tv_genres ) {
+	$json  = afristream_portal_tmdb_get( '/find/' . $imdb_id, array( 'external_source' => 'imdb_id' ) );
+	$movie = ! empty( $json['movie_results'] ) ? $json['movie_results'][0] : null;
+	$tv    = ! empty( $json['tv_results'] ) ? $json['tv_results'][0] : null;
+	$hit   = $movie ? $movie : $tv;
+	if ( ! $hit ) {
+		if ( '' === $fallback_title ) {
+			return null;
+		}
+		return array(
+			't' => $fallback_title, 'genre' => 'Film', 'platform' => 'IMDb',
+			'meta' => '', 'poster' => null, 'type' => 'Movies', 'country' => '', 'rank' => $rank, 'id' => 0,
+		);
+	}
+	$type      = $movie ? 'Movies' : 'Series';
+	$genres    = $movie ? $movie_genres : $tv_genres;
+	$date      = isset( $hit['release_date'] ) ? $hit['release_date'] : ( isset( $hit['first_air_date'] ) ? $hit['first_air_date'] : '' );
+	$year      = substr( (string) $date, 0, 4 );
+	$genre_id  = ! empty( $hit['genre_ids'] ) ? $hit['genre_ids'][0] : 0;
+	$rating    = isset( $hit['vote_average'] ) ? (float) $hit['vote_average'] : 0;
+	$countries = afristream_portal_countries();
+	$cc        = ! empty( $hit['origin_country'][0] ) ? $hit['origin_country'][0] : '';
+	$title     = isset( $hit['title'] ) ? $hit['title'] : ( isset( $hit['name'] ) ? $hit['name'] : $fallback_title );
+	return array(
+		't'        => $title,
+		'id'       => isset( $hit['id'] ) ? (int) $hit['id'] : 0,
+		'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
+		'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'IMDb',
+		'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
+		'poster'   => ! empty( $hit['poster_path'] ) ? 'https://image.tmdb.org/t/p/w342' . $hit['poster_path'] : null,
+		'type'     => $type,
+		'country'  => isset( $countries[ $cc ] ) ? $countries[ $cc ] : '',
+		'rank'     => $rank,
+	);
+}
+
+function afristream_portal_editor_picks() {
+	$cached = get_transient( 'afristream_portal_editor' );
+	if ( false !== $cached ) {
+		return $cached;
+	}
+	if ( ! afristream_portal_tmdb_key() ) {
+		return array( 'source' => 'fallback', 'reason' => 'no-key' );
+	}
+
+	$ids       = afristream_portal_editor_ids();
+	$last_good = get_option( 'afristream_portal_editor_lastgood', null );
+	if ( empty( $ids ) ) {
+		return $last_good ? $last_good : array( 'source' => 'fallback', 'reason' => 'no-ids' );
+	}
+
+	$movie_genres = afristream_portal_tmdb_genres( 'movie' );
+	$tv_genres    = afristream_portal_tmdb_genres( 'tv' );
+	$picks        = array();
+	$rank         = 1;
+	foreach ( $ids as $imdb_id ) {
+		$pick = afristream_portal_resolve_pick( $imdb_id, '', $rank, $movie_genres, $tv_genres );
+		if ( $pick ) {
+			$picks[] = $pick;
+			$rank++;
+		}
+	}
+	if ( empty( $picks ) ) {
+		return $last_good ? $last_good : array( 'source' => 'fallback', 'reason' => 'none-resolved' );
+	}
+
+	$payload = array( 'source' => 'imdb', 'updated' => gmdate( 'c' ), 'picks' => $picks );
+	set_transient( 'afristream_portal_editor', $payload, 12 * HOUR_IN_SECONDS );
+	update_option( 'afristream_portal_editor_lastgood', $payload, false );
+	return $payload;
+}
+
+function afristream_portal_editor_data() {
+	return rest_ensure_response( afristream_portal_editor_picks() );
+}
+
+/**
+ * Single-item synopsis for the card detail panel. Given a TMDB id and kind
+ * (movie|tv), returns { overview }. Cached per id+kind for 24h; an empty
+ * string whenever no key is set or TMDB is unreachable.
+ */
+function afristream_portal_detail_data( $request ) {
+	$id   = absint( $request->get_param( 'id' ) );
+	$type = 'tv' === $request->get_param( 'type' ) ? 'tv' : 'movie';
+	if ( ! $id ) {
+		return rest_ensure_response( array( 'overview' => '' ) );
+	}
+	$cache_key = 'afristream_portal_detail_' . $type . '_' . $id;
+	$cached    = get_transient( $cache_key );
+	if ( false !== $cached ) {
+		return rest_ensure_response( array( 'overview' => $cached ) );
+	}
+	if ( ! afristream_portal_tmdb_key() ) {
+		return rest_ensure_response( array( 'overview' => '' ) );
+	}
+	$json     = afristream_portal_tmdb_get( '/' . $type . '/' . $id );
+	$overview = ( $json && ! empty( $json['overview'] ) ) ? (string) $json['overview'] : '';
+	if ( null !== $json ) {
+		set_transient( $cache_key, $overview, 24 * HOUR_IN_SECONDS );
+	}
+	return rest_ensure_response( array( 'overview' => $overview ) );
+}
+
 function afristream_portal_register_rest_routes() {
 	register_rest_route(
 		'afristream/v1',
@@ -325,6 +520,26 @@ function afristream_portal_register_rest_routes() {
 		array(
 			'methods'             => 'GET',
 			'callback'            => 'afristream_portal_watch_data',
+			'permission_callback' => '__return_true',
+		)
+	);
+
+	register_rest_route(
+		'afristream/v1',
+		'/editor-picks',
+		array(
+			'methods'             => 'GET',
+			'callback'            => 'afristream_portal_editor_data',
+			'permission_callback' => '__return_true',
+		)
+	);
+
+	register_rest_route(
+		'afristream/v1',
+		'/detail',
+		array(
+			'methods'             => 'GET',
+			'callback'            => 'afristream_portal_detail_data',
 			'permission_callback' => '__return_true',
 		)
 	);
@@ -363,6 +578,25 @@ function afristream_portal_register_settings() {
 		'afristream_portal_data',
 		array( 'label_for' => 'afristream_tmdb_api_key' )
 	);
+
+	register_setting(
+		'afristream_portal',
+		'afristream_editor_picks_ids',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'afristream_portal_sanitize_editor_ids',
+			'default'           => '',
+		)
+	);
+
+	add_settings_field(
+		'afristream_editor_picks_ids',
+		__( 'Editor Picks (IMDb IDs)', 'afristream-portal' ),
+		'afristream_portal_editor_ids_field',
+		'afristream-portal',
+		'afristream_portal_data',
+		array( 'label_for' => 'afristream_editor_picks_ids' )
+	);
 }
 add_action( 'admin_init', 'afristream_portal_register_settings' );
 
@@ -370,6 +604,23 @@ function afristream_portal_sanitize_tmdb_key( $value ) {
 	// A new (or cleared) key should refetch immediately, not wait out the cache.
 	delete_transient( 'afristream_portal_tmdb' );
 	return sanitize_text_field( (string) $value );
+}
+
+function afristream_portal_sanitize_editor_ids( $value ) {
+	// A changed list should refetch immediately, not wait out the cache.
+	delete_transient( 'afristream_portal_editor' );
+	return sanitize_textarea_field( (string) $value );
+}
+
+function afristream_portal_editor_ids_field() {
+	printf(
+		'<textarea class="large-text code" rows="6" name="afristream_editor_picks_ids" id="afristream_editor_picks_ids" autocomplete="off" placeholder="tt0111161&#10;tt0068646&#10;https://www.imdb.com/title/tt0468569/">%s</textarea>',
+		esc_textarea( (string) get_option( 'afristream_editor_picks_ids', '' ) )
+	);
+	echo '<p class="description">' . wp_kses(
+		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Paste the <code>tt…</code> IDs from your IMDb watchlist — one per line, or the full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). IMDb\'s watchlist page can\'t be read automatically, so the list is maintained here. Up to 24; saving refreshes immediately.', 'afristream-portal' ),
+		array( 'code' => array() )
+	) . '</p>';
 }
 
 function afristream_portal_settings_intro() {
