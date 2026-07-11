@@ -101,43 +101,18 @@
     { tag: 'Support', h: 60, title: 'Support Tips', items: ['Take screenshots of errors.', 'Confirm which device is being used before troubleshooting.', 'Confirm the app name before giving setup support.', 'Ask whether the issue is install, login, or connection related.'] }
   ];
 
-  const GUIDES = {
-    'Quick Fixes': [
-      { badge: 'Note', title: 'Before You Start', body: 'Most playback issues clear up with the first two steps. Before you begin:\n• Check that your subscription is active — you should see "Annual · Active" at the top of this portal.\n• Your profile works on one device at a time; make sure the app is not signed in elsewhere.' },
-      { badge: 'Step 1', title: 'Restart the App', body: 'Fully close AfriStream (do not just minimise it), wait 10 seconds, then reopen. On most devices: open recent apps, swipe AfriStream away, then relaunch.' },
-      { badge: 'Step 2', title: 'Clear Cache & App Data', body: 'Old cache is the most common cause of buffering and login loops.\n1. Open your device Settings → Apps → AfriStream.\n2. Tap Clear Cache, then Clear Data.\n3. Reopen the app and sign in again.' },
-      { badge: 'Step 3', title: 'Test Your Internet', body: 'AfriStream needs at least 10 Mbps for HD and 25 Mbps for 4K. Run a speed test on the same device. If it is slow, restart your router (off for 30 seconds), or try a mobile hotspot to rule out your line.' },
-      { badge: 'Step 4', title: 'Reinstall the App', body: 'Uninstall AfriStream, restart your device, then reinstall the latest version and sign in again. This fixes most stubborn issues after app updates.' }
-    ],
-    'Smart TV': [
-      { badge: 'Note', title: 'Supported TVs', body: 'AfriStream runs on Samsung (Tizen, 2018+), LG (webOS 4+), and any Android TV / Google TV. Older TVs work best with an external device such as a Fire TV Stick.' },
-      { badge: 'Step 1', title: 'Update Your TV Software', body: 'Settings → Support / About → Software Update. Out-of-date firmware is the top cause of app crashes on smart TVs.' },
-      { badge: 'Step 2', title: 'Cold-Boot the TV', body: 'Unplug the TV from the wall for 60 seconds (standby is not enough), then plug back in and relaunch AfriStream.' },
-      { badge: 'Step 3', title: 'Check Date & Time', body: 'If the TV clock is wrong, secure streams will not connect. Set Date & Time to automatic in your TV settings.' },
-      { badge: 'Step 4', title: 'Prefer a Wired Connection', body: 'If your TV is far from the router, buffering is usually Wi-Fi. Use an ethernet cable or move the router closer for stable 4K.' }
-    ],
-    'Firestick': [
-      { badge: 'Note', title: 'Before You Start', body: 'These steps apply to the Fire TV Stick, Stick 4K and Fire TV Cube on Fire OS 6 or newer.' },
-      { badge: 'Step 1', title: 'Force Stop & Clear Cache', body: 'Settings → Applications → Manage Installed Applications → AfriStream → Force Stop, then Clear Cache and Clear Data.' },
-      { badge: 'Step 2', title: 'Restart the Firestick', body: 'Hold Select + Play/Pause for 10 seconds, or unplug the power for 30 seconds and plug it back in.' },
-      { badge: 'Step 3', title: 'Free Up Storage', body: 'Fire OS misbehaves with under 1 GB free. Settings → My Fire TV → About → Storage, then uninstall apps you no longer use.' },
-      { badge: 'Step 4', title: 'Reinstall the Latest Version', body: 'Uninstall AfriStream, then reinstall it using the Downloader code from your welcome email. Sign in again.' }
-    ],
-    'Phone & Tablet': [
-      { badge: 'Note', title: 'Supported Devices', body: 'AfriStream supports Android 9+ and iOS 15+. Phones and tablets use the same app and profile.' },
-      { badge: 'Step 1', title: 'Update the App', body: 'Install the latest version, then restart your device before opening the app again.' },
-      { badge: 'Step 2', title: 'Clear the Cache', body: 'Android: Settings → Apps → AfriStream → Storage → Clear Cache.\niPhone / iPad: offload the app in Settings → General → Storage, then reinstall.' },
-      { badge: 'Step 3', title: 'Check Battery Settings', body: 'Battery saver and data saver modes can kill streams in the background. Exclude AfriStream from both while watching.' },
-      { badge: 'Step 4', title: 'Switch Networks', body: 'Try switching between Wi-Fi and mobile data. If it works on one and not the other, restart your router or contact your ISP.' }
-    ]
-  };
-
-  const HELP_INTROS = {
-    'Quick Fixes': 'Follow these steps in order if you are experiencing connection or playback issues.',
-    'Smart TV': 'Fixes specific to Samsung, LG, Android TV and Google TV.',
-    'Firestick': 'Fixes for the Fire TV Stick, Stick 4K and Fire TV Cube.',
-    'Phone & Tablet': 'Fixes for Android and iOS phones and tablets.'
-  };
+  // Troubleshooting accordion. `body` is trusted static HTML (rendered as-is,
+  // not escaped) — keep it authored here, never from user input. Mirrors the
+  // [troubleshooting_guide] shortcode in includes/shortcodes.php.
+  const TROUBLESHOOTING = [
+    { badge: 'Note', title: 'Before You Start', body: '<ul><li>Do not uninstall your app unless instructed</li><li>Enter your username and password exactly correct or the app will require a re-connection (Step 3).</li><li>Username and Password are case sensitive</li><li>DNS updates can take some time to propagate</li></ul>' },
+    { badge: 'Step 1', title: 'Restart the App', body: '<ol><li>Close the app completely and reopen it.</li><li>If channels/content still do not load, continue to the next step.</li></ol>' },
+    { badge: 'Step 2', title: 'Clear Cache &amp; App Data', body: '<h4>Firestick / Android TV</h4><ol><li>Go to Settings</li><li>Open Applications</li><li>Select Manage Installed Applications</li><li>Select your streaming app</li><li>Choose: <strong>Clear Cache</strong> then <strong>Clear Data</strong></li><li>Re-open the app</li><li>Enter your login details again</li></ol>' },
+    { badge: 'Step 3', title: 'Reconnect the Playlist / Server', body: '<p>If the app opens but shows no channels/content:</p><ol><li>Open the app menu</li><li>Select <strong>Edit Playlist</strong> or <strong>Update Playlist</strong></li><li>Re-enter your login details carefully</li><li>Save changes</li><li>Press Connect</li><li>Wait 10&ndash;15 seconds for content to load</li></ol>' },
+    { badge: 'Step 4', title: 'Playlist Not Working?', body: '<p>This usually means the old DNS/server is cached. Try:</p><ul><li>Rebooting the device</li><li>Clearing app cache again</li><li>Reconnecting the playlist</li><li>Waiting 15&ndash;30 minutes for DNS propagation</li></ul>' },
+    { badge: 'Step 6', title: 'Try an Alternative App', body: '<p>If the current app still does not connect after following all previous steps, try installing an alternative supported app.</p><br><h4>Install Alternative App</h4><ol><li>Open the Downloader app</li><li>Enter one of the provided codes:<ul><li><code>569138</code></li><li><code>6573365</code></li><li><code>617725</code></li><li><code>9469460</code></li></ul></li><li>Download and install the app</li><li>Open the new app</li><li>Enter your existing login details</li><li>Allow a few seconds for playlists/content to sync</li></ol><br><h4>If It Still Does Not Work</h4><ul><li>Restart your device</li><li>Retry the login carefully</li><li>Wait for DNS propagation to complete</li><li>Try another listed app if available</li></ul>' },
+    { badge: 'Info', title: 'Important Notes', body: '<ul><li>Your username/password stay the same</li><li>Most issues are caused by cached DNS or outdated playlist data</li><li>Full restoration may take some time while apps are updated</li></ul>' }
+  ];
 
   // Flat, deduped search index across every content source. Movies/series/
   // newWeek come from the live data (API or built-in); sport, live TV and
@@ -173,11 +148,11 @@
 
   // ---------------------------------------------------------- style helpers
 
-  const navBtn = (a) => `flex:none;border:none;background:none;cursor:pointer;font-family:inherit;font-weight:${a ? 800 : 600};font-size:14px;letter-spacing:.01em;padding:20px 2px 16px;color:${a ? '#fff' : 'rgba(255,255,255,.58)'};border-bottom:3px solid ${a ? '#4C7DFF' : 'transparent'};white-space:nowrap;transition:color .15s,border-color .15s`;
-  const subBtn = (a) => `flex:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:999px;white-space:nowrap;transition:background .15s,color .15s;background:${a ? '#0B1533' : '#fff'};color:${a ? '#fff' : 'rgba(11,21,51,.62)'};border:1px solid ${a ? '#0B1533' : 'rgba(11,21,51,.12)'}`;
-  const badgeStyle = (b) => `display:inline-flex;align-items:center;flex:none;background:${b === 'Note' ? '#0B1533' : '#2E5BE6'};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap`;
+  const navBtn = (a) => `flex:none;border:none;background:none;cursor:pointer;font-family:inherit;font-weight:${a ? 800 : 600};font-size:14px;letter-spacing:.01em;padding:20px 2px 16px;color:${a ? '#fff' : 'rgba(255,255,255,.58)'};border-bottom:3px solid ${a ? '#CD2DF5' : 'transparent'};white-space:nowrap;transition:color .15s,border-color .15s`;
+  const subBtn = (a) => `flex:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;padding:8px 15px;border-radius:999px;white-space:nowrap;transition:background .15s,color .15s;background:${a ? '#65009F' : '#fff'};color:${a ? '#fff' : 'rgba(11,21,51,.62)'};border:1px solid ${a ? '#65009F' : 'rgba(11,21,51,.12)'}`;
+  const badgeStyle = (b) => `display:inline-flex;align-items:center;flex:none;background:${b === 'Note' ? '#65009F' : '#65009F'};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap`;
   const tagStyle = (h) => `align-self:flex-start;position:relative;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:oklch(0.95 0.03 ${h});color:oklch(0.42 0.13 ${h})`;
-  const copyBtnStyle = 'flex:none;background:#2E5BE6;color:#fff;border:none;border-radius:13px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer;min-width:98px;box-shadow:0 8px 18px -10px rgba(46,91,230,.7)';
+  const copyBtnStyle = 'flex:none;background:#65009F;color:#fff;border:none;border-radius:13px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer;min-width:98px;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)';
 
   // Official TMDB short logo (themoviedb.org/about/logos-attribution), inlined
   // so attribution works offline; gradient id namespaced to avoid collisions.
@@ -213,8 +188,17 @@
       showSport: !/^(false|0|no)$/i.test(root.getAttribute('data-show-sport') || 'true'),
       endpoint: root.getAttribute('data-endpoint') || '',
       editorEndpoint: root.getAttribute('data-editor-endpoint') || '',
-      detailEndpoint: root.getAttribute('data-detail-endpoint') || ''
+      detailEndpoint: root.getAttribute('data-detail-endpoint') || '',
+      credentialsEndpoint: root.getAttribute('data-credentials-endpoint') || '',
+      restNonce: root.getAttribute('data-rest-nonce') || ''
     };
+    // Profile credentials. Without a credentials endpoint (e.g. the generic
+    // local preview) the built-in demo ACCOUNTS are shown. With one (the
+    // WordPress shortcode), they're fetched for the logged-in user: 'loading'
+    // until the fetch resolves, then 'ready' (real profiles), 'empty' (no
+    // license assigned) or 'error' (fetch failed).
+    let accounts = ACCOUNTS.map((a) => ({ ...a }));
+    let credState = props.credentialsEndpoint ? 'loading' : 'demo';
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or
     // ESPN sport fixtures).
@@ -227,7 +211,7 @@
     const state = {
       section: ['profile', 'watch', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
-      helpTab: 'Quick Fixes',
+      guideOpen: 0,
       accIdx: 0,
       copied: '',
       query: '',
@@ -239,7 +223,6 @@
       editorType: 'All',
       editorGenre: 'All',
       editorSort: "Editor's order",
-      open: {},
       filtersOpen: false,
       detail: null
     };
@@ -276,21 +259,25 @@
     // ------------------------------------------------------------ sections
 
     function profileSection() {
-      const acc = ACCOUNTS[state.accIdx] || ACCOUNTS[0];
-      return `
-<section data-screen-label="App Profile">
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 18px">
-    ${ACCOUNTS.map((a, i) => `<button style="${subBtn(i === state.accIdx)}" data-act="acct" data-val="${i}">${esc(a.label)}</button>`).join('')}
-  </div>
-  <div style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:20px;overflow:hidden;box-shadow:0 1px 2px rgba(11,21,51,.04),0 16px 40px -30px rgba(11,21,51,.35)">
-    <div style="background:linear-gradient(115deg,#0B1533 25%,#16327E 72%,#2E5BE6 118%);padding:clamp(22px,3.5vw,32px);color:#fff;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between">
-      <div style="min-width:240px;flex:1 1 300px">
-        <h1 style="margin:0 0 6px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Your AfriStream App Profile Details</h1>
-        <p style="margin:0;font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.72);max-width:560px">These will be used when accessing any AfriStream platforms or content. They cannot be edited.</p>
-      </div>
-      <div style="font-size:12px;font-weight:700;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:6px 14px;border-radius:999px;flex:none">${esc(acc.label)} of ${ACCOUNTS.length}</div>
-    </div>
-    <div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:22px">
+      const acc = accounts[state.accIdx] || accounts[0];
+      const multi = accounts.length > 1;
+
+      // Card body varies by credentials state.
+      let body;
+      if (credState === 'loading') {
+        body = `<div style="padding:clamp(20px,3.5vw,30px);font-size:13.5px;color:rgba(11,21,51,.6)">Loading your profile…</div>`;
+      } else if (credState === 'empty') {
+        body = `<div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14.5px;font-weight:700">No profile assigned yet</div>
+          <div style="font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.7)">There's no active AfriStream profile on your account. If you've just subscribed this can take a short while — otherwise email <a href="mailto:support@afristream.io">support@afristream.io</a> and we'll sort it out.</div>
+        </div>`;
+      } else if (credState === 'error' || !acc) {
+        body = `<div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:14.5px;font-weight:700">Couldn't load your profile</div>
+          <div style="font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.7)">Please refresh the page. If it keeps happening, email <a href="mailto:support@afristream.io">support@afristream.io</a>.</div>
+        </div>`;
+      } else {
+        body = `<div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:22px">
       <div>
         <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Active Username</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -305,8 +292,27 @@
           <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-pass">${state.copied === 'pass' ? 'Copied!' : 'Copy'}</button>
         </div>
       </div>
-      <div style="background:#EEF3FE;border:1px solid rgba(46,91,230,.18);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.72)">Each profile works on one device at a time. Switch between your profiles using the tabs above. Need an extra profile for another screen? Email <a href="mailto:support@afristream.io">support@afristream.io</a>.</div>
+      <div style="background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.72)">${multi ? 'Each profile works on one device at a time. Switch between your profiles using the tabs above. ' : 'Your profile works on one device at a time. '}Need an extra profile for another screen? Email <a href="mailto:support@afristream.io">support@afristream.io</a>.</div>
+    </div>`;
+      }
+
+      const showTabs = multi && (credState === 'ready' || credState === 'demo');
+      const pill = acc ? `${esc(acc.label)}${multi ? ' of ' + accounts.length : ''}` : '';
+
+      return `
+<section data-screen-label="App Profile">
+  ${showTabs ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 18px">
+    ${accounts.map((a, i) => `<button style="${subBtn(i === state.accIdx)}" data-act="acct" data-val="${i}">${esc(a.label)}</button>`).join('')}
+  </div>` : ''}
+  <div style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:20px;overflow:hidden;box-shadow:0 1px 2px rgba(11,21,51,.04),0 16px 40px -30px rgba(11,21,51,.35)">
+    <div style="background:linear-gradient(115deg,#65009F 20%,#CD2DF5 108%);padding:clamp(22px,3.5vw,32px);color:#fff;display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between">
+      <div style="min-width:240px;flex:1 1 300px">
+        <h1 class="as-on-dark" style="margin:0 0 6px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em;color:#fff">Your AfriStream App Profile Details</h1>
+        <p class="as-on-dark" style="margin:0;font-size:13.5px;line-height:1.55;color:rgba(255,255,255,.78);max-width:560px">These will be used when accessing any AfriStream platforms or content. They cannot be edited.</p>
+      </div>
+      ${pill ? `<div style="font-size:12px;font-weight:700;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:6px 14px;border-radius:999px;flex:none">${pill}</div>` : ''}
     </div>
+    ${body}
   </div>
 </section>`;
     }
@@ -327,7 +333,7 @@
     <div data-testid="filters-drawer" style="position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);background:#fff;z-index:61;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5);display:flex;flex-direction:column">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid rgba(11,21,51,.08)">
         <div style="font-size:17px;font-weight:800">Filters</div>
-        <button class="as-hover-chip" data-act="close-filters" style="background:#F2F3F7;border:none;border-radius:999px;width:32px;height:32px;cursor:pointer;font-size:14px;color:#0B1533;font-family:inherit">✕</button>
+        <button class="as-hover-chip" data-act="close-filters" style="background:#F2F3F7;border:none;border-radius:999px;width:32px;height:32px;cursor:pointer;font-size:14px;color:#65009F;font-family:inherit">✕</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:24px">
         ${filterGroups.map((g) => `
@@ -339,8 +345,8 @@
           </div>`).join('')}
       </div>
       <div style="display:flex;gap:10px;padding:16px 22px;border-top:1px solid rgba(11,21,51,.08)">
-        <button class="as-hover-ghost" data-act="clear-filters" style="flex:1;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer;color:#0B1533">Clear all</button>
-        <button class="as-hover-primary" data-act="close-filters" style="flex:1.4;background:#2E5BE6;color:#fff;border:none;border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">${esc(applyLabel)}</button>
+        <button class="as-hover-ghost" data-act="clear-filters" style="flex:1;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer;color:#65009F">Clear all</button>
+        <button class="as-hover-primary" data-act="close-filters" style="flex:1.4;background:#65009F;color:#fff;border:none;border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">${esc(applyLabel)}</button>
       </div>
     </div>`;
     }
@@ -368,7 +374,7 @@
 
       const filterCount = Object.keys(FILTER_DEFAULTS).filter((k) => state[k] !== FILTER_DEFAULTS[k]).length;
       const filterBtnLabel = filterCount ? `Filters · ${filterCount}` : 'Filters';
-      const filterBtnStyle = `flex:none;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;padding:12px 20px;border-radius:13px;white-space:nowrap;transition:background .15s,color .15s;background:${filterCount ? '#0B1533' : '#fff'};color:${filterCount ? '#fff' : '#0B1533'};border:1px solid ${filterCount ? '#0B1533' : 'rgba(11,21,51,.12)'}`;
+      const filterBtnStyle = `flex:none;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:700;padding:12px 20px;border-radius:13px;white-space:nowrap;transition:background .15s,color .15s;background:${filterCount ? '#65009F' : '#fff'};color:${filterCount ? '#fff' : '#65009F'};border:1px solid ${filterCount ? '#65009F' : 'rgba(11,21,51,.12)'}`;
 
       const quickNav = ['All', 'Movies', 'Series', 'Sport', 'Documentaries', 'Kids', 'New This Week', 'Collections'];
       const showSport = !searching && (sub === 'All' || sub === 'Sport') && props.showSport;
@@ -382,7 +388,7 @@
   </div>
 
   <div style="display:flex;gap:10px;flex-wrap:wrap;margin:0 0 10px">
-    <input value="${esc(state.query)}" data-act="query" placeholder="Search titles…" style="flex:1 1 220px;min-width:0;padding:12px 16px;border:1px solid rgba(11,21,51,.12);border-radius:13px;font-family:inherit;font-size:14px;background:#fff;color:#0B1533;outline-color:#2E5BE6">
+    <input value="${esc(state.query)}" data-act="query" placeholder="Search titles…" style="flex:1 1 220px;min-width:0;padding:12px 16px;border:1px solid rgba(11,21,51,.12);border-radius:13px;font-family:inherit;font-size:14px;background:#fff;color:#65009F;outline-color:#65009F">
     <button style="${filterBtnStyle}" data-act="open-filters">${esc(filterBtnLabel)}</button>
   </div>
 
@@ -395,7 +401,7 @@
   ${searching ? `
     <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:14px">
       <div style="font-size:14px;font-weight:800">${results.length} result${results.length === 1 ? '' : 's'}</div>
-      <button data-act="clear-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:13px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Clear search &amp; filters</button>
+      <button data-act="clear-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:13px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Clear search &amp; filters</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:16px">
       ${results.map(posterGridItem).join('')}
@@ -416,7 +422,7 @@
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
         <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${data.sport.map((s) => `
-            <div ${cardAttrs({ detailKind: 'sport', t: s.fx, comp: s.comp, time: s.time, ch: s.ch, live: s.live, bg: 'linear-gradient(150deg,#13264E,#0A142E)' })} style="cursor:pointer;flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#13264E,#0A142E);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
+            <div ${cardAttrs({ detailKind: 'sport', t: s.fx, comp: s.comp, time: s.time, ch: s.ch, live: s.live, bg: 'linear-gradient(150deg,#4A0073,#2A0047)' })} style="cursor:pointer;flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#4A0073,#2A0047);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(s.comp)}</span>
                 ${s.live ? '<span style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#FF5A6E"><span style="width:7px;height:7px;border-radius:50%;background:#FF5A6E;animation:asPulse 1.4s infinite"></span>LIVE</span>' : ''}
@@ -513,10 +519,10 @@
     ${chipRow('Type', 'editorType', typeOpts)}
     ${chipRow('Genre', 'editorGenre', genreOpts)}
     ${chipRow('Sort', 'editorSort', sortOpts)}
-    ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+    ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
   </div>` : ''}
   ${hero ? `
-  <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#0B1533 20%,#16327E 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
+  <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#65009F 20%,#CD2DF5 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
     <div style="position:absolute;inset:0">${heroArt(hero)}<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,24,.86) 0%,rgba(5,9,24,.55) 46%,rgba(5,9,24,.2) 100%)"></div></div>
     <div style="position:relative;padding:clamp(22px,4vw,40px);max-width:620px;display:flex;flex-direction:column;gap:12px">
       <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#F4C56B">★ Editors' No.1</span>
@@ -529,7 +535,7 @@
   <div data-testid="editor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px">
     ${grid.map(editorCard).join('')}
   </div>` : ''}
-  ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#2E5BE6;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+  ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
   ${!picks.length ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">The editors' list is refreshing — check back shortly.</div>` : ''}
   ${editorSource === 'imdb' ? tmdbAttribution() : ''}
 </section>`;
@@ -557,38 +563,34 @@
         </div>
       </div>`).join('')}
   </div>
-  <div style="margin-top:18px;background:linear-gradient(120deg,#0B1533,#16327E);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
+  <div style="margin-top:18px;background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
     <div style="flex:1 1 300px">
       <div style="font-size:15.5px;font-weight:800;margin-bottom:3px">Something not working?</div>
       <div style="font-size:13px;line-height:1.55;color:rgba(255,255,255,.68)">Start with the Quick Fixes — they solve most playback and sign-in issues in under five minutes.</div>
     </div>
-    <button class="as-hover-light" data-act="go-help" style="flex:none;background:#fff;color:#0B1533;border:none;border-radius:12px;padding:12px 22px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">Open Troubleshooting</button>
+    <button class="as-hover-light" data-act="go-help" style="flex:none;background:#fff;color:#65009F;border:none;border-radius:12px;padding:12px 22px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">Open Troubleshooting</button>
   </div>
 </section>`;
     }
 
     function helpSection() {
-      const items = GUIDES[state.helpTab] || [];
       return `
 <section data-screen-label="Troubleshooting">
   <div style="margin:2px 2px 18px">
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">AfriStream Troubleshooting Guide</h1>
-    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">${esc(HELP_INTROS[state.helpTab] || '')}</p>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    ${Object.keys(GUIDES).map((l) => `<button style="${subBtn(l === state.helpTab)}" data-act="helptab" data-val="${esc(l)}">${esc(l)}</button>`).join('')}
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Follow these steps if you are experiencing connection issues.</p>
   </div>
   <div style="display:flex;flex-direction:column;gap:10px">
-    ${items.map((g, i) => {
-      const open = (state.open[state.helpTab] ?? 0) === i;
+    ${TROUBLESHOOTING.map((g, i) => {
+      const open = state.guideOpen === i;
       return `
       <div style="background:#fff;border:1px solid rgba(11,21,51,.09);border-radius:15px;overflow:hidden;box-shadow:0 1px 2px rgba(11,21,51,.03)">
-        <button data-act="toggle-guide" data-val="${i}" style="display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:16px 18px;cursor:pointer;text-align:left;font-family:inherit">
+        <button data-act="toggle-guide" data-val="${i}" aria-expanded="${open ? 'true' : 'false'}" style="display:flex;align-items:center;gap:12px;width:100%;background:none;border:none;padding:16px 18px;cursor:pointer;text-align:left;font-family:inherit">
           <span style="${badgeStyle(g.badge)}">${esc(g.badge)}</span>
-          <span style="flex:1;font-size:15px;font-weight:700;color:#0B1533">${esc(g.title)}</span>
+          <span style="flex:1;font-size:15px;font-weight:700;color:#65009F">${esc(g.title)}</span>
           <span style="flex:none;transition:transform .2s;transform:rotate(${open ? 180 : 0}deg);font-size:13px;color:rgba(11,21,51,.5)">▾</span>
         </button>
-        ${open ? `<div style="padding:13px 18px 18px;font-size:14px;line-height:1.65;color:rgba(11,21,51,.75);white-space:pre-line;border-top:1px solid rgba(11,21,51,.06)">${esc(g.body)}</div>` : ''}
+        ${open ? `<div style="padding:6px 18px 18px;font-size:14px;line-height:1.65;color:rgba(11,21,51,.78);border-top:1px solid rgba(11,21,51,.06)">${g.body}</div>` : ''}
       </div>`;
     }).join('')}
   </div>
@@ -674,7 +676,7 @@
       let body;
       if (obj.detailKind === 'sport') {
         const rows = [['Competition', obj.comp], ['When', obj.time], ['Channel', obj.ch], obj.live ? ['Status', 'LIVE now'] : null].filter(Boolean);
-        body = `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#0B1533;text-align:right">${esc(v)}</span></div>`).join('')}</div>`;
+        body = `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#65009F;text-align:right">${esc(v)}</span></div>`).join('')}</div>`;
       } else if (obj.detailKind === 'channel') {
         body = `<div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"><span style="font-weight:700">${esc(obj.tag)}</span> · Live channel</div>`;
       } else if (obj.detailKind === 'collection') {
@@ -682,7 +684,7 @@
       } else {
         const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
           .filter(Boolean)
-          .map((c) => `<span style="font-size:12px;font-weight:700;color:#0B1533;background:#EEF3FE;border:1px solid rgba(46,91,230,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`)
+          .map((c) => `<span style="font-size:12px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`)
           .join('');
         body = `<div style="display:flex;flex-direction:column;gap:16px"><div style="display:flex;gap:8px;flex-wrap:wrap">${chips}</div><div data-detail-synopsis style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"></div></div>`;
       }
@@ -692,7 +694,7 @@
       return `
     <div data-act="close-detail" style="position:fixed;inset:0;background:rgba(11,21,51,.5);z-index:70"></div>
     <div data-testid="detail-drawer" role="dialog" aria-modal="true" aria-label="${esc(obj.t)} details" style="position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);background:#fff;z-index:71;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5);display:flex;flex-direction:column;overflow-y:auto">
-      <div style="position:relative;min-height:220px;background:${obj.bg || '#0B1533'};color:#fff;display:flex;align-items:flex-end;padding:18px">
+      <div style="position:relative;min-height:220px;background:${obj.bg || '#65009F'};color:#fff;display:flex;align-items:flex-end;padding:18px">
         ${art}
         <button data-act="close-detail" aria-label="Close details" style="position:absolute;top:14px;right:14px;background:rgba(5,9,24,.55);border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:15px;color:#fff;font-family:inherit;z-index:1">✕</button>
         <div style="position:relative;font-size:22px;font-weight:800;line-height:1.15;text-shadow:0 1px 8px rgba(0,0,0,.5)">${esc(obj.t)}</div>
@@ -715,7 +717,7 @@
 
       root.innerHTML = `
 <div style="min-height:100vh;display:flex;flex-direction:column">
-<header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#0B1533 40%,#12224F);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
+<header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:26px;overflow-x:auto">
     ${NAV.map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`).join('')}
     <div style="margin-left:auto;align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none">
@@ -777,8 +779,8 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       switch (el.getAttribute('data-act')) {
         case 'nav': setState({ section: val }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
-        case 'copy-user': copy((ACCOUNTS[state.accIdx] || ACCOUNTS[0]).user, 'user'); break;
-        case 'copy-pass': copy((ACCOUNTS[state.accIdx] || ACCOUNTS[0]).pass, 'pass'); break;
+        case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
+        case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
         case 'quicknav': setState({ subWatch: val }); break;
         case 'open-filters': setState({ filtersOpen: true }); break;
         case 'close-filters': setState({ filtersOpen: false }); break;
@@ -786,11 +788,9 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
         case 'editor-filter': setState({ [el.getAttribute('data-key')]: val }); break;
         case 'clear-editor-filters': setState({ editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" }); break;
-        case 'helptab': setState({ helpTab: val }); break;
         case 'toggle-guide': {
           const i = +val;
-          const isOpen = (state.open[state.helpTab] ?? 0) === i;
-          setState({ open: { ...state.open, [state.helpTab]: isOpen ? -1 : i } });
+          setState({ guideOpen: state.guideOpen === i ? -1 : i });
           break;
         }
         case 'go-help': setState({ section: 'help' }); break;
@@ -947,6 +947,34 @@ ${state.detail ? detailDrawer(state.detail) : ''}
           if (state.section === 'editor') render(true);
         })
         .catch(() => { /* endpoint unreachable — built-in picks stay */ });
+    }
+
+    // Fetch the logged-in user's real credentials for the Profile tab. Only
+    // runs when the shortcode supplies a credentials endpoint (the WordPress
+    // mount); the generic preview keeps its built-in demo profiles.
+    if (props.credentialsEndpoint && typeof fetch === 'function') {
+      const headers = props.restNonce ? { 'X-WP-Nonce': props.restNonce } : {};
+      fetch(props.credentialsEndpoint, { headers, credentials: 'same-origin' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          const list = (payload && Array.isArray(payload.profiles) ? payload.profiles : [])
+            .filter((p) => p && (p.user || p.pass))
+            .map((p, i) => ({ label: p.label || `Profile ${i + 1}`, user: p.user || '', pass: p.pass || '' }));
+          if (list.length) {
+            accounts = list;
+            credState = 'ready';
+          } else {
+            accounts = [];
+            credState = 'empty';
+          }
+          if (state.accIdx >= accounts.length) state.accIdx = 0;
+          render(true);
+        })
+        .catch(() => {
+          accounts = [];
+          credState = 'error';
+          render(true);
+        });
     }
   }
 

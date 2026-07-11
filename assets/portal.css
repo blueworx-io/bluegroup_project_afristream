@@ -6,9 +6,23 @@
 .afristream-portal {
   background: #F2F3F7;
   font-family: 'Hanken Grotesk', system-ui, sans-serif;
-  color: #0B1533;
+  color: #241528;
   -webkit-font-smoothing: antialiased;
   width: 100%;
+}
+
+/* Headings use the brand purple, and stay light on the dark hero panels.
+   !important so a host theme's heading colour can't override them (which is
+   what turned the profile header text dark). The white rule has higher
+   specificity than the purple one, so .as-on-dark wins on the hero. */
+.afristream-portal h1,
+.afristream-portal h2,
+.afristream-portal h3 {
+  color: #65009F !important;
+}
+
+.afristream-portal .as-on-dark {
+  color: #fff !important;
 }
 
 /* Full width: some themes and dashboard shells (e.g. SureCart's customer
@@ -27,13 +41,13 @@
 }
 
 .afristream-portal a {
-  color: #2E5BE6;
+  color: #65009F;
   text-decoration: none;
   font-weight: 600;
 }
 
 .afristream-portal a:hover {
-  color: #2148C2;
+  color: #4A0073;
   text-decoration: underline;
 }
 
@@ -62,10 +76,10 @@
 
 /* Hover states — the design's style-hover attributes. !important so they
    win over the inline base styles they modify. */
-.afristream-portal .as-hover-primary:hover { background: #2148C2 !important; }
+.afristream-portal .as-hover-primary:hover { background: #4A0073 !important; }
 .afristream-portal .as-hover-chip:hover { background: #E5E7EF !important; }
 .afristream-portal .as-hover-ghost:hover { background: #F2F3F7 !important; }
-.afristream-portal .as-hover-light:hover { background: #E8EDFB !important; }
+.afristream-portal .as-hover-light:hover { background: #F3E4FF !important; }
 
 .afristream-portal [data-dragscroll] {
   cursor: grab;

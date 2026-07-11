@@ -3,7 +3,7 @@
  * Plugin Name: AfriStream Customer Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.5.1
+ * Version:     0.6.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: afristream-portal
@@ -13,7 +13,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.5.1' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.6.0' );
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
@@ -61,12 +64,14 @@ function afristream_portal_shortcode( $atts ) {
 	wp_enqueue_script( 'afristream-portal' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-rest-nonce="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
 		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
-		esc_url( rest_url( 'afristream/v1/detail' ) )
+		esc_url( rest_url( 'afristream/v1/detail' ) ),
+		esc_url( rest_url( 'afristream/v1/credentials' ) ),
+		esc_attr( wp_create_nonce( 'wp_rest' ) )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
@@ -541,6 +546,37 @@ function afristream_portal_register_rest_routes() {
 			'methods'             => 'GET',
 			'callback'            => 'afristream_portal_detail_data',
 			'permission_callback' => '__return_true',
+		)
+	);
+
+	// Credentials are private to the logged-in user, so this route (unlike the
+	// others) requires authentication — the portal fetches it with the REST
+	// nonce and same-origin cookies.
+	register_rest_route(
+		'afristream/v1',
+		'/credentials',
+		array(
+			'methods'             => 'GET',
+			'callback'            => 'afristream_portal_credentials_data',
+			'permission_callback' => function () {
+				return is_user_logged_in();
+			},
+		)
+	);
+}
+
+/**
+ * The current user's app credentials, one entry per assigned license, for the
+ * portal's Profile tab. Returns source:"fallback" with an empty list when no
+ * license is assigned (or ACF is unavailable), so the front-end can show a
+ * clear "no profile assigned" state instead of stale placeholders.
+ */
+function afristream_portal_credentials_data() {
+	$profiles = afristream_portal_user_credentials();
+	return rest_ensure_response(
+		array(
+			'source'   => $profiles ? 'acf' : 'fallback',
+			'profiles' => $profiles,
 		)
 	);
 }
