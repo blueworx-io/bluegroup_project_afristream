@@ -48,7 +48,7 @@ Playwright smoke tests run against the local preview harness until a real stagin
 npm run build     # stages dist/afristream-portal/
 ```
 
-Zip `dist/afristream-portal/` as `afristream-portal.zip` at the repo root — the zip is the deployment artifact; only the current version's zip may exist.
+Then zip the staged folder as `afristream-portal.zip` at the repo root — the zip is the deployment artifact; only the current version's zip may exist. On Windows run `scripts/zip-plugin.ps1` to build it: PowerShell's `Compress-Archive` (and .NET Framework's `ZipFile.CreateFromDirectory`) write backslash path separators, which WordPress's extractor mishandles — the plugin then installs as a stray file instead of a folder. The script writes proper forward-slash entries.
 
 ## Process
 
