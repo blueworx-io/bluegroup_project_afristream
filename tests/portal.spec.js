@@ -365,14 +365,32 @@ test('editor picks tab shows the built-in list when the endpoint is offline', as
   await expect(page.getByText('The Colour of Home')).toBeVisible();
 });
 
-test('troubleshooting accordion and device tabs work', async ({ page }) => {
+test('troubleshooting accordion works', async ({ page }) => {
   await page.getByRole('button', { name: 'Troubleshooting' }).click();
 
   // First item is open by default; clicking another swaps the open panel.
-  await expect(page.getByText('Most playback issues clear up')).toBeVisible();
+  await expect(page.getByText('Do not uninstall your app unless instructed')).toBeVisible();
   await page.getByRole('button', { name: /Restart the App/ }).click();
-  await expect(page.getByText('Fully close AfriStream')).toBeVisible();
+  await expect(page.getByText('Close the app completely and reopen it.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Firestick', exact: true }).click();
-  await expect(page.getByText('Fixes for the Fire TV Stick, Stick 4K and Fire TV Cube.')).toBeVisible();
+  // The alternative-app step exposes the Downloader codes.
+  await page.getByRole('button', { name: /Try an Alternative App/ }).click();
+  await expect(page.getByText('569138')).toBeVisible();
+});
+
+test('profile tab shows the logged-in user credentials from the endpoint', async ({ page }) => {
+  // fixture.html supplies a credentials endpoint, mirroring the WordPress mount
+  // (the plain preview keeps its built-in demo profiles).
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+  await expect(page.getByText('afri_fixture', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Copy', exact: true }).first().click();
+  await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible();
+
+  // Switching profile tabs swaps to the second license's credentials.
+  await page.getByRole('button', { name: 'Profile 2' }).click();
+  await expect(page.getByText('afri_fixture_tv')).toBeVisible();
 });

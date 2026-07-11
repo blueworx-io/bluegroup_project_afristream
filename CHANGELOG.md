@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-11
+
+### Added
+
+- **Real per-user credentials in the Profile tab** — the portal now shows each logged-in subscriber's actual app username and password, resolved from their assigned ACF `license` posts, via a new authenticated REST route `afristream/v1/credentials` (fetched with the REST nonce and same-origin cookies). The old hardcoded placeholder profiles are gone; the tab shows a clear "no profile assigned" state when a user has no active license, and the built-in demo profiles now appear only in the credential-less local preview.
+- **License management (merged from the code-snippets plugin)** — so that plugin can be retired. Ported into `includes/licenses.php` and `includes/shortcodes.php`, with every ACF call guarded by `function_exists()` so the plugin degrades gracefully if ACF is inactive: the Users-table **Active Licenses** column; the License post-type **Expiry Date / Mobile Active / Connected User** columns (sortable); prevention of assigning a license already held by another user (relationship-field filtering + save-time validation); and auto-unassignment when a user is deleted. The `[user_acf_fields]` and `[troubleshooting_guide]` shortcodes are ported too (function names re-prefixed to avoid any clash), so existing pages keep working.
+
+### Changed
+
+- **Brand refresh** — the portal is restyled in the AfriStream brand colours (deep purple `#65009F` and magenta `#CD2DF5`), replacing the previous blue palette across headers, buttons, accents, links and gradients. Semantic colours (live-red, rating-gold, active-green, TMDB logo) are unchanged.
+- **Troubleshooting tab** now shows the detailed, step-by-step guide (Restart → Clear Cache → Reconnect Playlist → Playlist Not Working → Alternative App with Downloader codes → Important Notes) as a single accordion, replacing the previous lighter device-tabbed version.
+
+### Fixed
+
+- **Profile header text** now stays white on the dark hero panel; a host theme's heading-colour rule was overriding it to near-black. Portal headings are forced to the brand colour (and white on dark) with a scoped `!important` rule so the theme can't win.
+
 ## [0.5.1] - 2026-07-11
 
 ### Fixed

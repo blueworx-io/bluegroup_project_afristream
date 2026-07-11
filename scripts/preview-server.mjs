@@ -68,6 +68,16 @@ const EDITOR_FIXTURE = {
   ],
 };
 
+// Deterministic credentials fixture for the Profile tab (mirrors the plugin's
+// afristream/v1/credentials, which is ACF-backed and per-user in production).
+const CREDENTIALS_FIXTURE = {
+  source: 'acf',
+  profiles: [
+    { label: 'Profile 1', user: 'afri_fixture', pass: 'Fx9Kp2Lm' },
+    { label: 'Profile 2', user: 'afri_fixture_tv', pass: 'Tv4Qr8Zn' },
+  ],
+};
+
 let editorCache = null;
 let editorCacheAt = 0;
 
@@ -368,6 +378,14 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/editor-picks') {
       const payload = url.searchParams.get('fixture') === '1' ? EDITOR_FIXTURE : await editorPicksPayload();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
+    if (path === '/api/credentials') {
+      const payload = url.searchParams.get('fixture') === '1'
+        ? CREDENTIALS_FIXTURE
+        : { source: 'fallback', profiles: [] };
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(payload));
       return;
