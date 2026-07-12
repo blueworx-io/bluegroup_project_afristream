@@ -13,6 +13,7 @@
 
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import process from 'node:process';
 
@@ -24,7 +25,7 @@ const FIXTURE = {
   updated: 'fixture',
   tmdb: true,
   sport: [
-    { comp: 'Fixture League', code: 'Football', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
+    { comp: 'Fixture League', code: 'Soccer', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
     { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', live: false },
   ],
   movies: [
@@ -56,7 +57,18 @@ const FIXTURE = {
 // IMDb URL containing one) is accepted; order is preserved, capped at 24.
 function parseEditorIds(raw) {
   const ids = String(raw || '').match(/tt\d+/g) || [];
-  return [...new Set(ids)].slice(0, 24);
+  return [...new Set(ids)].slice(0, 60);
+}
+
+// The EDITOR_PICKS_IDS env wins (mirrors the WP admin box); otherwise fall back
+// to the synced watchlist file that ships with the plugin.
+function editorIdsSource() {
+  if (process.env.EDITOR_PICKS_IDS) return process.env.EDITOR_PICKS_IDS;
+  try {
+    return readFileSync(join(ROOT, 'data', 'editor-picks-ids.txt'), 'utf8');
+  } catch {
+    return '';
+  }
 }
 
 const EDITOR_FIXTURE = {
@@ -111,7 +123,7 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
 async function editorPicksPayload() {
   if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
   if (editorCache && Date.now() - editorCacheAt < 12 * 60 * 60 * 1000) return editorCache;
-  const ids = parseEditorIds(process.env.EDITOR_PICKS_IDS);
+  const ids = parseEditorIds(editorIdsSource());
   if (!ids.length) return editorCache || { source: 'fallback', reason: 'no-ids' };
   try {
     const genreList = async (type) =>
@@ -260,16 +272,16 @@ async function tmdbCatalog() {
 // (drives the "Sport Type" filter) and `country` the host nation (or
 // 'International' for global competitions). Keep in sync with the PHP $leagues.
 const ESPN_LEAGUES = {
-  // Football (soccer) — mostly European seasons, so quiet over the summer.
-  'soccer/fifa.world': { label: 'FIFA World Cup', code: 'Football', country: 'International' },
-  'soccer/eng.1': { label: 'Premier League', code: 'Football', country: 'England' },
-  'soccer/esp.1': { label: 'LaLiga', code: 'Football', country: 'Spain' },
-  'soccer/ita.1': { label: 'Serie A', code: 'Football', country: 'Italy' },
-  'soccer/ger.1': { label: 'Bundesliga', code: 'Football', country: 'Germany' },
-  'soccer/fra.1': { label: 'Ligue 1', code: 'Football', country: 'France' },
-  'soccer/uefa.champions': { label: 'Champions League', code: 'Football', country: 'International' },
-  'soccer/uefa.europa': { label: 'Europa League', code: 'Football', country: 'International' },
-  'soccer/usa.1': { label: 'MLS', code: 'Football', country: 'United States' },
+  // Soccer — mostly European seasons, so quiet over the summer.
+  'soccer/fifa.world': { label: 'FIFA World Cup', code: 'Soccer', country: 'International' },
+  'soccer/eng.1': { label: 'Premier League', code: 'Soccer', country: 'England' },
+  'soccer/esp.1': { label: 'LaLiga', code: 'Soccer', country: 'Spain' },
+  'soccer/ita.1': { label: 'Serie A', code: 'Soccer', country: 'Italy' },
+  'soccer/ger.1': { label: 'Bundesliga', code: 'Soccer', country: 'Germany' },
+  'soccer/fra.1': { label: 'Ligue 1', code: 'Soccer', country: 'France' },
+  'soccer/uefa.champions': { label: 'Champions League', code: 'Soccer', country: 'International' },
+  'soccer/uefa.europa': { label: 'Europa League', code: 'Soccer', country: 'International' },
+  'soccer/usa.1': { label: 'MLS', code: 'Soccer', country: 'United States' },
   // Motorsport & combat.
   'racing/f1': { label: 'Formula 1', code: 'Motorsport', country: 'International' },
   'mma/ufc': { label: 'UFC', code: 'MMA', country: 'International' },
@@ -278,9 +290,12 @@ const ESPN_LEAGUES = {
   'basketball/nba': { label: 'NBA', code: 'Basketball', country: 'United States' },
   'baseball/mlb': { label: 'MLB', code: 'Baseball', country: 'United States' },
   'hockey/nhl': { label: 'NHL', code: 'Ice Hockey', country: 'United States' },
-  // Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for some
-  // of these; the mapping falls back to the competition label.
+  // Rugby, cricket, tennis, golf, Aussie rules. ESPN omits broadcaster names
+  // for some of these; the mapping falls back to the competition label.
   'rugby/270557': { label: 'URC Rugby', code: 'Rugby', country: 'International' },
+  'cricket/8039': { label: 'ICC World Cup', code: 'Cricket', country: 'International' },
+  'cricket/8048': { label: 'ICC T20 World Cup', code: 'Cricket', country: 'International' },
+  'cricket/8044': { label: 'ICC Champions Trophy', code: 'Cricket', country: 'International' },
   'tennis/atp': { label: 'ATP Tennis', code: 'Tennis', country: 'International' },
   'tennis/wta': { label: 'WTA Tennis', code: 'Tennis', country: 'International' },
   'golf/pga': { label: 'PGA Tour', code: 'Golf', country: 'United States' },

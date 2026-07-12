@@ -64,8 +64,11 @@
     mk('Tide Riders', 'Family', 'Disney+', 'Added Monday')
   ];
   const SPORT = [
-    { comp: 'FIFA World Cup', code: 'Football', country: 'International', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
-    { comp: 'Premier League', code: 'Football', country: 'England', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
+    { comp: 'FIFA World Cup', code: 'Soccer', country: 'International', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
+    { comp: 'Premier League', code: 'Soccer', country: 'England', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
+    { comp: 'ICC World Cup', code: 'Cricket', country: 'International', fx: 'Super Eight · Match Day', time: 'Today · 14:30', ch: 'Sky Sports Cricket', live: false },
+    { comp: 'PGA Tour', code: 'Golf', country: 'United States', fx: 'The Open · Round 2', time: 'Fri · 13:00', ch: 'Sky Sports Golf', live: false },
+    { comp: 'URC Rugby', code: 'Rugby', country: 'International', fx: 'Final · Build-up', time: 'Sat · 18:00', ch: 'SuperSport', live: false },
     { comp: 'Formula 1', code: 'Motorsport', country: 'International', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
     { comp: 'UFC', code: 'MMA', country: 'International', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
     { comp: 'NBA', code: 'Basketball', country: 'United States', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
@@ -76,12 +79,19 @@
     { name: 'National Geographic', tag: 'Docs' }, { name: 'Cartoon Network', tag: 'Kids' },
     { name: 'Eurosport', tag: 'Sport' }, { name: 'CNN International', tag: 'News' }
   ].map((t) => ({ ...t, bg: `linear-gradient(150deg, oklch(0.32 0.06 ${hue(t.tag)}), oklch(0.20 0.05 ${hue(t.tag)}))` }));
+  // Star rating parsed from a "★ 8.4" platform badge; -1 when unrated.
+  const ratingOf = (x) => { const m = String(x && x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
+
+  // Collections are live queries over the fetched TMDB catalog — no manual title
+  // lists. Each `match(item)` runs at render time over the flat INDEX (movies +
+  // series only); the card shows the real match count and the detail drawer shows
+  // the actual matching posters. `sort: 'rating'` orders a collection by rating.
   const COLLECTIONS = [
-    { name: 'Weekend Binge', count: '12 titles', desc: 'Three seasons or less — start Friday, done by Sunday.', h: 300 },
-    { name: 'True Crime Deep Dive', count: '9 titles', desc: 'Docs and dramas ripped from the headlines.', h: 265 },
-    { name: 'Family Movie Night', count: '15 titles', desc: 'Safe for the whole couch.', h: 210 },
-    { name: 'Big Match Build-Up', count: '7 titles', desc: 'Sport docs to watch before kick-off.', h: 150 },
-    { name: 'Award Season Catch-Up', count: '10 titles', desc: 'Everything nominated, in one row.', h: 25 }
+    { name: 'Weekend Binge', desc: 'Bingeable series — pick one and settle in.', h: 300, sort: 'rating', match: (x) => x.type === 'Series' },
+    { name: 'True Crime Deep Dive', desc: 'Crime, mystery and the docs ripped from the headlines.', h: 265, match: (x) => /^(Crime|Mystery|Thriller|Documentary|Docs)$/.test(x.genre) },
+    { name: 'Family Movie Night', desc: 'Safe for the whole couch.', h: 210, match: (x) => x.type === 'Movies' && /^(Family|Kids|Animation)$/.test(x.genre) },
+    { name: 'Big Match Build-Up', desc: 'Documentaries to line up before kick-off.', h: 150, match: (x) => /^(Documentary|Docs)$/.test(x.genre) },
+    { name: 'Award Season Catch-Up', desc: 'Everything the critics loved, in one row.', h: 25, sort: 'rating', match: (x) => ratingOf(x) >= 7.5 }
   ].map((c) => ({ ...c, bg: `linear-gradient(135deg, oklch(0.42 0.12 ${c.h}), oklch(0.24 0.09 ${(c.h + 50) % 360}))` }));
 
   const EDITOR_FALLBACK = [
@@ -126,7 +136,7 @@
       ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
       ...data.sport.map((s) => ({ t: s.fx, genre: s.code || 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', country: s.country || '', initial: s.fx[0], bg: bg('Sport') })),
       ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
-      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg })),
+      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: 'Collection', type: 'Collection', initial: c.name[0], bg: c.bg })),
       ...(data.catalog || []).map((x) => ({ ...x, type: x.type || 'Movies' })),
     ];
     // Only the deep catalog carries origin country; the trending/newWeek copies
@@ -220,9 +230,7 @@
       country: 'All Countries',
       decade: 'All Decades',
       sort: 'Recommended',
-      editorType: 'All',
-      editorGenre: 'All',
-      editorSort: "Editor's order",
+      editorTag: 'All',
       filtersOpen: false,
       detail: null
     };
@@ -378,7 +386,17 @@
 
       const quickNav = ['All', 'Movies', 'Series', 'Sport', 'Documentaries', 'Kids', 'New This Week', 'Collections'];
       const showSport = !searching && (sub === 'All' || sub === 'Sport') && props.showSport;
-      const showColl = !searching && (sub === 'All' || sub === 'Collections');
+      // Resolve each collection against the live catalog; hide thin ones (<3
+      // matches) so a card never opens to an empty grid.
+      const collectionMembers = (c) => {
+        let items = INDEX.filter((x) => (x.type === 'Movies' || x.type === 'Series') && c.match(x));
+        if (c.sort === 'rating') items = [...items].sort((a, b) => ratingOf(b) - ratingOf(a));
+        return items;
+      };
+      const collections = (!searching && (sub === 'All' || sub === 'Collections'))
+        ? COLLECTIONS.map((c) => ({ ...c, items: collectionMembers(c) })).filter((c) => c.items.length >= 3)
+        : [];
+      const showColl = collections.length > 0;
 
       return `
 <section data-screen-label="What to Watch">
@@ -447,11 +465,11 @@
       <div>
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Collections</h2>
         <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
-          ${COLLECTIONS.map((c) => `
-            <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: c.count, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
+          ${collections.map((c) => `
+            <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: `${c.items.length} titles`, items: c.items, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
               <div style="font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(c.name)}</div>
               <div style="font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.8)">${esc(c.desc)}</div>
-              <div style="margin-top:auto;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">${esc(c.count)}</div>
+              <div style="margin-top:auto;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">${esc(c.items.length)} title${c.items.length === 1 ? '' : 's'}</div>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -475,25 +493,18 @@
 
     function editorSection() {
       const picks = data.editorPicks || [];
-      const EDITOR_DEFAULTS = { editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" };
-      const filtering = Object.keys(EDITOR_DEFAULTS).some((k) => state[k] !== EDITOR_DEFAULTS[k]);
+      const tag = state.editorTag || 'All';
+      const filtering = tag !== 'All';
 
-      // Chip options derived from the picks themselves (only what's present).
-      const typeOpts = ['All', ...[...new Set(picks.map((p) => p.type).filter(Boolean))]];
-      const genreOpts = ['All', ...[...new Set(picks.map((p) => p.genre).filter(Boolean))].sort()];
-      const sortOpts = ["Editor's order", 'Top Rated', 'A–Z', 'Newest'];
+      // A single row of tags (What-to-Watch pill style) — the content types and
+      // genres actually present in the picks. Selecting one filters the list.
+      const tagOpts = ['All', ...[...new Set([
+        ...picks.map((p) => p.type).filter(Boolean),
+        ...picks.map((p) => p.genre).filter(Boolean),
+      ])]];
 
-      const rate = (x) => { const m = String(x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
-      const yr = (x) => { const m = String(x.meta).match(/\d{4}/); return m ? +m[0] : -1; };
-
-      let list = picks.filter((p) =>
-        (state.editorType === 'All' || p.type === state.editorType) &&
-        (state.editorGenre === 'All' || p.genre === state.editorGenre)
-      );
-      if (state.editorSort === 'Top Rated') list = [...list].sort((a, b) => rate(b) - rate(a));
-      else if (state.editorSort === 'A–Z') list = [...list].sort((a, b) => a.t.localeCompare(b.t));
-      else if (state.editorSort === 'Newest') list = [...list].sort((a, b) => yr(b) - yr(a));
-      else list = [...list].sort((a, b) => (a.rank || 0) - (b.rank || 0));
+      let list = picks.filter((p) => tag === 'All' || p.type === tag || p.genre === tag);
+      list = [...list].sort((a, b) => (a.rank || 0) - (b.rank || 0));
 
       const hero = filtering ? null : list[0];
       const grid = hero ? list.slice(1) : list;
@@ -502,24 +513,15 @@
         ? `<img src="${esc(m.poster)}" alt="${esc(m.t)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
         : `<div style="position:absolute;top:-30px;right:-6px;font-size:200px;font-weight:800;color:rgba(255,255,255,.10);line-height:1;user-select:none">${esc(m.initial)}</div>`;
 
-      const chipRow = (label, key, options) => options.length <= 1 ? '' : `
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="flex:none;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);min-width:52px">${esc(label)}</span>
-      ${options.map((o) => `<button style="${subBtn(String(state[key]) === String(o))}" data-act="editor-filter" data-key="${key}" data-val="${esc(o)}">${esc(o)}</button>`).join('')}
-    </div>`;
-
       return `
 <section data-screen-label="Editor Picks">
   <div style="margin:2px 2px 18px">
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Editor Picks</h1>
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Curated by the AfriStream editors — a hand-picked watchlist, refreshed regularly.</p>
   </div>
-  ${picks.length ? `
-  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
-    ${chipRow('Type', 'editorType', typeOpts)}
-    ${chipRow('Genre', 'editorGenre', genreOpts)}
-    ${chipRow('Sort', 'editorSort', sortOpts)}
-    ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+  ${picks.length && tagOpts.length > 1 ? `
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px">
+    ${tagOpts.map((o) => `<button style="${subBtn(String(tag) === String(o))}" data-act="editor-filter" data-key="editorTag" data-val="${esc(o)}">${esc(o)}</button>`).join('')}
   </div>` : ''}
   ${hero ? `
   <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#65009F 20%,#CD2DF5 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
@@ -680,7 +682,13 @@
       } else if (obj.detailKind === 'channel') {
         body = `<div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"><span style="font-weight:700">${esc(obj.tag)}</span> · Live channel</div>`;
       } else if (obj.detailKind === 'collection') {
-        body = `<div style="display:flex;flex-direction:column;gap:10px"><div style="font-size:12px;font-weight:700;color:rgba(11,21,51,.55)">${esc(obj.count || '')}</div><div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div></div>`;
+        const items = obj.items || [];
+        body = `<div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div>
+          ${items.length
+            ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px">${items.map(posterGridItem).join('')}</div>`
+            : `<div style="font-size:13px;color:rgba(11,21,51,.55)">Nothing in this collection right now — check back after the next update.</div>`}
+        </div>`;
       } else {
         const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
           .filter(Boolean)
@@ -787,7 +795,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'clear-filters': setState({ query: '', type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' }); break;
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
         case 'editor-filter': setState({ [el.getAttribute('data-key')]: val }); break;
-        case 'clear-editor-filters': setState({ editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" }); break;
+        case 'clear-editor-filters': setState({ editorTag: 'All' }); break;
         case 'toggle-guide': {
           const i = +val;
           setState({ guideOpen: state.guideOpen === i ? -1 : i });

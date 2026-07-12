@@ -146,13 +146,41 @@ test('sport can be filtered by sport type and country', async ({ page }) => {
   // "Sport" genre tag colliding on the word "Sport").
   await drawer.locator('button[data-key="type"][data-val="Sport"]').click();
   await expect(drawer.getByText('Sport Type', { exact: true })).toBeVisible();
-  await expect(drawer.locator('button[data-key="genre"][data-val="Football"]')).toBeVisible();
+  await expect(drawer.locator('button[data-key="genre"][data-val="Soccer"]')).toBeVisible();
   await expect(drawer.locator('button[data-key="genre"][data-val="Tennis"]')).toBeVisible();
-  // Country narrows sport too: Australia keeps the tennis fixture, drops the football one.
+  // Country narrows sport too: Australia keeps the tennis fixture, drops the soccer one.
   await drawer.locator('button[data-key="country"][data-val="Australia"]').click();
   await drawer.getByRole('button', { name: /^Show \d+ results?$/ }).click();
   await expect(page.getByText('A. Player vs B. Player')).toBeVisible();
   await expect(page.getByText('Fixture FC vs Test United')).not.toBeVisible();
+});
+
+test('sport fallback includes Cricket, Golf, Rugby and Soccer fixtures', async ({ page }) => {
+  await page.getByRole('button', { name: 'What to Watch' }).click();
+  const section = page.locator('[data-screen-label="What to Watch"]');
+  await expect(section.getByRole('heading', { name: 'Live & Upcoming Sport' })).toBeVisible();
+  // The curated fallback now always carries all four requested sports.
+  await expect(section.getByText('ICC World Cup')).toBeVisible();
+  await expect(section.getByText('PGA Tour')).toBeVisible();
+  await expect(section.getByText('URC Rugby')).toBeVisible();
+  await expect(section.getByText('Premier League')).toBeVisible();
+});
+
+test('collections show real title counts and open a poster grid', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  const section = page.locator('[data-screen-label="What to Watch"]');
+  await section.getByRole('button', { name: 'Collections', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Collections' })).toBeVisible();
+
+  // Cards now show a real, non-zero count (no more fake "12 titles" label).
+  await expect(section.getByText('True Crime Deep Dive')).toBeVisible();
+  await expect(section.getByText(/\d+ titles/).first()).toBeVisible();
+
+  // Opening a collection renders the actual matching posters in the drawer.
+  await section.getByText('True Crime Deep Dive').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText('Jozi Heat')).toBeVisible();
 });
 
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
@@ -314,7 +342,7 @@ test('editor picks tab renders a premium hero and ranked grid from fixture', asy
   await expect(page.getByText('Listings and artwork from')).toBeVisible();
 });
 
-test('editor picks filters by type and hides the hero while filtering', async ({ page }) => {
+test('editor picks filters by a tag and hides the hero while filtering', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
   const section = page.locator('[data-screen-label="Editor Picks"]');
@@ -323,10 +351,12 @@ test('editor picks filters by type and hides the hero while filtering', async ({
   await expect(section.getByText(/Editors.*No\.1/)).toBeVisible();
   await expect(page.getByText('Fixture Pick Three')).toBeVisible();
 
-  // Type + Sort chip rows are present.
+  // A single tags row (type + genre) — no search box, no Filters button.
+  await expect(section.getByRole('button', { name: 'All', exact: true })).toBeVisible();
   await expect(section.getByRole('button', { name: 'Movies', exact: true })).toBeVisible();
   await expect(section.getByRole('button', { name: 'Series', exact: true })).toBeVisible();
-  await expect(section.getByRole('button', { name: 'Top Rated', exact: true })).toBeVisible();
+  await expect(section.getByRole('textbox')).toHaveCount(0);
+  await expect(section.getByRole('button', { name: 'Filters', exact: true })).toHaveCount(0);
 
   // Filter to Series: hero collapses, only the one series pick remains.
   await section.getByRole('button', { name: 'Series', exact: true }).click();
@@ -335,25 +365,10 @@ test('editor picks filters by type and hides the hero while filtering', async ({
   await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
   await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
 
-  // Reset restores the hero and all picks.
-  await section.getByRole('button', { name: 'Reset filters' }).click();
+  // Clicking "All" restores the hero and every pick.
+  await section.getByRole('button', { name: 'All', exact: true }).click();
   await expect(section.getByText(/Editors.*No\.1/)).toBeVisible();
   await expect(page.getByText('Fixture Pick Three')).toBeVisible();
-});
-
-test('editor picks A–Z sort reorders the grid', async ({ page }) => {
-  await page.goto('/preview/fixture.html');
-  await page.getByRole('button', { name: 'Editor Picks' }).click();
-  const section = page.locator('[data-screen-label="Editor Picks"]');
-  const cards = section.locator('[data-testid="editor-grid"] .as-editor-card');
-
-  // Default (editor order): the hero is Pick One, so the grid starts at Pick Two.
-  await expect(cards.first()).toContainText('Fixture Pick Two');
-
-  // A–Z: sorting collapses the hero and shows all picks alphabetically —
-  // "Fixture Pick One" now leads the grid.
-  await section.getByRole('button', { name: 'A–Z', exact: true }).click();
-  await expect(cards.first()).toContainText('Fixture Pick One');
 });
 
 test('editor picks tab shows the built-in list when the endpoint is offline', async ({ page }) => {

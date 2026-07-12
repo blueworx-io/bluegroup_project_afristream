@@ -10,7 +10,7 @@ const ROOT = process.cwd();
 const SLUG = 'afristream-portal';
 const OUT = join(ROOT, 'dist', SLUG);
 
-const INCLUDE = ['afristream-portal.php', 'assets', 'includes'];
+const INCLUDE = ['afristream-portal.php', 'assets', 'includes', 'data'];
 
 rmSync(join(ROOT, 'dist'), { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });

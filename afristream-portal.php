@@ -3,7 +3,7 @@
  * Plugin Name: AfriStream Customer Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.6.0
+ * Version:     0.7.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: afristream-portal
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.6.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.7.0' );
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
@@ -62,6 +62,11 @@ function afristream_portal_shortcode( $atts ) {
 
 	wp_enqueue_style( 'afristream-portal' );
 	wp_enqueue_script( 'afristream-portal' );
+
+	// Page-scoped host-theme fix: drop the right dashboard column's padding so the
+	// portal sits flush. Attached to the portal handle, which only prints on pages
+	// that actually render this shortcode — so no other page is affected.
+	wp_add_inline_style( 'afristream-portal', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
 		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-rest-nonce="%s"></div>',
@@ -283,16 +288,16 @@ function afristream_portal_sport_events() {
 	// 'International' for global competitions). Keep in sync with the preview
 	// server's ESPN_LEAGUES.
 	$leagues = array(
-		// Football (soccer) — mostly European seasons, so quiet over the summer.
-		'soccer/fifa.world'       => array( 'FIFA World Cup', 'Football', 'International' ),
-		'soccer/eng.1'            => array( 'Premier League', 'Football', 'England' ),
-		'soccer/esp.1'            => array( 'LaLiga', 'Football', 'Spain' ),
-		'soccer/ita.1'            => array( 'Serie A', 'Football', 'Italy' ),
-		'soccer/ger.1'            => array( 'Bundesliga', 'Football', 'Germany' ),
-		'soccer/fra.1'            => array( 'Ligue 1', 'Football', 'France' ),
-		'soccer/uefa.champions'   => array( 'Champions League', 'Football', 'International' ),
-		'soccer/uefa.europa'      => array( 'Europa League', 'Football', 'International' ),
-		'soccer/usa.1'            => array( 'MLS', 'Football', 'United States' ),
+		// Soccer — mostly European seasons, so quiet over the summer.
+		'soccer/fifa.world'       => array( 'FIFA World Cup', 'Soccer', 'International' ),
+		'soccer/eng.1'            => array( 'Premier League', 'Soccer', 'England' ),
+		'soccer/esp.1'            => array( 'LaLiga', 'Soccer', 'Spain' ),
+		'soccer/ita.1'            => array( 'Serie A', 'Soccer', 'Italy' ),
+		'soccer/ger.1'            => array( 'Bundesliga', 'Soccer', 'Germany' ),
+		'soccer/fra.1'            => array( 'Ligue 1', 'Soccer', 'France' ),
+		'soccer/uefa.champions'   => array( 'Champions League', 'Soccer', 'International' ),
+		'soccer/uefa.europa'      => array( 'Europa League', 'Soccer', 'International' ),
+		'soccer/usa.1'            => array( 'MLS', 'Soccer', 'United States' ),
 		// Motorsport & combat.
 		'racing/f1'               => array( 'Formula 1', 'Motorsport', 'International' ),
 		'mma/ufc'                 => array( 'UFC', 'MMA', 'International' ),
@@ -301,9 +306,12 @@ function afristream_portal_sport_events() {
 		'basketball/nba'          => array( 'NBA', 'Basketball', 'United States' ),
 		'baseball/mlb'            => array( 'MLB', 'Baseball', 'United States' ),
 		'hockey/nhl'              => array( 'NHL', 'Ice Hockey', 'United States' ),
-		// Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for
+		// Rugby, cricket, tennis, golf, Aussie rules. ESPN omits broadcaster names for
 		// some of these; the mapping falls back to the competition label.
 		'rugby/270557'            => array( 'URC Rugby', 'Rugby', 'International' ),
+			'cricket/8039'            => array( 'ICC World Cup', 'Cricket', 'International' ),
+			'cricket/8048'            => array( 'ICC T20 World Cup', 'Cricket', 'International' ),
+			'cricket/8044'            => array( 'ICC Champions Trophy', 'Cricket', 'International' ),
 		'tennis/atp'              => array( 'ATP Tennis', 'Tennis', 'International' ),
 		'tennis/wta'              => array( 'WTA Tennis', 'Tennis', 'International' ),
 		'golf/pga'                => array( 'PGA Tour', 'Golf', 'United States' ),
@@ -402,17 +410,27 @@ function afristream_portal_watch_data() {
 }
 
 /**
- * Editor Picks — a hand-curated list of IMDb title IDs (IMDb's watchlist page
- * is behind AWS WAF and can't be scraped server-side, so the editor pastes the
- * IDs from their watchlist into the afristream_editor_picks_ids option). Each
- * ID is resolved via TMDB for consistent artwork, and a last-good copy is kept
- * so a TMDB hiccup never blanks the page.
+ * Editor Picks — a list of IMDb title IDs. IMDb's watchlist page is behind AWS
+ * WAF and can't be fetched server-side, so the IDs are pulled at build/deploy
+ * time by `npm run sync-watchlist` (a real browser) into the bundled
+ * data/editor-picks-ids.txt. That file is the default; the
+ * afristream_editor_picks_ids option overrides it when set. Each ID is resolved
+ * via TMDB for consistent artwork, and a last-good copy is kept so a TMDB hiccup
+ * never blanks the page.
  */
 function afristream_portal_editor_ids() {
-	// Accept any tt-id, whether pasted bare, comma/newline separated, or inside
-	// a full IMDb title URL. Order preserved, deduped, capped at 24.
-	preg_match_all( '/tt\d+/', (string) get_option( 'afristream_editor_picks_ids', '' ), $m );
-	return array_slice( array_values( array_unique( $m[0] ) ), 0, 24 );
+	// The admin box wins; otherwise fall back to the synced watchlist file.
+	$raw = (string) get_option( 'afristream_editor_picks_ids', '' );
+	if ( '' === trim( $raw ) ) {
+		$file = plugin_dir_path( __FILE__ ) . 'data/editor-picks-ids.txt';
+		if ( is_readable( $file ) ) {
+			$raw = (string) file_get_contents( $file );
+		}
+	}
+	// Accept any tt-id, whether bare, comma/newline separated, or inside a full
+	// IMDb title URL. Order preserved, deduped, capped at 60.
+	preg_match_all( '/tt\d+/', $raw, $m );
+	return array_slice( array_values( array_unique( $m[0] ) ), 0, 60 );
 }
 
 function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movie_genres, $tv_genres ) {
@@ -654,7 +672,7 @@ function afristream_portal_editor_ids_field() {
 		esc_textarea( (string) get_option( 'afristream_editor_picks_ids', '' ) )
 	);
 	echo '<p class="description">' . wp_kses(
-		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Paste the <code>tt…</code> IDs from your IMDb watchlist — one per line, or the full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). IMDb\'s watchlist page can\'t be read automatically, so the list is maintained here. Up to 24; saving refreshes immediately.', 'afristream-portal' ),
+		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Leave this empty to use the watchlist synced at build time (via <code>npm run sync-watchlist</code>, bundled in <code>data/editor-picks-ids.txt</code>). To override, paste <code>tt…</code> IDs here — one per line, or full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). Up to 60; saving refreshes immediately.', 'afristream-portal' ),
 		array( 'code' => array() )
 	) . '</p>';
 }

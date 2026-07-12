@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-12
+
+### Added
+
+- **More sports** — Cricket, Golf, Rugby and Soccer now always appear. Cricket is new (ICC World Cup / T20 World Cup / Champions Trophy added to the ESPN league map in both the plugin and the preview server); Golf and Rugby, which previously only showed when ESPN had live fixtures, plus a fresh Soccer and Cricket entry, are now part of the curated fallback so all four are visible even off-season.
+- **Real Collections** — the Collections row is now backed by live data instead of decorative "N titles" labels. Each collection is a query over the fetched TMDB catalog (e.g. Family Movie Night, True Crime Deep Dive, Award Season Catch-Up), showing a real, dynamic count; opening a collection now renders the actual matching posters. Collections with too few matches auto-hide.
+- **Editor Picks from an IMDb watchlist** — a new `npm run sync-watchlist` step (a real browser via Playwright) reads a shared IMDb watchlist and writes the ordered title IDs into the bundled `data/editor-picks-ids.txt`, which the plugin uses as the default Editor Picks list (the admin box still overrides). This removes the need to paste IMDb IDs by hand; IMDb's watchlist is behind a WAF and can't be fetched by the WordPress server directly, so the sync runs at build/deploy time. The pick cap is raised from 24 to 60.
+
+### Changed
+
+- **"Football" renamed to "Soccer"** as a sport category (ESPN's soccer leagues), so it matches everyday naming; American Football is unaffected.
+- **Editor Picks header** now matches the What to Watch header — title, description and a single row of tag pills — with no search box and no Filters button; selecting a tag filters the list and "All" resets it.
+- **Page-scoped layout fix** — the portal now removes the host dashboard's right-column padding (`.dashboard-right`) so it sits flush, applied only on pages that render the shortcode (attached to the portal stylesheet, which only loads there).
+
 ## [0.6.0] - 2026-07-11
 
 ### Added
