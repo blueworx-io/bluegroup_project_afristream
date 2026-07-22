@@ -8,19 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- **A Setup tab**, sitting immediately right of Account. Pick your device and the page walks you through installing the player app and signing in, written for someone who has never sideloaded anything.
+- **A Setup tab**, sitting immediately right of Account — one four-step flow: pick your device, tell us which one, install the app, choose your app. A progress rail across the top shows where you are and walks back a step at a time.
 
-  Fire TV gets the full guide: set up the stick → turn on Developer Options (with the seven-click unlock as a note, since most people will not need it) → install Firesend and join room `10325` to reach Downloader → Downloader code `617725` for IBO Player, then sign in. Android TV boxes take the same Downloader route without Firesend. Android phones and tablets install straight from the browser at `aftv.news/617725` — no Downloader, nothing in the Play Store.
+  Three device families: **TVs & Sticks**, **Android Boxes** and **Android Devices**. Under TVs & Sticks sit the three sticks we recommend — Amazon Fire TV Stick, Xiaomi TV Stick 4K, and any other Google TV stick — plus a bare Smart TV for people with nothing plugged in. iPhone, iPad and Roku are deliberately off the flow, handled by a line pointing at support.
 
-  iPhone, Smart TV and Roku cannot be self-served: those walkthroughs install a paid store app and then tell the customer to send their MAC address and device key to support so we can register the device against their line.
+  Four install routes, shared across the eight sub-devices rather than written out per device. **Fire TV:** Developer Options → Firesend room `10325` → Downloader → app code. **Google TV and Android TV:** Downloader from the Play Store → app code. **Android phone or tablet:** straight from the browser at `aftv.news/<code>` — no Downloader and nothing in the Play Store. **Bare Smart TV:** install a paid app from the TV's own store, then send us the MAC address and device key so we can register the set.
 
-  Codes render oversized and monospaced so they can be read from a sofa and typed on a TV remote. Every Downloader device also lists all three app codes — IBO Player `617725`, Smarters `9469460` and `6573365` — so a customer whose app will not connect can try the next without opening a support ticket.
+  Step 4 always offers three apps to fall back through — IBO Player `617725`, Smarters `9469460` and `6573365` — so a customer whose app will not connect can try the next without opening a ticket. Codes render oversized and monospaced because they get typed on a TV remote from across a room.
 
-- **Both Setup and Devices now open by explaining why a device is needed at all** — that the subscription is a login rather than a box, that a player app turns that login into television, and that the app has to run on something. It is the commonest misunderstanding at sign-up, and neither page assumed it before. Setup also carries a "Need a device?" panel through to the Devices list, which stays visible once someone is part-way through the steps in case they picked the wrong thing or do not own one yet.
+  Buying advice sits at step 2, next to the thing being chosen, written as specifications rather than model numbers so it holds as ranges refresh. It leads on WiFi throughout, since that is how virtually everyone watches, with a dedicated panel on 5GHz versus 2.4GHz, line of sight, and sticks suffocating behind a large television.
 
-- **A Devices tab**, right of Setup. Approved hardware grouped into three tiers: Android boxes, sticks, phones and tablets as the recommendation; Fire TV sticks as "works, with a caveat" (they need Developer Options, and Amazon keeps tightening the platform); Smart TVs, iPhones and Roku as the ones we have to register.
+  One warning worth calling out on its own: **Amazon has confirmed that future Fire TV Sticks move to its own Vega system, which cannot install apps from outside the Amazon store at all.** The 4K Max and 4K Plus are the last models that work with us, and the Fire TV route says so before anyone buys the wrong one.
 
-  Written as buying advice rather than a model list — RAM, storage, ethernet, WiFi generation, OS — so it stays true as manufacturer ranges change. Closes with the advice that applies whatever you buy: wire it to the router, use 5GHz, leave free storage, one screen per connection.
+- **Setup opens by explaining why a device is needed at all** — that the subscription is a login rather than a box, that a player app turns that login into television, and that the app has to run on something. It is the commonest misunderstanding at sign-up and nothing said it before. It shows at step 1 only; once you are in the flow the rationale is just clutter.
 
 - **The Account tab now states the connection rules**, next to the credentials rather than buried in a support thread: one connection plays on one screen at a time, and two or more must be used in the same household on the same internet connection, the sole exception being one on home WiFi and one on mobile data.
 

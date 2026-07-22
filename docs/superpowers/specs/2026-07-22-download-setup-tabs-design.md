@@ -17,7 +17,6 @@ and correct rating filtering on Editor Picks.
 |----|-------|------|
 | `profile` | Account | renamed from "Profile" |
 | `setup` | Setup | new — sits immediately right of Account |
-| `devices` | Devices | new — approved hardware, right of Setup |
 | `watch` | What to Watch | unchanged |
 | `editor` | Editor Picks | unchanged |
 | `apps` | Free Streaming | renamed from "Free Apps" |
@@ -60,94 +59,109 @@ before anything is copied. They render in every state that shows credentials
 
 ## Setup tab (new)
 
-A two-step flow held in one section, driven by a single new state field
-`setupDevice` (`''` until a device is chosen).
+One tab, one flow. An earlier revision split this across a Setup tab and a
+Devices tab; they carried two taxonomies for the same hardware under different
+names, and nothing kept them in sync. Devices is now folded in, and its buying
+advice lives at step 2 next to the thing being chosen.
 
-**Step 1 — choose your device.** A grid of six tiles:
+### The flow
 
-| key | label | route |
-|-----|-------|-------|
-| `firestick` | Amazon Fire TV / Firestick | Firesend → Downloader → code |
-| `android-tv` | Android TV Box or Stick | Downloader → code |
-| `android` | Android Phone or Tablet | browser → `aftv.news/<code>` |
-| `ios` | iPhone or iPad | App Store, then registered by us |
-| `smart-tv` | Smart TV (Samsung / LG) | TV app store, then registered by us |
-| `roku` | Roku TV or Device | Roku Channel Store, then registered by us |
+State is two fields, `setupFamily` and `setupSub`, and the step is derived:
 
-Windows/Mac is deliberately absent: nothing in the source material covers a
-desktop route, and inventing one would be worse than omitting it.
+| Step | Shows | Advances on |
+|------|-------|-------------|
+| 1 — Your device | "Why you need a device", then the three family tiles | `setup-family` |
+| 2 — Which one | Sub-device tiles, buying advice, WiFi guidance | `setup-sub` |
+| 3 — Install it | The method's stages | — |
+| 4 — Your app | The method's app list | — |
 
-**Step 2 — install instructions.** Once a device is chosen, the tiles collapse to
-a compact selected-state row (with a "Change device" affordance) and that
-device's instructions render below, followed by a shared "Sign in" panel
-pointing at the Account tab, with a button that switches to it.
+Steps 3 and 4 render together, since they are read together: the install steps
+say "the app you pick in step 4 below".
 
-Instructions are **staged**, not one flat list: each device holds an ordered
-list of stages, each with a title and its own numbered steps. A stage may carry
-a `note`, rendered as a highlighted caveat beneath its steps. A step is either a
-plain string or `{ text, code }`; `code` renders oversized and monospaced,
-because these are read from a sofa and typed on a TV remote.
+A progress rail across the top marks completed steps as buttons —
+`setup-restart` back to step 1, `setup-back-sub` back to step 2 — so there is
+always a way out that does not lose the whole flow.
 
-Content is drawn from Luke's own guide plus the support-channel material he
-supplied: the Firesend poster, the "Setting up your Firestick" sheet, the
-Downloader code screenshots and the `#android-phone` channel instructions.
+### Taxonomy
 
-Devices that use Downloader (`firestick`, `android-tv`) and the phone route
-(`android`) also render a `DOWNLOADER_CODES` reference block beneath the steps,
-listing all three known apps. On the phone the same codes render as
-`aftv.news/<code>` web addresses, because that route has no Downloader at all —
-the browser fetches the APK directly.
+Three families, eight sub-devices:
 
-| Code | App | Position |
-|------|-----|----------|
-| `617725` | IBO Player | Lead recommendation — currently the most reliable |
-| `9469460` | Smarters | First fallback |
-| `6573365` | Alternative player | Second fallback |
+| Family | Sub-devices | Method |
+|--------|-------------|--------|
+| TVs & Sticks | Amazon Fire TV Stick ★ | `firesend` |
+| | Xiaomi TV Stick 4K ★ | `downloader` |
+| | Other Google TV stick ★ | `downloader` |
+| | Smart TV, no stick | `assisted` |
+| Android Boxes | Google TV box | `downloader` |
+| | Android TV box | `downloader` |
+| Android Devices | Android Phone | `browser` |
+| | Android Tablet | `browser` |
 
-The three closed platforms — iOS, Smart TV and Roku — get a two-stage flow
-instead: install a paid store app, then send the MAC address and device key to
-support so the device can be registered. This is an accurate reflection of how
-those platforms actually work, not a placeholder.
+★ = carries a "Recommended" badge. These are the three sticks we actively
+recommend; everything else is described by specification rather than model,
+but "which stick should I buy" deserves a real answer.
 
-## "Why you need a device" (shared)
+**`method` sits on the sub-device, not the family.** A stick and a bare Smart TV
+install completely differently even though a customer thinks of both as "the
+telly", and that is exactly why TVs & Sticks is one family in the picker but two
+routes underneath.
 
-`WHY_A_DEVICE` holds three points, rendered by `whyDevicePanel(heading, lead)`
-at the top of **both** Setup and Devices with a page-specific heading and lead:
+**iPhone, iPad and Roku are deliberately out of the flow.** They are closed
+platforms needing manual registration, and carrying three near-identical
+walkthroughs for them cost more than it returned. Step 1 ends with a line
+pointing those customers at support.
+
+### Methods
+
+Four methods serve all eight sub-devices. Adding hardware is a row in
+`DEVICE_FAMILIES` pointing at an existing method, not another walkthrough.
+
+| Method | Route | Used by |
+|--------|-------|---------|
+| `firesend` | Developer Options → Firesend room `10325` → Downloader → app code | Fire TV |
+| `downloader` | Play Store Downloader → app code | Google TV / Android TV sticks and boxes |
+| `browser` | Browser → `aftv.news/<code>` → install the APK | Android phones and tablets |
+| `assisted` | TV's own store → email us the MAC and device key | Bare Smart TV |
+
+Method copy may contain a `{store}` token, filled from the sub-device, so the
+one `assisted` method serves any TV brand without being written twice.
+
+A step is a plain string or `{ text, code }`; `code` renders oversized and
+monospaced, because these get typed on a TV remote from across a room.
+
+Step 4 always lists three apps to fall back through — IBO Player `617725`,
+Smarters `9469460`, `6573365` — rendered as bare codes for Downloader routes,
+as `aftv.news/` addresses on the browser route, and as plain app names on the
+assisted route where there is no code to type.
+
+### Buying advice and WiFi
+
+`family.look` renders at step 2 as "Buying one? What to look for" —
+specifications, never model numbers, so it holds against whatever is on the
+shelf. `WIFI_TIPS` renders below it.
+
+**Everything leads on WiFi.** Virtually every customer watches over wireless,
+and virtually every picture complaint we are asked about is a WiFi problem
+wearing a device problem's clothes. Ethernet is mentioned once, as a reason to
+prefer a box over a stick, rather than being the headline advice.
+
+One buying warning is called out on its own, on the Fire TV sub-device:
+**Amazon has confirmed future Fire TV Sticks move to Vega OS, which cannot
+sideload at all.** The 4K Max and 4K Plus are the last models that work with
+this service. Getting that wrong costs a customer the price of a stick.
+
+## "Why you need a device"
+
+`WHY_A_DEVICE` holds three points, rendered at step 1 of Setup only:
 
 1. AfriStream is a login, not a box — no hardware in the post, no cable.
 2. A player app turns that login into television, and the app has to be
    installed somewhere.
-3. That somewhere is your device, because most ordinary televisions cannot
-   install the app themselves.
+3. That somewhere is your device, because most televisions cannot install the
+   app themselves.
 
-One source, two pages, so the explanation cannot drift apart. Setup additionally
-carries a `setup-need-device` panel — "Need a device? Choose from our list of
-recommended devices" — with a button through to the Devices tab. It renders in
-both picker states, since someone part-way through the steps may realise the
-device they have is the wrong one.
-
-## Devices tab (new)
-
-Static, no state. Approved hardware, grouped into three tiers by `DEVICE_TIERS`:
-
-- **Recommended** — Android TV boxes, Android TV sticks, Android phones, Android
-  tablets. Self-served in about twenty minutes.
-- **Works, with a caveat** — Amazon Fire TV sticks. They work, but need
-  Developer Options, and Amazon keeps tightening what it allows onto the
-  platform. Carries a note saying: keep the one you own, but buy Android next.
-- **We set these up for you** — Smart TVs, iPhones and iPads, Roku. Closed
-  platforms; paid store app, registered at our end.
-
-Each of the eight entries carries a summary, an optional note, and a "What to
-look for" list. **The list is specifications, never model names** — OS, RAM,
-storage, ethernet, WiFi generation, screen size — so the page does not go stale
-each time a manufacturer refreshes a range. Buying guidance was checked against
-current reviews: 3–4GB RAM, 16–32GB storage, WiFi 6 and an ethernet port are the
-2026 marks for a box.
-
-Closes with a "Whatever you buy" panel (wire it to the router, prefer 5GHz,
-leave free storage, one screen per connection, avoid underpowered hardware) and
-a button through to Setup.
+It is the commonest misunderstanding at sign-up. It shows at step 1 and nowhere
+else — once someone is in the flow, the rationale is clutter.
 
 ## Download tab (new)
 
@@ -273,9 +287,19 @@ Playwright, against the local preview harness:
 - Nav renders exactly the six expected buttons; Tips and Troubleshooting are
   absent from the nav but still reachable via `default_tab`.
 - Account shows the disclaimer, and it sits above the username.
-- Setup: no steps before a device is picked; Firestick shows all four stages,
-  both codes and the developer-mode note; changing device swaps the steps; the
-  sign-in button lands on Account.
+- Setup gates each step: no sub-picker before a family, no steps before a
+  sub-device. Exactly three families; three of the four TVs & Sticks entries
+  carry the Recommended badge.
+- Each method is checked through a device that uses it — Fire TV shows the
+  Firesend stages, room code and Vega warning; a Google TV stick skips Firesend
+  entirely; an Android phone installs from the browser with no Downloader
+  anywhere; a bare Smart TV is told it must be registered and gets no code.
+- Step 2 carries the buying advice and the WiFi guidance; step 4 always offers
+  three apps.
+- The progress rail walks back a step at a time, and "Start again" clears both
+  fields.
+- "Why you need a device" shows at step 1 and is gone by step 2.
+- The Devices tab is absent from the nav.
 - Download: both platform panels render and the page points at Setup.
 - Free Streaming: heading renamed, neither the region nor the device control is
   present, content filters are exactly All/Movies/Series/Sport, and the category

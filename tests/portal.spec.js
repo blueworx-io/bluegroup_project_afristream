@@ -687,7 +687,7 @@ test('portal never widens the page past the viewport inside a padded theme conta
   await page.goto('/');
   await page.addStyleTag({ content: 'body{padding:0 24px}' });
 
-  for (const tab of ['Account', 'Setup', 'Devices', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download']) {
+  for (const tab of ['Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     const overflow = await page.evaluate(() => {
       const de = document.documentElement;
@@ -772,7 +772,7 @@ test('the Affiliates tab is an outbound link that opens in a new tab', async ({ 
 test('the nav offers exactly the visible tabs, with tips and troubleshooting hidden', async ({ page }) => {
   const tabs = page.locator('.as-tabs');
   await expect(tabs.getByRole('button')).toHaveText([
-    'Account', 'Setup', 'Devices', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download',
+    'Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download',
   ]);
   await expect(tabs.getByRole('button', { name: 'Tips & Tricks' })).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: 'Troubleshooting' })).toHaveCount(0);
@@ -804,154 +804,176 @@ test('the Account tab spells out the one-screen and same-household rules', async
   expect(noticeY).toBeLessThan(userY);
 });
 
-test('the Setup tab holds back the steps until a device is chosen', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
+// Setup is now one tab doing what Setup and Devices used to do between them:
+// family -> which one -> install -> app, with the buying advice at step 2.
+
+const openSetup = async (page) => page.getByRole('button', { name: 'Setup' }).click();
+
+test('the Setup tab starts at step 1 with only the family picker', async ({ page }) => {
+  await openSetup(page);
   await expect(page.getByRole('heading', { name: 'Set Up AfriStream' })).toBeVisible();
 
   await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+  await expect(page.getByTestId('setup-sub-picker')).toHaveCount(0);
   await expect(page.getByTestId('setup-steps')).toHaveCount(0);
+  await expect(page.getByTestId('setup-codes')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
-  await expect(page.getByTestId('setup-steps')).toBeVisible();
-  await expect(page.getByTestId('setup-device-picker')).toHaveCount(0);
-  await expect(page.getByTestId('setup-chosen')).toContainText('Amazon Fire TV / Firestick');
+  // Three families, no more — TVs & Sticks, Android Boxes, Android Devices.
+  await expect(page.getByTestId('setup-device-picker').getByRole('button')).toHaveText([
+    /TVs & Sticks/, /Android Boxes/, /Android Devices/,
+  ]);
 });
 
-test('the Firestick setup walks through every stage and calls out both codes', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
-  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
+test('the Devices tab is gone, folded into Setup', async ({ page }) => {
+  await expect(page.locator('.as-tabs').getByRole('button', { name: 'Devices' })).toHaveCount(0);
+  await openSetup(page);
+  // Its buying advice now lives at step 2 rather than on a tab of its own.
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+  await expect(page.getByTestId('setup-buying')).toBeVisible();
+});
+
+test('step 2 offers the sub-devices with the three recommended sticks flagged', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+
+  const picker = page.getByTestId('setup-sub-picker');
+  await expect(picker).toBeVisible();
+  await expect(picker.getByRole('button')).toHaveCount(4);
+  // Three sticks carry a Recommended badge; the bare Smart TV does not.
+  await expect(picker.getByRole('button', { name: /Recommended/ })).toHaveCount(3);
+  await expect(picker.getByRole('button', { name: /Smart TV, no stick/ })).not.toContainText('Recommended');
+
+  // Steps stay hidden until a sub-device is picked.
+  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
+});
+
+test('step 2 carries the buying advice and the WiFi guidance', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android Boxes/ }).click();
+
+  const buying = page.getByTestId('setup-buying');
+  await expect(buying).toBeVisible();
+  await expect(buying).toContainText('RAM');
+  await expect(buying).toContainText('WiFi 6');
+  // Specifications, not model numbers.
+  await expect(buying).toContainText('Android TV or Google TV');
+
+  // Almost everyone watches over WiFi, so that advice is in the flow.
+  const wifi = page.getByTestId('setup-wifi');
+  await expect(wifi).toBeVisible();
+  await expect(wifi).toContainText('5GHz');
+  await expect(wifi).toContainText('2.4GHz');
+});
+
+test('a Fire TV stick gets the Firesend route and both codes', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+  await page.getByRole('button', { name: /Amazon Fire TV Stick/ }).click();
 
   const steps = page.getByTestId('setup-steps');
-  await expect(steps.getByRole('heading', { name: 'Set up your FireStick' })).toBeVisible();
   await expect(steps.getByRole('heading', { name: 'Turn on Developer Options' })).toBeVisible();
   await expect(steps.getByRole('heading', { name: 'Install Firesend and unlock the app list' })).toBeVisible();
-  await expect(steps.getByRole('heading', { name: 'Install the streaming app and sign in' })).toBeVisible();
+  await expect(steps.getByRole('heading', { name: 'Install your app and sign in' })).toBeVisible();
 
-  // The two numbers a customer has to type are called out, not buried in prose:
-  // the Firesend room code, then the Downloader code for the app.
-  await expect(steps.locator('[data-setup-code]')).toHaveText(['10325', '617725']);
-  // The 7-click unlock is a note, not a step, since most people will not need it.
+  // The room code is called out; the app code comes from step 4.
+  await expect(steps.locator('[data-setup-code]')).toHaveText(['10325']);
   await expect(steps.locator('[data-setup-note]').first()).toContainText('seven times');
+
+  // Vega OS kills sideloading on future Fire sticks — that has to be said
+  // before someone buys the wrong one.
+  await expect(page.getByTestId('setup-buy-warning')).toContainText('Vega');
 });
 
-test('the devices that use Downloader list every code as a fallback', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
-  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
-
-  const codes = page.getByTestId('setup-codes');
-  await expect(codes.getByRole('heading', { name: 'Downloader codes' })).toBeVisible();
-  await expect(codes.locator('[data-setup-code-row]')).toHaveCount(3);
-  await expect(codes).toContainText('IBO Player');
-  await expect(codes).toContainText('9469460');
-  await expect(codes).toContainText('6573365');
-
-  // On a phone the same codes are web addresses, since there is no Downloader.
-  await page.getByRole('button', { name: 'Change device' }).click();
-  await page.getByRole('button', { name: 'Android Phone or Tablet' }).click();
-  const phoneCodes = page.getByTestId('setup-codes');
-  await expect(phoneCodes.getByRole('heading', { name: 'App addresses' })).toBeVisible();
-  await expect(phoneCodes).toContainText('aftv.news/617725');
-});
-
-test('the sideload-free devices send you to support instead of a code', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
-  await page.getByRole('button', { name: 'iPhone or iPad' }).click();
+test('a Google TV stick skips Firesend and goes straight to Downloader', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+  await page.getByRole('button', { name: /Xiaomi TV Stick/ }).click();
 
   const steps = page.getByTestId('setup-steps');
-  await expect(steps).toContainText('App Store');
-  await expect(steps).toContainText('MAC address');
-  await expect(steps).toContainText('support@afristream.io');
-  // No Downloader route on iOS, so no code list.
-  await expect(page.getByTestId('setup-codes')).toHaveCount(0);
+  await expect(steps).toContainText('Downloader');
+  await expect(steps).not.toContainText('Firesend');
+  await expect(steps.getByRole('heading', { name: 'Get Downloader' })).toBeVisible();
 });
 
-test('changing the setup device swaps the steps', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
-  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
-  await expect(page.getByTestId('setup-steps')).toContainText('Firesend');
+test('an Android phone installs from the browser, not a store or Downloader', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android Devices/ }).click();
+  await page.getByRole('button', { name: /Android Phone/ }).click();
 
-  await page.getByRole('button', { name: 'Change device' }).click();
+  const steps = page.getByTestId('setup-steps');
+  await expect(steps).toContainText('web browser');
+  await expect(steps).not.toContainText('Downloader');
+  // Step 4 gives addresses rather than bare codes on this route.
+  await expect(page.getByTestId('setup-codes')).toContainText('aftv.news/617725');
+});
+
+test('a bare Smart TV is told it has to be registered by us', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+  await page.getByRole('button', { name: /Smart TV, no stick/ }).click();
+
+  const steps = page.getByTestId('setup-steps');
+  await expect(steps).toContainText('MAC address');
+  await expect(steps).toContainText('support@afristream.io');
+  // No Downloader codes on this route — the apps come from the TV's own store.
+  await expect(page.getByTestId('setup-codes')).not.toContainText('617725');
+  await expect(page.getByTestId('setup-codes')).toContainText('IBO Player');
+});
+
+test('step 4 always lists three apps to fall back through', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android Boxes/ }).click();
+  await page.getByRole('button', { name: /Google TV box/ }).click();
+
+  const codes = page.getByTestId('setup-codes');
+  await expect(codes.locator('[data-setup-code-row]')).toHaveCount(3);
+  await expect(codes).toContainText('617725');
+  await expect(codes).toContainText('9469460');
+  await expect(codes).toContainText('6573365');
+  await expect(codes).toContainText('IBO Player');
+});
+
+test('the progress rail tracks the flow and walks back through it', async ({ page }) => {
+  await openSetup(page);
+  const rail = page.getByTestId('setup-rail');
+  await expect(rail.getByRole('listitem')).toHaveCount(4);
+
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+  await page.getByRole('button', { name: /Xiaomi TV Stick/ }).click();
+  await expect(page.getByTestId('setup-steps')).toBeVisible();
+  await expect(page.getByTestId('setup-chosen')).toContainText('Xiaomi TV Stick 4K');
+
+  // Back to step 2 keeps the family, drops the model.
+  await rail.getByRole('button', { name: 'Back to Which one' }).click();
+  await expect(page.getByTestId('setup-sub-picker')).toBeVisible();
+  await expect(page.getByTestId('setup-chosen')).toContainText('TVs & Sticks');
+
+  // Start again clears both.
+  await page.getByRole('button', { name: 'Start again' }).click();
   await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+  await expect(page.getByTestId('setup-chosen')).toHaveCount(0);
+});
 
-  await page.getByRole('button', { name: 'iPhone or iPad' }).click();
-  await expect(page.getByTestId('setup-steps')).toContainText('App Store');
-  await expect(page.getByTestId('setup-steps')).not.toContainText('Firesend');
+test('Setup explains why a device is needed, and only at step 1', async ({ page }) => {
+  await openSetup(page);
+  const why = page.getByTestId('why-a-device');
+  await expect(why).toBeVisible();
+  await expect(why).toContainText('a login, not a box');
+  await expect(why).toContainText('player app');
+  await expect(why).toContainText('has to run on something');
+
+  // Once you are in the flow the rationale is just clutter.
+  await page.getByRole('button', { name: /Android Devices/ }).click();
+  await expect(page.getByTestId('why-a-device')).toHaveCount(0);
 });
 
 test('the setup flow links back to the Account tab for the login details', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
-  await page.getByRole('button', { name: 'Roku TV or Device' }).click();
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android Devices/ }).click();
+  await page.getByRole('button', { name: /Android Tablet/ }).click();
 
   await page.getByRole('button', { name: 'Open Account' }).click();
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
-});
-
-test('the Devices tab groups approved hardware into tiers', async ({ page }) => {
-  await page.getByRole('button', { name: 'Devices', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Approved Devices' })).toBeVisible();
-
-  const section = page.locator('[data-screen-label="Devices"]');
-  await expect(section.locator('[data-device-tier]')).toHaveCount(3);
-  await expect(section.locator('[data-device-tier="best"]')).toContainText('Android TV Boxes');
-  await expect(section.locator('[data-device-tier="best"]')).toContainText('Android Phones');
-  await expect(section.locator('[data-device-tier="best"]')).toContainText('Android Tablets');
-  // Firesticks work but are not the recommendation, so they sit in their own tier.
-  await expect(section.locator('[data-device-tier="works"]')).toContainText('Amazon Fire TV Sticks');
-  await expect(section.locator('[data-device-tier="best"]')).not.toContainText('Fire TV');
-  // The closed platforms are grouped as ones we have to register.
-  await expect(section.locator('[data-device-tier="assisted"]')).toContainText('Smart TVs');
-  await expect(section.locator('[data-device-tier="assisted"]')).toContainText('iPhones & iPads');
-});
-
-test('every approved device carries buying guidance rather than a model name', async ({ page }) => {
-  await page.getByRole('button', { name: 'Devices', exact: true }).click();
-  const section = page.locator('[data-screen-label="Devices"]');
-
-  const cards = section.locator('[data-device-id]');
-  await expect(cards).toHaveCount(8);
-  for (const id of ['android-box', 'android-stick', 'android-phone', 'android-tablet', 'firestick', 'smart-tv', 'ios', 'roku']) {
-    await expect(section.locator(`[data-device-id="${id}"]`)).toContainText('What to look for');
-  }
-
-  // Generic on purpose: specs, not SKUs, so the page does not go stale.
-  await expect(section.locator('[data-device-id="android-box"]')).toContainText('RAM');
-  await expect(section.locator('[data-device-id="android-box"]')).toContainText('ethernet');
-});
-
-test('the Devices tab hands off to Setup', async ({ page }) => {
-  await page.getByRole('button', { name: 'Devices', exact: true }).click();
-  await page.getByRole('button', { name: 'Open Setup' }).click();
-  await expect(page.getByRole('heading', { name: 'Set Up AfriStream' })).toBeVisible();
-});
-
-test('both Setup and Devices explain why a device is needed at all', async ({ page }) => {
-  // The commonest misunderstanding at sign-up is that AfriStream arrives on the
-  // TV by itself, so neither page assumes it.
-  for (const [tab, heading] of [['Setup', 'Why you need a device'], ['Devices', 'Why you need one of these']]) {
-    await page.getByRole('button', { name: tab, exact: true }).click();
-    const why = page.getByTestId('why-a-device');
-    await expect(why).toBeVisible();
-    await expect(why.getByRole('heading', { name: heading })).toBeVisible();
-    await expect(why).toContainText('a login, not a box');
-    await expect(why).toContainText('player app');
-    await expect(why).toContainText('has to run on something');
-  }
-});
-
-test('Setup points people without hardware at the Devices list', async ({ page }) => {
-  await page.getByRole('button', { name: 'Setup' }).click();
-  const cta = page.getByTestId('setup-need-device');
-  await expect(cta).toBeVisible();
-  await expect(cta).toContainText('Need a device?');
-  await expect(cta).toContainText('Choose from our list of recommended devices');
-
-  // Still reachable once someone is part-way through — they may have picked
-  // the wrong device, or not own one yet.
-  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
-  await expect(page.getByTestId('setup-need-device')).toBeVisible();
-
-  await page.getByRole('button', { name: 'See recommended devices' }).click();
-  await expect(page.getByRole('heading', { name: 'Approved Devices' })).toBeVisible();
 });
 
 test('the Download tab covers both mobile platforms', async ({ page }) => {
