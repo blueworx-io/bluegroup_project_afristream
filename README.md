@@ -33,7 +33,7 @@ IMDB_WATCHLIST_URL="https://www.imdb.com/user/…/watchlist/" npm run sync-watch
 
 This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt), then resolves every title through TMDB and writes the finished list to [data/editor-picks.json](data/editor-picks.json). Both are bundled in the plugin zip, and it is the JSON the plugin actually serves — a file read, rather than one TMDB round-trip per title from WordPress. Needs `TMDB_API_KEY` in the environment.
 
-The sync **only ever adds**. IMDb renders at most 250 rows of a public watchlist, so each scrape is a window onto the list rather than all of it — the ID file accumulates, letting the list grow past that ceiling and making a failed or partial scrape a no-op instead of data loss. To drop a title, delete its line from the ID file by hand and re-run `bake-picks -- --refresh`.
+IMDb renders at most 250 rows per page, so the sync walks `?page=N` until the list total is covered. It also **only ever adds**: the ID file accumulates, so a failed or partial scrape is a no-op instead of data loss. To drop a title, delete its line from the ID file by hand and re-run `bake-picks -- --refresh`.
 
 ```bash
 npm run bake-picks               # resolves only titles not already in editor-picks.json

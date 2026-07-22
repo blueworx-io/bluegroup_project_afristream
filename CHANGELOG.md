@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-07-22
+
+### Fixed
+
+- **The watchlist sync only ever read the first page.** IMDb renders at most 250 rows per page and puts the rest behind `?page=N`; the scrape scrolled that first page to exhaustion and stopped, so a 302-title watchlist came back as 250 no matter how patiently it scrolled. It now walks the pages until the reported total is covered.
+
+  The total is also read properly at last. IMDb renders it as a two-item inline list — "1 – 250" then "302 titles" — whose combined `textContent` reads "1 - 250302 titles"; the items are now read separately instead of regexing the run-together string, which is where the nonsense six-figure total came from.
+
+  Editor Picks now carries all **302** titles (301 resolved; `tt0096548` has no TMDB entry).
+
 ## [0.15.0] - 2026-07-22
 
 ### Added

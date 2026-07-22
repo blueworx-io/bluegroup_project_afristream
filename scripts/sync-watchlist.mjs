@@ -29,6 +29,9 @@ import { mergeEntries, parseEntries } from './picks-list.mjs';
 const DEFAULT_URL = 'https://www.imdb.com/user/p.oaowjxrmiacczaqrabkib5cpdi/watchlist/?ref_=ext_shr_lnk';
 const WATCHLIST_URL = process.env.IMDB_WATCHLIST_URL || DEFAULT_URL;
 const OUT = join(process.cwd(), 'data', 'editor-picks-ids.txt');
+// 250 rows a page, so this is a 10,000-title ceiling — a backstop against a
+// pagination loop that never terminates, not a real limit on the watchlist.
+const MAX_PAGES = 40;
 
 const HEADER = `# Editor Picks — IMDb title IDs, in watchlist order.
 #
@@ -40,11 +43,9 @@ const HEADER = `# Editor Picks — IMDb title IDs, in watchlist order.
 # into data/editor-picks.json, which is what actually gets served. Only the
 # first N (see the read-side cap) are used.
 #
-# The sync only ever ADDS. IMDb shows at most 250 rows of a public watchlist, so
-# each scrape is a window onto the list rather than all of it — merging keeps
-# titles that have scrolled out of that window and means a failed or partial
-# scrape can never shrink the list. To drop a title, delete its line here by
-# hand (and its entry in editor-picks.json, or re-run bake-picks --refresh).
+# The sync only ever ADDS: merging means a failed or partial scrape can never
+# shrink the list. To drop a title, delete its line here by hand and re-run
+# \`npm run bake-picks -- --refresh\`.
 #
 # Note: this is the public IMDb community rating, not the watchlist owner's
 # personal rating — a shared watchlist does not expose the owner's own ratings
@@ -115,70 +116,91 @@ async function main() {
       viewport: { width: 1280, height: 900 },
     });
     const page = await context.newPage();
-    await page.goto(WATCHLIST_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    // Wait for the WAF challenge to clear and the list to start rendering.
-    await page.waitForFunction(
-      () => /Watchlist/i.test(document.title) &&
-        document.querySelectorAll('li.ipc-metadata-list-summary-item').length > 0,
-      null,
-      { timeout: 60000 }
-    );
-    // The list renders 25 rows at a time and appends more as you approach the
-    // bottom, so keep scrolling until the rendered count reaches the list total.
-    // Two things the earlier, simpler loop got wrong and why they matter:
-    //   - jumping straight to scrollHeight can overshoot the lazy-load sentinel,
-    //     so step to just above the bottom and nudge, rather than teleporting;
-    //   - IMDb sometimes swaps infinite scroll for an explicit "more" button, so
-    //     click one if it appears.
-    // Tolerance is generous because a stall is usually network lag, not the end.
+    // IMDb renders at most 250 rows per page and paginates the rest behind
+    // ?page=N, so walk the pages until the list total is covered. Within a page
+    // the rows lazy-load in blocks of 25 as you approach the bottom.
+    const entries = [];
+    const seen = new Set();
     let total = 0;
-    let rows = 0;
-    let prev = -1;
-    let stalls = 0;
-    for (let i = 0; i < 120; i++) {
-      ({ rows, total } = await page.evaluate(() => {
-        const totalEl = document.querySelector('[data-testid="list-page-mc-total-items"]');
-        // Advisory only — see the loop below. IMDb has worded this label as
-        // "130 titles", as "1 - 25 of 130 titles", and as something that parses
-        // to a nonsense six-figure number, so nothing here is load-bearing.
-        const text = totalEl ? totalEl.textContent : '';
-        const of = text.match(/\bof\s+([\d,]+)/i);
-        const first = text.match(/([\d,]+)/);
-        const num = (m) => (m ? Number(m[1].replace(/,/g, '')) : 0);
-        return {
-          rows: document.querySelectorAll('li.ipc-metadata-list-summary-item').length,
-          total: num(of) || num(first),
-        };
-      }));
-      // The stall detector is what actually ends this loop. The total label was
-      // trusted for that once and it stopped the scrape on its first pass (it
-      // read the "1" out of "1 - 25 of 130"), so total is now only believed when
-      // it is plausible — otherwise scroll until the row count stops growing.
-      const plausible = total > 0 && total < 10000;
-      if (plausible && rows >= total) break;
-      stalls = rows === prev ? stalls + 1 : 0;
-      if (stalls >= 12) break; // growth has genuinely stopped
-      prev = rows;
-      const clicked = await page.evaluate(() => {
-        const btn = [...document.querySelectorAll('button')].find(
-          (b) => /\bmore\b/i.test(b.innerText || '') && b.offsetParent !== null
+
+    for (let pageNo = 1; pageNo <= MAX_PAGES; pageNo++) {
+      const url = new URL(WATCHLIST_URL);
+      if (pageNo > 1) url.searchParams.set('page', String(pageNo));
+      await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      // Wait for the WAF challenge to clear and the list to start rendering.
+      try {
+        await page.waitForFunction(
+          () => /Watchlist/i.test(document.title) &&
+            document.querySelectorAll('li.ipc-metadata-list-summary-item').length > 0,
+          null,
+          { timeout: 60000 }
         );
-        if (btn) { btn.click(); return true; }
-        window.scrollTo(0, document.body.scrollHeight - window.innerHeight - 200);
-        window.scrollBy(0, 400);
-        return false;
-      });
-      await page.waitForTimeout(clicked ? 1500 : 900);
-    }
-    if (total > 0 && total < 10000 && rows < total) {
-      console.warn(`Warning: only ${rows} of ${total} rows rendered — the list may be incomplete.`);
+      } catch {
+        if (pageNo === 1) throw new Error('The watchlist never rendered any rows.');
+        break; // past the last page
+      }
+
+      // Scroll this page until its rows stop arriving. Two things a simpler loop
+      // got wrong and why they matter:
+      //   - jumping straight to scrollHeight can overshoot the lazy-load
+      //     sentinel, so step to just above the bottom and nudge;
+      //   - IMDb sometimes swaps infinite scroll for an explicit "more" button.
+      // Tolerance is generous because a stall is usually network lag, not the end.
+      let rows = 0;
+      let prev = -1;
+      let stalls = 0;
+      for (let i = 0; i < 120; i++) {
+        ({ rows, total } = await page.evaluate(() => {
+          // The label is a two-item inline list: "1 - 250" then "302 titles".
+          // Read the items separately — its plain textContent runs them together
+          // as "1 - 250302 titles", which is where a six-figure total came from.
+          const totalEl = document.querySelector('[data-testid="list-page-mc-total-items"]');
+          const items = totalEl ? [...totalEl.querySelectorAll('li')].map((li) => li.textContent.trim()) : [];
+          const label = items.length ? items[items.length - 1] : (totalEl ? totalEl.textContent : '');
+          const m = String(label).match(/([\d,]+)/);
+          return {
+            rows: document.querySelectorAll('li.ipc-metadata-list-summary-item').length,
+            total: m ? Number(m[1].replace(/,/g, '')) : 0,
+          };
+        }));
+        stalls = rows === prev ? stalls + 1 : 0;
+        if (stalls >= 12) break; // growth on this page has genuinely stopped
+        prev = rows;
+        const clicked = await page.evaluate(() => {
+          const btn = [...document.querySelectorAll('button')].find(
+            (b) => /\bmore\b/i.test(b.innerText || '') && b.offsetParent !== null
+          );
+          if (btn) { btn.click(); return true; }
+          window.scrollTo(0, document.body.scrollHeight - window.innerHeight - 200);
+          window.scrollBy(0, 400);
+          return false;
+        });
+        await page.waitForTimeout(clicked ? 1500 : 900);
+      }
+
+      const pageEntries = await page.evaluate(extractEntries);
+      let fresh = 0;
+      for (const e of pageEntries) {
+        if (seen.has(e.id)) continue;
+        seen.add(e.id);
+        entries.push(e);
+        fresh += 1;
+      }
+      console.log(`  page ${pageNo}: ${rows} rows, ${fresh} new (${entries.length}${total ? `/${total}` : ''})`);
+
+      // Nothing new means we are past the end, or IMDb served the same page
+      // again — either way there is no more to collect.
+      if (!fresh) break;
+      if (total && entries.length >= total) break;
     }
 
-    const entries = await page.evaluate(extractEntries);
     if (!entries.length) {
       console.error('No title IDs found on the page — leaving the existing list untouched.');
       process.exitCode = 1;
       return;
+    }
+    if (total && entries.length < total) {
+      console.warn(`Warning: collected ${entries.length} of ${total} titles — the scrape may be incomplete.`);
     }
     // Merge into the list already on disk rather than replacing it. IMDb caps a
     // public watchlist view at 250 rows, so a scrape is a window onto the list,
@@ -195,7 +217,7 @@ async function main() {
     writeFileSync(OUT, HEADER + lines.join('\n') + '\n');
     const rated = merged.filter((e) => e.rating !== null).length;
     console.log(
-      `Scraped ${entries.length} rows${total ? ` (list reports ${total})` : ''}: ` +
+      `Scraped ${entries.length} titles${total ? ` of ${total}` : ''}: ` +
         `${added} new, ${updated} rating${updated === 1 ? '' : 's'} changed.`
     );
     console.log(`data/editor-picks-ids.txt now holds ${merged.length} titles (${rated} with an IMDb rating).`);
