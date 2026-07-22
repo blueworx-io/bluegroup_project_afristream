@@ -10,7 +10,7 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 [afristream_portal default_tab="profile" show_sport="true"]
 ```
 
-`default_tab` is one of `profile | watch | tips | help`.
+`default_tab` is one of `profile | watch | apps | editor | tips | help`.
 
 ## Live "What to Watch" data
 
@@ -32,6 +32,8 @@ IMDB_WATCHLIST_URL="https://www.imdb.com/user/…/watchlist/" npm run sync-watch
 ```
 
 This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt) (bundled in the plugin zip), which the plugin resolves through TMDB for artwork. The wp-admin **Editor Picks (IMDb IDs)** box overrides the file when set. Run the sync whenever the watchlist changes, before `npm run build`.
+
+**Free Apps:** a bundled directory of free and free-tier streaming apps (`data/apps.json`), filterable by device, content type and region, with per-device install steps. No API key or configuration needed — the file ships with the plugin.
 
 **Sport (no key needed):** sport listings merge three permanently free sources, so there is nothing to configure:
 

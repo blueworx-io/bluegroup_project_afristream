@@ -654,7 +654,7 @@ test('portal never widens the page past the viewport inside a padded theme conta
   await page.goto('/');
   await page.addStyleTag({ content: 'body{padding:0 24px}' });
 
-  for (const tab of ['Profile', 'What to Watch', 'Editor Picks', 'Tips & Tricks', 'Troubleshooting']) {
+  for (const tab of ['Profile', 'What to Watch', 'Editor Picks', 'Free Apps', 'Tips & Tricks', 'Troubleshooting']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     const overflow = await page.evaluate(() => {
       const de = document.documentElement;
@@ -792,4 +792,216 @@ test('apps database covers every content type and every device class', async ({ 
   for (const d of APP_DEVICE_KEYS) {
     expect(apps.some((a) => a.devices.includes(d)), `no app installs on ${d}`).toBe(true);
   }
+});
+
+test('the Apps tab renders the app grid from the database', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Free Apps' })).toBeVisible();
+
+  const grid = page.getByTestId('apps-grid');
+  await expect(grid).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  await expect(grid.locator('[data-app-id]')).toHaveCount(apps.length);
+  await expect(grid.locator('[data-app-id="tubi"]')).toBeVisible();
+});
+
+test('the Apps tab reports a failed database load instead of rendering an empty grid', async ({ page }) => {
+  await page.route('**/data/apps.json', (route) => route.fulfill({ status: 500, body: 'boom' }));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+
+  await expect(page.getByTestId('apps-error')).toBeVisible();
+  await expect(page.getByTestId('apps-grid')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+});
+
+test('device pills narrow the app grid to apps that run on that device', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  const grid = page.getByTestId('apps-grid');
+  await expect(grid).toBeVisible();
+
+  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const expected = apps.filter((a) => a.devices.includes('consoles'));
+  expect(expected.length).toBeGreaterThan(0);
+  await expect(grid.locator('[data-app-id]')).toHaveCount(expected.length);
+  for (const a of expected) await expect(grid.locator(`[data-app-id="${a.id}"]`)).toBeVisible();
+});
+
+test('content and region filters combine with the device filter', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+
+  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Phones' }).click();
+  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
+  await page.getByLabel('Region').selectOption('Worldwide');
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const expected = apps.filter((a) =>
+    a.devices.includes('phones') && a.content.includes('Sport') && a.regions.includes('Worldwide'));
+  expect(expected.length).toBeGreaterThan(0);
+  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(expected.length);
+});
+
+test('an impossible filter combination shows an empty state that resets', async ({ page }) => {
+  // Consoles + Sport + Middle East matches nothing in data/apps.json. That is
+  // asserted against the data first, so if the database ever gains such an app
+  // this fails here loudly instead of silently skipping the checks below.
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const matches = apps.filter((a) =>
+    a.devices.includes('consoles') && a.content.includes('Sport') && a.regions.includes('Middle East'));
+  expect(matches, 'pick a different zero-match combination').toHaveLength(0);
+
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
+  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
+  await page.getByLabel('Region').selectOption('Middle East');
+
+  const empty = page.getByTestId('apps-empty');
+  await expect(empty).toBeVisible();
+  await expect(empty).toContainText('Consoles');
+  await expect(empty).toContainText('Sport');
+  await expect(empty).toContainText('Middle East');
+  await expect(page.getByTestId('apps-grid')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Reset filters' }).click();
+  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(apps.length);
+});
+
+test('the active device pill is marked pressed for assistive tech', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  const pills = page.getByTestId('apps-device-filters');
+  await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await pills.getByRole('button', { name: 'Tablets' }).click();
+  await expect(pills.getByRole('button', { name: 'Tablets' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('app cards show cost, blurb, content and devices', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
+  await expect(card).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const tubi = apps.find((a) => a.id === 'tubi');
+
+  await expect(card).toContainText('Tubi');
+  await expect(card).toContainText(tubi.blurb);
+  await expect(card).toContainText(tubi.cost === 'free' ? 'Free' : 'Free tier');
+  for (const c of tubi.content) await expect(card).toContainText(c);
+});
+
+test('clicking an app card opens a drawer with install steps and an official link', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
+
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const tubi = apps.find((a) => a.id === 'tubi');
+
+  await expect(drawer).toContainText(tubi.blurb);
+  await expect(drawer).toContainText(tubi.availability);
+  await expect(drawer).toContainText('Install on');
+  await expect(drawer.getByRole('link', { name: /Open / })).toHaveAttribute('href', tubi.url);
+  await expect(drawer.getByRole('link', { name: /Open / })).toHaveAttribute('rel', /noopener/);
+});
+
+test('the app drawer lists a step for every device the app supports', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const tubi = apps.find((a) => a.id === 'tubi');
+  const steps = page.getByTestId('detail-drawer').locator('[data-install-device]');
+  await expect(steps).toHaveCount(tubi.devices.length);
+});
+
+test('the app drawer shows an install override where one exists and the default elsewhere', async ({ page }) => {
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const app = apps.find((a) => a.id === 'rakuten-tv');
+  // Guards the fixture: this test only means something while rakuten-tv overrides
+  // exactly one device and leaves at least one on the shared default.
+  expect(Object.keys(app.install || {})).toEqual(['consoles']);
+  const plain = app.devices.filter((d) => d !== 'consoles');
+  expect(plain.length).toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="rakuten-tv"]').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+
+  // The overridden device shows the app's own wording...
+  await expect(drawer.locator('[data-install-device="consoles"]')).toContainText(app.install.consoles);
+  // ...and no other device borrows it.
+  for (const d of plain) {
+    await expect(drawer.locator(`[data-install-device="${d}"]`)).not.toContainText(app.install.consoles);
+  }
+  // A non-overridden device falls back to APP_INSTALL_DEFAULTS.
+  await expect(drawer.locator('[data-install-device="phones"]')).toContainText('App Store');
+});
+
+test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
+  const detailCalls = [];
+  page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
+
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+
+  expect(detailCalls).toEqual([]);
+});
+
+test('the app drawer closes on Escape and returns focus to its card', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
+  await card.click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('detail-drawer')).toHaveCount(0);
+  await expect(card).toBeFocused();
+});
+
+test('an app card opens its drawer from the keyboard', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="pluto-tv"]');
+  await card.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('detail-drawer')).toContainText('Pluto TV');
+});
+
+test('the Apps tab loads on its own when the portal boots straight into it', async ({ page }) => {
+  // default_tab="apps" has its own load-at-mount trigger, separate from the
+  // nav-click path every other apps test exercises — mount a portal root
+  // pre-set to it, with no click on the Apps nav button anywhere in this test.
+  await page.setContent(
+    '<div class="afristream-portal" data-afristream-portal data-default-tab="apps" data-show-sport="true" data-apps-url="/data/apps.json"></div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
+
+  const grid = page.getByTestId('apps-grid');
+  await expect(grid).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  await expect(grid.locator('[data-app-id]')).toHaveCount(apps.length);
+});
+
+test('the Apps tab shows the unavailable notice when no apps URL is configured', async ({ page }) => {
+  // No data-apps-url at all (an older host page) — must show the dedicated
+  // "unavailable" notice, not the error state and not an empty grid, and the
+  // rest of the portal must still work.
+  await page.setContent(
+    '<div class="afristream-portal" data-afristream-portal data-default-tab="apps" data-show-sport="true"></div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
+
+  await expect(page.getByTestId('apps-unavailable')).toBeVisible();
+  await expect(page.getByTestId('apps-error')).toHaveCount(0);
+  await expect(page.getByTestId('apps-grid')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
 });

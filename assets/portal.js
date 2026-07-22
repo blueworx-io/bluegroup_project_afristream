@@ -139,6 +139,60 @@
     { tag: 'Support', h: 60, title: 'Support Tips', items: ['Take screenshots of errors.', 'Confirm which device is being used before troubleshooting.', 'Confirm the app name before giving setup support.', 'Ask whether the issue is install, login, or connection related.'] }
   ];
 
+  // ------------------------------------------------------------- apps data
+  // Controlled vocabularies for data/apps.json. Any value outside these lists
+  // is dropped at load time so one bad row can't break the grid; the schema
+  // test in tests/portal.spec.js is what actually catches the mistake.
+  const APP_DEVICES = [
+    { key: 'smart-tv', label: 'Smart TV' },
+    { key: 'consoles', label: 'Consoles' },
+    { key: 'sticks', label: 'Sticks & Boxes' },
+    { key: 'tablets', label: 'Tablets' },
+    { key: 'phones', label: 'Phones' }
+  ];
+  const APP_CONTENT = ['Sport', 'Movies', 'Series', 'Documentaries', 'Live TV'];
+  const APP_REGIONS = ['Worldwide', 'Africa', 'Europe', 'UK & Ireland', 'North America', 'Latin America', 'Asia-Pacific', 'Middle East'];
+
+  // Card tint per content type, reusing the portal's existing hues so app tiles
+  // sit in the same palette as the poster cards instead of all defaulting to one
+  // colour. Falls back to bg()'s own default for anything unmapped.
+  const APP_CONTENT_HUE = { Sport: 'Sport', Movies: 'Movies', Documentaries: 'Docs', Series: 'Drama', 'Live TV': 'News' };
+
+  // Generic install steps per device class. An app only carries an `install`
+  // entry where its real steps differ from these.
+  const APP_INSTALL_DEFAULTS = {
+    'smart-tv': "Open your TV's app store and search for the app by name.",
+    'consoles': 'Open the PlayStation Store or the Microsoft Store on your console and search for the app.',
+    'sticks': "Search your device's app store — the Amazon Appstore on a Fire TV Stick, the Channel Store on Roku.",
+    'tablets': 'Install from the App Store on iPad, or Google Play on an Android tablet.',
+    'phones': 'Install from the App Store on iPhone, or Google Play on Android.'
+  };
+
+  const APP_DEVICE_LABEL = (key) => (APP_DEVICES.find((d) => d.key === key) || {}).label || key;
+
+  // Normalise one entry from data/apps.json into the shape the card and the
+  // detail drawer expect. `t`, `initial` and `bg` mirror the poster-card
+  // contract so the shared drawer chrome renders an app unchanged.
+  const prepApp = (a) => ({
+    id: String(a.id),
+    name: String(a.name),
+    t: String(a.name),
+    initial: String(a.name)[0],
+    bg: bg(APP_CONTENT_HUE[(Array.isArray(a.content) ? a.content : [])[0]] || ''),
+    detailKind: 'app',
+    cost: a.cost === 'free-tier' ? 'free-tier' : 'free',
+    blurb: String(a.blurb || ''),
+    availability: String(a.availability || ''),
+    // Defence in depth: esc() stops attribute breakout and the schema test
+    // asserts ^https://, but that guarantee lives in a different file — keep
+    // the front end safe on its own even if the data ever slips past the test.
+    url: /^https:\/\//.test(String(a.url || '')) ? String(a.url) : '',
+    install: a.install && typeof a.install === 'object' ? a.install : {},
+    content: (Array.isArray(a.content) ? a.content : []).filter((c) => APP_CONTENT.includes(c)),
+    devices: (Array.isArray(a.devices) ? a.devices : []).filter((d) => APP_DEVICES.some((x) => x.key === d)),
+    regions: (Array.isArray(a.regions) ? a.regions : []).filter((r) => APP_REGIONS.includes(r))
+  });
+
   // Troubleshooting accordion. `body` is trusted static HTML (rendered as-is,
   // not escaped) — keep it authored here, never from user input. Mirrors the
   // [troubleshooting_guide] shortcode in includes/shortcodes.php.
@@ -227,7 +281,8 @@
       editorEndpoint: root.getAttribute('data-editor-endpoint') || '',
       detailEndpoint: root.getAttribute('data-detail-endpoint') || '',
       credentialsEndpoint: root.getAttribute('data-credentials-endpoint') || '',
-      restNonce: root.getAttribute('data-rest-nonce') || ''
+      restNonce: root.getAttribute('data-rest-nonce') || '',
+      appsUrl: root.getAttribute('data-apps-url') || ''
     };
     // Profile credentials. Without a credentials endpoint (e.g. the generic
     // local preview) the built-in demo ACCOUNTS are shown. With one (the
@@ -246,7 +301,7 @@
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' };
 
     const state = {
-      section: ['profile', 'watch', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      section: ['profile', 'watch', 'apps', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       guideOpen: 0,
       accIdx: 0,
@@ -257,6 +312,9 @@
       country: 'All Countries',
       decade: 'All Decades',
       sort: 'Recommended',
+      appsDevice: 'All',
+      appsContent: 'All',
+      appsRegion: 'All',
       editorTag: 'All',
       editorRating: 0,
       filtersOpen: false,
@@ -635,6 +693,96 @@
 </section>`;
     }
 
+    // Names the filters actually narrowing the grid, so the empty state says
+    // why nothing matched rather than just that nothing did.
+    function activeFilterSummary() {
+      const bits = [];
+      if (state.appsDevice !== 'All') bits.push(APP_DEVICE_LABEL(state.appsDevice));
+      if (state.appsContent !== 'All') bits.push(state.appsContent);
+      if (state.appsRegion !== 'All') bits.push(state.appsRegion);
+      return bits.length ? bits.join(' · ') : 'these filters';
+    }
+
+    function filteredApps() {
+      const list = appsData || [];
+      return list.filter((a) =>
+        (state.appsDevice === 'All' || a.devices.includes(state.appsDevice)) &&
+        (state.appsContent === 'All' || a.content.includes(state.appsContent)) &&
+        (state.appsRegion === 'All' || a.regions.includes(state.appsRegion)));
+    }
+
+    const costBadge = (a) => `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:${a.cost === 'free' ? '#E7F8EF' : '#F7E9FF'};color:${a.cost === 'free' ? '#0B7A44' : '#65009F'}">${a.cost === 'free' ? 'Free' : 'Free tier'}</span>`;
+
+    const appCard = (a) => `
+      <div data-app-id="${esc(a.id)}" ${cardAttrs(a)} class="as-editor-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:16px 17px 18px;display:flex;flex-direction:column;gap:10px;cursor:pointer;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <div style="display:flex;align-items:center;gap:11px">
+          <div style="flex:none;width:42px;height:42px;border-radius:12px;background:${a.bg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800">${esc(a.initial)}</div>
+          <div style="flex:1;min-width:0;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</div>
+          ${costBadge(a)}
+        </div>
+        <div style="font-size:13px;line-height:1.55;color:rgba(11,21,51,.68)">${esc(a.blurb)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${a.content.map((c) => `<span style="font-size:11px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:3px 9px;border-radius:999px">${esc(c)}</span>`).join('')}
+        </div>
+        <div style="margin-top:auto;padding-top:4px;font-size:11.5px;color:rgba(11,21,51,.5)">${esc(a.devices.map(APP_DEVICE_LABEL).join(' · '))}</div>
+      </div>`;
+
+    function appsSection() {
+      const shell = (inner) => `
+<section data-screen-label="Free Apps">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Apps</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free apps you can install alongside AfriStream — pick your device to see what runs on it.</p>
+  </div>
+  ${inner}
+  <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Availability and free tiers change without notice. AfriStream is not affiliated with any of the services listed here.</p>
+</section>`;
+
+      const notice = (testid, text, retry) => `
+  <div data-testid="${testid}" style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">
+    ${esc(text)}
+    ${retry ? ` <button data-act="apps-retry" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Try again</button>` : ''}
+  </div>`;
+
+      if (appsState === 'loading' || appsState === 'idle') {
+        return shell(`
+  <div data-testid="apps-loading" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">
+    ${Array.from({ length: 6 }, () => `<div style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;height:196px"></div>`).join('')}
+  </div>`);
+      }
+      if (appsState === 'unavailable') {
+        return shell(notice('apps-unavailable', 'The app directory is not configured on this page.', false));
+      }
+      if (appsState === 'error') {
+        return shell(notice('apps-error', "The app directory could not be loaded.", true));
+      }
+
+      const shown = filteredApps();
+      const pill = (act, val, label, active) =>
+        `<button style="${subBtn(active)}" data-act="${act}" data-val="${esc(val)}" aria-pressed="${active}">${esc(label)}</button>`;
+
+      return shell(`
+  <div data-testid="apps-device-filters" role="group" aria-label="Filter apps by device" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px">
+    ${pill('apps-device', 'All', 'All', state.appsDevice === 'All')}
+    ${APP_DEVICES.map((d) => pill('apps-device', d.key, d.label, state.appsDevice === d.key)).join('')}
+  </div>
+  <div style="display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;margin:0 2px 18px">
+    <div data-testid="apps-content-filters" role="group" aria-label="Filter apps by content" style="display:flex;gap:8px;flex-wrap:wrap">
+      ${pill('apps-content', 'All', 'All', state.appsContent === 'All')}
+      ${APP_CONTENT.map((c) => pill('apps-content', c, c, state.appsContent === c)).join('')}
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.62)">
+      <span>Region</span>
+      <select data-act="apps-region" style="font-family:inherit;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.72);background:#fff;border:1px solid rgba(11,21,51,.12);border-radius:999px;padding:8px 13px;cursor:pointer">
+        ${['All'].concat(APP_REGIONS).map((r) => `<option value="${esc(r)}"${state.appsRegion === r ? ' selected' : ''}>${esc(r === 'All' ? 'All regions' : r)}</option>`).join('')}
+      </select>
+    </label>
+  </div>
+  ${shown.length
+    ? `<div data-testid="apps-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">${shown.map(appCard).join('')}</div>`
+    : `<div data-testid="apps-empty" style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No free apps match ${esc(activeFilterSummary())}. <button data-act="apps-reset" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>`}`);
+    }
+
     function helpSection() {
       return `
 <section data-screen-label="Troubleshooting">
@@ -660,19 +808,54 @@
 </section>`;
     }
 
+    // Apps database. Fetched lazily the first time the tab is opened — a user
+    // who never opens it never pays for the request. 'unavailable' means no
+    // data-apps-url was supplied at all (an older host page), which is a
+    // different message from a failed fetch. A well-formed response whose
+    // `apps` array is empty deliberately throws into the 'error' state too —
+    // an empty bundled directory is a fault, not a valid state to render.
+    let appsData = null;
+    let appsState = 'idle';
+
+    function loadApps() {
+      if (!props.appsUrl || typeof fetch !== 'function') {
+        appsState = 'unavailable';
+        render();
+        return;
+      }
+      appsState = 'loading';
+      render();
+      fetch(props.appsUrl)
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status))))
+        .then((payload) => {
+          const list = (payload && Array.isArray(payload.apps) ? payload.apps : [])
+            .filter((a) => a && a.id && a.name)
+            .map(prepApp);
+          if (!list.length) throw new Error('empty');
+          appsData = list;
+          appsState = 'ready';
+          render();
+        })
+        .catch(() => {
+          appsState = 'error';
+          render();
+        });
+    }
+
     // -------------------------------------------------------------- render
 
     const NAV = [
       { id: 'profile', label: 'Profile' },
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
+      { id: 'apps', label: 'Free Apps' },
       { id: 'tips', label: 'Tips & Tricks' },
       { id: 'help', label: 'Troubleshooting' },
       // An outbound link rather than a section: it carries an href, so it
       // renders as an anchor and never takes the active underline.
       { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
     ];
-    const SECTIONS = { profile: profileSection, watch: watchSection, editor: editorSection, tips: tipsSection, help: helpSection };
+    const SECTIONS = { profile: profileSection, watch: watchSection, apps: appsSection, editor: editorSection, tips: tipsSection, help: helpSection };
 
     // Render-scoped registry of clickable cards: reg(obj) stashes the item
     // and returns its index so a data-card="<idx>" attribute can look it up
@@ -757,6 +940,26 @@
           ${items.length
             ? `<div class="as-grid-posters" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px">${items.map(posterGridItem).join('')}</div>`
             : `<div style="font-size:13px;color:rgba(11,21,51,.55)">Nothing in this collection right now — check back after the next update.</div>`}
+        </div>`;
+      } else if (obj.detailKind === 'app') {
+        const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="flex:none;color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#65009F;text-align:right">${esc(v)}</span></div>`;
+        const steps = obj.devices.map((d) => `
+          <div data-install-device="${esc(d)}" style="display:flex;gap:12px;font-size:13.5px;line-height:1.55">
+            <span style="flex:none;width:104px;font-weight:700;color:rgba(11,21,51,.62)">${esc(APP_DEVICE_LABEL(d))}</span>
+            <span style="flex:1;color:rgba(11,21,51,.75)">${esc((obj.install && obj.install[d]) || APP_INSTALL_DEFAULTS[d] || '')}</span>
+          </div>`).join('');
+        body = `<div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${costBadge(obj)}${obj.content.map((c) => `<span style="font-size:12px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`).join('')}</div>
+          <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.blurb)}</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${row('Regions', obj.regions.join(', '))}
+            ${row('Where', obj.availability)}
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:10px">Install on</div>
+            <div style="display:flex;flex-direction:column;gap:10px">${steps}</div>
+          </div>
+          ${obj.url ? `<a href="${esc(obj.url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;background:#65009F;color:#fff;border-radius:13px;padding:13px 18px;font-weight:700;font-size:13.5px;text-decoration:none">Open ${esc(obj.name)} →</a>` : ''}
         </div>`;
       } else {
         const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
@@ -868,7 +1071,14 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       if (!el || !root.contains(el)) return;
       const val = el.getAttribute('data-val');
       switch (el.getAttribute('data-act')) {
-        case 'nav': setState({ section: val }); break;
+        case 'nav':
+          setState({ section: val });
+          if (val === 'apps' && appsState === 'idle') loadApps();
+          break;
+        case 'apps-retry': loadApps(); break;
+        case 'apps-device': setState({ appsDevice: val }); break;
+        case 'apps-content': setState({ appsContent: val }); break;
+        case 'apps-reset': setState({ appsDevice: 'All', appsContent: 'All', appsRegion: 'All' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
@@ -899,6 +1109,12 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       if (e.target.getAttribute && e.target.getAttribute('data-act') === 'query') {
         state.query = e.target.value;
         render(true);
+      }
+    });
+
+    root.addEventListener('change', (e) => {
+      if (e.target.getAttribute && e.target.getAttribute('data-act') === 'apps-region') {
+        setState({ appsRegion: e.target.value });
       }
     });
 
@@ -966,6 +1182,8 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     }, true);
 
     render();
+
+    if (state.section === 'apps') loadApps();
 
     // Pull live catalog + sport data from the watch endpoint (WP REST in
     // production, the preview server's /api/watch locally). Each array is
