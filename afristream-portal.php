@@ -982,7 +982,7 @@ function afristream_portal_render_settings_page() {
 			<?php
 			printf(
 				/* translators: %s: shortcode example. */
-				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|tips|help", show_sport="true|false").', 'afristream-portal' ),
+				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|apps|editor|tips|help", show_sport="true|false").', 'afristream-portal' ),
 				'<code>[afristream_portal]</code>'
 			);
 			?>
