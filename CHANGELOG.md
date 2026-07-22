@@ -14,7 +14,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
-- **The watchlist sync could silently truncate the list to its first page.** IMDb labels the count as "1 – 25 of 130 titles" and the scroll loop read the leading `1` as the total, so it stopped after one pass and wrote 25 IDs over a 130-ID file. It now takes the largest number in the label, and refuses outright to overwrite the ID list with a shorter scrape — a partial render can no longer destroy IDs that only a working scrape can recover.
+- **The watchlist sync silently truncated the list.** The scroll loop trusted IMDb's count label to decide when it had everything, and that label is not dependable — it has read as "1 – 25 of 130 titles" (taking the leading `1` as the total ends the loop on its first pass) and as a nonsense six-figure number. The label is now advisory only: the loop scrolls until the row count genuinely stops growing, and the sync refuses to overwrite the ID list with a shorter scrape at all, so a partial render can no longer destroy IDs that only a working scrape can recover.
+
+  Fixing it recovered **120 titles the previous scrape had been silently dropping** — Editor Picks goes from 130 to 249 resolved titles (the current list is a strict superset of the old one; one title has no TMDB entry).
 
 ## [0.13.0] - 2026-07-22
 

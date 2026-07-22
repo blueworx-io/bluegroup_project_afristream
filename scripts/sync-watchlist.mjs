@@ -132,17 +132,24 @@ async function main() {
     for (let i = 0; i < 120; i++) {
       ({ rows, total } = await page.evaluate(() => {
         const totalEl = document.querySelector('[data-testid="list-page-mc-total-items"]');
-        // Take the largest number in the label, not the first. IMDb words this
-        // as "1 - 25 of 130 titles" as often as "130 titles", and reading the
-        // leading 1 as the total ends the scroll loop on its first pass — which
-        // is how a full watchlist silently came back as its first page.
-        const nums = totalEl ? (totalEl.textContent.match(/\d[\d,]*/g) || []).map((n) => Number(n.replace(/,/g, ''))) : [];
+        // Advisory only — see the loop below. IMDb has worded this label as
+        // "130 titles", as "1 - 25 of 130 titles", and as something that parses
+        // to a nonsense six-figure number, so nothing here is load-bearing.
+        const text = totalEl ? totalEl.textContent : '';
+        const of = text.match(/\bof\s+([\d,]+)/i);
+        const first = text.match(/([\d,]+)/);
+        const num = (m) => (m ? Number(m[1].replace(/,/g, '')) : 0);
         return {
           rows: document.querySelectorAll('li.ipc-metadata-list-summary-item').length,
-          total: nums.length ? Math.max(...nums) : 0,
+          total: num(of) || num(first),
         };
       }));
-      if (total && rows >= total) break;
+      // The stall detector is what actually ends this loop. The total label was
+      // trusted for that once and it stopped the scrape on its first pass (it
+      // read the "1" out of "1 - 25 of 130"), so total is now only believed when
+      // it is plausible — otherwise scroll until the row count stops growing.
+      const plausible = total > 0 && total < 10000;
+      if (plausible && rows >= total) break;
       stalls = rows === prev ? stalls + 1 : 0;
       if (stalls >= 12) break; // growth has genuinely stopped
       prev = rows;
@@ -157,7 +164,7 @@ async function main() {
       });
       await page.waitForTimeout(clicked ? 1500 : 900);
     }
-    if (total && rows < total) {
+    if (total > 0 && total < 10000 && rows < total) {
       console.warn(`Warning: only ${rows} of ${total} rows rendered — the list may be incomplete.`);
     }
 

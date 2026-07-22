@@ -118,8 +118,10 @@ export async function bakePicks(entries) {
     resolved.forEach((pick, j) => {
       if (!pick) return;
       // The IMDb community rating from the watchlist beats TMDB's own score.
-      const rating = slice[j].rating;
-      if (rating !== null) {
+      // Coerced here rather than trusted: the IDs file parses ratings to numbers
+      // but the scraper hands them over as the strings it read off the page.
+      const rating = slice[j].rating === null || slice[j].rating === undefined ? null : Number(slice[j].rating);
+      if (rating !== null && Number.isFinite(rating) && rating >= 0 && rating <= 10) {
         pick.rating = rating;
         pick.platform = `★ ${rating.toFixed(1)}`;
       }
