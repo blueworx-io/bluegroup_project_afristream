@@ -374,6 +374,42 @@ test('watch endpoint sport rows carry channel and broadcast country', async ({ r
   }
 });
 
+test('sport listings span more than one broadcast country', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+
+  // The whole point of merging three feeds: a viewer outside the US sees a
+  // channel they can actually watch, not just a US network.
+  const channels = page.locator('[data-sport-channel]');
+  await expect(channels.first()).toBeVisible();
+  const countries = new Set(
+    (await channels.allInnerTexts()).map((text) => text.split('\n').pop().trim())
+  );
+  expect(countries.size).toBeGreaterThan(1);
+  expect([...countries]).toContain('South Africa');
+});
+
+test('the baked sports guide is well-formed and in the plugin payload', async () => {
+  // data/sports-listings.json ships inside the plugin zip, so a malformed or
+  // stale file is a deployment problem, not just a local one.
+  const { readFileSync, existsSync } = await import('node:fs');
+  const path = 'data/sports-listings.json';
+  test.skip(!existsSync(path), 'no guide baked yet — run npm run sync-listings');
+
+  const guide = JSON.parse(readFileSync(path, 'utf8'));
+  expect(guide.source).toBe('iptv-org/epg');
+  expect(Array.isArray(guide.listings)).toBeTruthy();
+  expect(guide.listings.length).toBeGreaterThan(0);
+
+  for (const row of guide.listings) {
+    expect(row.fx, 'every listing names a fixture or programme').toBeTruthy();
+    expect(row.ch, 'every listing names a channel').toBeTruthy();
+    expect(row.chCountry, 'every listing names a broadcast country').toBeTruthy();
+    expect(Number.isNaN(Date.parse(row.iso)), `start time parses: ${row.iso}`).toBeFalsy();
+    // A bare episode marker means the parser fell through to the wrong field.
+    expect(row.fx).not.toMatch(/^S\d+\/E\d+/i);
+  }
+});
+
 test('clicking an editor pick card opens its detail panel', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
@@ -696,4 +732,64 @@ test('the Affiliates tab is an outbound link that opens in a new tab', async ({ 
 
   // The portal itself stays where it was rather than navigating away.
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+});
+
+// ---------------------------------------------------------------- apps data
+
+const APP_COSTS = ['free', 'free-tier'];
+const APP_CONTENT_VALUES = ['Sport', 'Movies', 'Series', 'Documentaries', 'Live TV'];
+const APP_DEVICE_KEYS = ['smart-tv', 'consoles', 'sticks', 'tablets', 'phones'];
+const APP_REGION_VALUES = [
+  'Worldwide', 'Africa', 'Europe', 'UK & Ireland',
+  'North America', 'Latin America', 'Asia-Pacific', 'Middle East',
+];
+
+test('apps database is served and every entry matches the schema', async ({ request }) => {
+  const res = await request.get('/data/apps.json');
+  expect(res.ok()).toBeTruthy();
+
+  const payload = await res.json();
+  expect(payload.updated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(Array.isArray(payload.apps)).toBe(true);
+  expect(payload.apps.length).toBeGreaterThanOrEqual(25);
+
+  const ids = new Set();
+  for (const app of payload.apps) {
+    const where = `app "${app.id || app.name}"`;
+    expect(app.id, where).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    expect(ids.has(app.id), `${where} has a duplicate id`).toBe(false);
+    ids.add(app.id);
+
+    expect(typeof app.name, where).toBe('string');
+    expect(app.name.length, where).toBeGreaterThan(0);
+    expect(APP_COSTS, where).toContain(app.cost);
+    expect(app.blurb.length, where).toBeGreaterThan(20);
+    expect(app.url, where).toMatch(/^https:\/\//);
+    expect(typeof app.availability, where).toBe('string');
+    expect(app.availability.length, where).toBeGreaterThan(0);
+
+    expect(app.content.length, where).toBeGreaterThan(0);
+    for (const c of app.content) expect(APP_CONTENT_VALUES, where).toContain(c);
+
+    expect(app.devices.length, where).toBeGreaterThan(0);
+    for (const d of app.devices) expect(APP_DEVICE_KEYS, where).toContain(d);
+
+    expect(app.regions.length, where).toBeGreaterThan(0);
+    for (const r of app.regions) expect(APP_REGION_VALUES, where).toContain(r);
+
+    for (const key of Object.keys(app.install || {})) {
+      expect(APP_DEVICE_KEYS, `${where} install key`).toContain(key);
+      expect(app.devices, `${where} installs on a device it does not list`).toContain(key);
+    }
+  }
+});
+
+test('apps database covers every content type and every device class', async ({ request }) => {
+  const { apps } = await (await request.get('/data/apps.json')).json();
+  for (const c of APP_CONTENT_VALUES) {
+    expect(apps.some((a) => a.content.includes(c)), `no app carries ${c}`).toBe(true);
+  }
+  for (const d of APP_DEVICE_KEYS) {
+    expect(apps.some((a) => a.devices.includes(d)), `no app installs on ${d}`).toBe(true);
+  }
 });

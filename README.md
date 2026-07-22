@@ -33,6 +33,23 @@ IMDB_WATCHLIST_URL="https://www.imdb.com/user/…/watchlist/" npm run sync-watch
 
 This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt) (bundled in the plugin zip), which the plugin resolves through TMDB for artwork. The wp-admin **Editor Picks (IMDb IDs)** box overrides the file when set. Run the sync whenever the watchlist changes, before `npm run build`.
 
+**Sport (no key needed):** sport listings merge three permanently free sources, so there is nothing to configure:
+
+| Source | Supplies | When |
+| --- | --- | --- |
+| [ESPN](https://site.api.espn.com/) public scoreboard | Fixtures worldwide, US networks | Live, cached 2h |
+| [TheSportsDB](https://www.thesportsdb.com/documentation) free tier (public key `123`) | Broadcasters outside the US | Live, cached 2h |
+| [iptv-org/epg](https://github.com/iptv-org/epg) | What is actually on SuperSport and Sky Sports | Baked at build time |
+
+The first two are plain HTTP calls the WordPress server makes itself. The third is a grabber that clones ~150MB and takes minutes, so it runs at build/deploy time like the watchlist sync:
+
+```bash
+npm run sync-listings          # ~3 days of listings
+EPG_DAYS=5 npm run sync-listings
+```
+
+This writes [data/sports-listings.json](data/sports-listings.json) (bundled in the plugin zip); the grabber itself is cached in `.cache/` and never committed. DStv publishes a separate channel list per African market and Sky a separate feed for the UK and Ireland, but the same channel carries the same programming in each, so the sync keeps one entry per channel rather than grabbing — and then showing — the same listing several times over. The plugin drops any programme that has already finished and ignores the file entirely once it is more than 10 days old, so a stale build degrades to the two live feeds rather than showing yesterday's guide. Re-run it before `npm run build`.
+
 ## Local preview (no WordPress needed)
 
 ```bash

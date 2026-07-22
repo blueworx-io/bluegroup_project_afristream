@@ -2,3 +2,6 @@ node_modules/
 dist/
 playwright-report/
 test-results/
+
+# Build-time cache for the sports TV guide grabber (npm run sync-listings).
+.cache/
