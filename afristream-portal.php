@@ -3,7 +3,7 @@
  * Plugin Name: AfriStream Customer Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.10.0
+ * Version:     0.12.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: afristream-portal
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.10.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.12.0' );
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
@@ -460,9 +460,87 @@ function afristream_portal_sportsdb_events() {
 }
 
 /**
- * Normalised key for de-duplicating the same fixture arriving from both feeds
- * ("Arsenal at Everton" from ESPN vs "Everton vs Arsenal" from TheSportsDB).
- * Team order is discarded so either phrasing collapses to one key.
+ * Days a baked listings file stays usable. It is a snapshot of a published TV
+ * guide, so once the last grabbed day has passed there is nothing left in it;
+ * this is the belt-and-braces check on top of dropping finished programmes.
+ */
+define( 'AFRISTREAM_PORTAL_LISTINGS_MAX_AGE', 10 * DAY_IN_SECONDS );
+
+/**
+ * Most rows the baked guide may contribute to the merged sport row. Three days
+ * of SuperSport and Sky Sports is hundreds of programmes, all of them sooner
+ * than most of the fixture feeds' entries — without a cap they would sort to
+ * the top and the row would become one channel's schedule instead of a spread
+ * of what is on around the world.
+ */
+define( 'AFRISTREAM_PORTAL_LISTINGS_CAP', 6 );
+
+/**
+ * The sports TV guide baked in at build time by `npm run sync-listings` —
+ * SuperSport across South Africa, Nigeria and Kenya plus Sky Sports in the UK,
+ * read from the broadcasters' own published EPG via iptv-org/epg.
+ *
+ * This is the channel-first half of the picture: the fixture feeds answer
+ * "who is playing and where can I watch it", this answers "what is actually on
+ * SuperSport Cricket at 6pm". Anything already finished is dropped, and a file
+ * older than AFRISTREAM_PORTAL_LISTINGS_MAX_AGE is ignored entirely rather
+ * than shown as if it were current.
+ */
+function afristream_portal_listings_events() {
+	$path = plugin_dir_path( __FILE__ ) . 'data/sports-listings.json';
+	if ( ! file_exists( $path ) || ! is_readable( $path ) ) {
+		return array();
+	}
+	$json = json_decode( (string) file_get_contents( $path ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- bundled plugin file, not a remote fetch.
+	if ( ! is_array( $json ) || empty( $json['listings'] ) || ! is_array( $json['listings'] ) ) {
+		return array();
+	}
+	$generated = ! empty( $json['generated'] ) ? strtotime( $json['generated'] ) : 0;
+	if ( ! $generated || ( time() - $generated ) > AFRISTREAM_PORTAL_LISTINGS_MAX_AGE ) {
+		return array();
+	}
+
+	$now    = time();
+	$events = array();
+	foreach ( $json['listings'] as $row ) {
+		if ( empty( $row['fx'] ) || empty( $row['iso'] ) || empty( $row['ch'] ) ) {
+			continue;
+		}
+		$start = strtotime( $row['iso'] );
+		$end   = ! empty( $row['endIso'] ) ? strtotime( $row['endIso'] ) : 0;
+		if ( ! $start || ( $end && $end < $now ) ) {
+			continue;
+		}
+		$events[] = array(
+			'comp'      => ! empty( $row['comp'] ) ? $row['comp'] : $row['ch'],
+			'code'      => ! empty( $row['code'] ) ? $row['code'] : 'Sport',
+			'country'   => ! empty( $row['country'] ) ? $row['country'] : 'International',
+			'fx'        => $row['fx'],
+			'iso'       => $row['iso'],
+			'time'      => '',
+			'ch'        => $row['ch'],
+			'chCountry' => ! empty( $row['chCountry'] ) ? $row['chCountry'] : '',
+			'live'      => $start <= $now && ( ! $end || $end > $now ),
+		);
+	}
+
+	// Soonest first, then trimmed — see AFRISTREAM_PORTAL_LISTINGS_CAP.
+	usort(
+		$events,
+		function ( $a, $b ) {
+			if ( $a['live'] !== $b['live'] ) {
+				return $a['live'] ? -1 : 1;
+			}
+			return strcmp( $a['iso'], $b['iso'] );
+		}
+	);
+	return array_slice( $events, 0, AFRISTREAM_PORTAL_LISTINGS_CAP );
+}
+
+/**
+ * Normalised key for de-duplicating the same fixture arriving from more than
+ * one feed ("Arsenal at Everton" from ESPN vs "Everton vs Arsenal" from
+ * TheSportsDB). Team order is discarded so either phrasing collapses to one key.
  */
 function afristream_portal_sport_key( $event ) {
 	$name  = strtolower( isset( $event['fx'] ) ? $event['fx'] : '' );
@@ -479,16 +557,20 @@ function afristream_portal_sport_key( $event ) {
 }
 
 /**
- * Both free feeds, merged. ESPN supplies the fixture list and US networks;
- * TheSportsDB supplies broadcasters for the rest of the world. Where the same
- * fixture appears in both, the row that actually names a broadcaster wins —
- * ESPN falls back to the competition label when it has no broadcast data, and
- * a real channel name is always the more useful answer.
+ * All three free feeds, merged. ESPN supplies the fixture list and US networks;
+ * TheSportsDB supplies broadcasters for the rest of the world; the baked
+ * iptv-org guide supplies what is actually on SuperSport and Sky Sports. Where
+ * the same fixture appears in more than one, the row that actually names a
+ * broadcaster wins — ESPN falls back to the competition label when it has no
+ * broadcast data, and a real channel name is always the more useful answer.
+ *
+ * Feed order is deliberate: the fixture feeds go first so their cleaner event
+ * names and competition labels are what a merged row keeps.
  */
 function afristream_portal_sport_merged() {
 	$merged = array();
 
-	foreach ( array( afristream_portal_sport_events(), afristream_portal_sportsdb_events() ) as $feed ) {
+	foreach ( array( afristream_portal_sport_events(), afristream_portal_sportsdb_events(), afristream_portal_listings_events() ) as $feed ) {
 		foreach ( $feed as $event ) {
 			$key = afristream_portal_sport_key( $event );
 			if ( '' === $key ) {

@@ -374,6 +374,42 @@ test('watch endpoint sport rows carry channel and broadcast country', async ({ r
   }
 });
 
+test('sport listings span more than one broadcast country', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+
+  // The whole point of merging three feeds: a viewer outside the US sees a
+  // channel they can actually watch, not just a US network.
+  const channels = page.locator('[data-sport-channel]');
+  await expect(channels.first()).toBeVisible();
+  const countries = new Set(
+    (await channels.allInnerTexts()).map((text) => text.split('\n').pop().trim())
+  );
+  expect(countries.size).toBeGreaterThan(1);
+  expect([...countries]).toContain('South Africa');
+});
+
+test('the baked sports guide is well-formed and in the plugin payload', async () => {
+  // data/sports-listings.json ships inside the plugin zip, so a malformed or
+  // stale file is a deployment problem, not just a local one.
+  const { readFileSync, existsSync } = await import('node:fs');
+  const path = 'data/sports-listings.json';
+  test.skip(!existsSync(path), 'no guide baked yet — run npm run sync-listings');
+
+  const guide = JSON.parse(readFileSync(path, 'utf8'));
+  expect(guide.source).toBe('iptv-org/epg');
+  expect(Array.isArray(guide.listings)).toBeTruthy();
+  expect(guide.listings.length).toBeGreaterThan(0);
+
+  for (const row of guide.listings) {
+    expect(row.fx, 'every listing names a fixture or programme').toBeTruthy();
+    expect(row.ch, 'every listing names a channel').toBeTruthy();
+    expect(row.chCountry, 'every listing names a broadcast country').toBeTruthy();
+    expect(Number.isNaN(Date.parse(row.iso)), `start time parses: ${row.iso}`).toBeFalsy();
+    // A bare episode marker means the parser fell through to the wrong field.
+    expect(row.fx).not.toMatch(/^S\d+\/E\d+/i);
+  }
+});
+
 test('clicking an editor pick card opens its detail panel', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
@@ -580,6 +616,122 @@ test('profile tab shows the logged-in user credentials from the endpoint', async
   // Switching profile tabs swaps to the second license's credentials.
   await page.getByRole('button', { name: 'Profile 2' }).click();
   await expect(page.getByText('afri_fixture_tv')).toBeVisible();
+});
+
+test('poster grids stay multi-column on a phone inside a padded theme container', async ({ page }) => {
+  // A host theme wraps shortcode output in a container with its own gutter, and
+  // the portal adds its own on top. That doubled gutter is what used to drop the
+  // content box below the poster grids' column threshold, collapsing them to a
+  // single full-width poster per row on an ordinary phone.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.addStyleTag({ content: 'body{padding:0 24px}' });
+
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const grid = page.getByTestId('editor-grid');
+  await expect(grid).toBeVisible();
+
+  const cols = await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+  expect(cols).toBeGreaterThanOrEqual(2);
+
+  // And no grid may spill out of the column it was given.
+  const overflow = await page.evaluate(() => {
+    let worst = 0;
+    document.querySelectorAll('.afristream-portal [style*="grid-template-columns"]').forEach((g) => {
+      worst = Math.max(worst, g.getBoundingClientRect().width - g.parentElement.clientWidth);
+    });
+    return Math.round(worst);
+  });
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('portal never widens the page past the viewport inside a padded theme container', async ({ page }) => {
+  // The full-width rule lifts the host wrapper's width cap so the portal fills
+  // the content area. It has to size the border box doing it: on a content-box
+  // wrapper, width:100% plus the theme's own padding makes the document wider
+  // than the screen, and the phone zooms the whole page out to fit.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.addStyleTag({ content: 'body{padding:0 24px}' });
+
+  for (const tab of ['Profile', 'What to Watch', 'Editor Picks', 'Free Apps', 'Tips & Tricks', 'Troubleshooting']) {
+    await page.getByRole('button', { name: tab, exact: true }).click();
+    const overflow = await page.evaluate(() => {
+      const de = document.documentElement;
+      return de.scrollWidth - de.clientWidth;
+    });
+    expect(overflow, `${tab} widens the page past the viewport`).toBe(0);
+  }
+});
+
+test('the filters drawer scroll-locks the page behind it', async ({ page }) => {
+  // Both overlays are modal — a fixed panel over a full-viewport scrim — so both
+  // have to stop the page scrolling underneath. On a phone an unlocked page is
+  // very visible: dragging the filter list scrolls the catalogue behind it.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'What to Watch' }).click();
+
+  // Two things this has to get right to be worth anything:
+  //   - a real wheel event, not window.scrollBy — overflow:hidden only blocks
+  //     user scrolling, so a programmatic scroll sails straight through a
+  //     working lock and the test would pass no matter what;
+  //   - the pointer over the scrim, not the panel — the panel body already
+  //     stops chaining via overscroll-behavior, so wheeling there is green
+  //     even with no page lock at all. The scrim is where the gap shows.
+  const scrollable = async (x = 195) => {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.mouse.move(x, 400);
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(250);
+    const moved = await page.evaluate(() => window.scrollY > 0);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    return moved;
+  };
+
+  // Midpoint of the scrim strip left of the drawer.
+  const overScrim = async () => {
+    const left = await page.getByTestId('filters-drawer')
+      .evaluate((el) => el.getBoundingClientRect().left);
+    return scrollable(Math.max(4, Math.round(left / 2)));
+  };
+
+  expect(await scrollable(), 'page should scroll with no drawer open').toBe(true);
+
+  await page.getByRole('button', { name: 'Filters', exact: true }).click();
+  await expect(page.getByTestId('filters-drawer')).toBeVisible();
+  expect(await overScrim(), 'page must not scroll behind the filters drawer').toBe(false);
+
+  // Closing restores scrolling rather than leaving the page stuck.
+  await page.getByTestId('filters-drawer').getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByTestId('filters-drawer')).not.toBeVisible();
+  expect(await scrollable(), 'page should scroll again once closed').toBe(true);
+});
+
+test('the Affiliates tab is an outbound link that opens in a new tab', async ({ page, context }) => {
+  const link = page.getByTestId('nav-affiliates');
+  await expect(link).toBeVisible();
+
+  // Last in the tab list, and a link rather than a section button.
+  const labels = await page.locator('.as-tabs > *').evaluateAll((els) => els.map((e) => e.textContent.trim()));
+  expect(labels[labels.length - 1]).toContain('Affiliates');
+  await expect(link).toHaveAttribute('href', 'https://afristream.surecart.com/affiliates/');
+  // target=_blank hands the opened page a window.opener back to this one
+  // unless it is disclaimed.
+  await expect(link).toHaveAttribute('rel', /noopener/);
+
+  // Stubbed so the suite stays hermetic — we care that the browser was sent
+  // to that URL in a new tab, not what SureCart serves back.
+  await context.route('https://afristream.surecart.com/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
+
+  const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
+  await tab.waitForLoadState();
+  expect(tab.url()).toBe('https://afristream.surecart.com/affiliates/');
+  await tab.close();
+
+  // The portal itself stays where it was rather than navigating away.
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
 });
 
 // ---------------------------------------------------------------- apps data

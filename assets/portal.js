@@ -522,7 +522,7 @@
       <div style="font-size:14px;font-weight:800">${results.length} result${results.length === 1 ? '' : 's'}</div>
       <button data-act="clear-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:13px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Clear search &amp; filters</button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:16px">
+    <div class="as-grid-posters" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:16px">
       ${results.map(posterGridItem).join('')}
     </div>
     ${results.length === 0 ? `
@@ -652,7 +652,7 @@
   </div>` : ''}
   ${grid.length ? `
   ${hero ? `<h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Top rated</h2>` : ''}
-  <div data-testid="editor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px">
+  <div data-testid="editor-grid" class="as-grid-posters" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px">
     ${grid.map(editorCard).join('')}
   </div>` : ''}
   ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
@@ -668,7 +668,7 @@
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Tips &amp; Tricks</h1>
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Small habits that make every screen in the house run smoother.</p>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+  <div class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
     ${TIPS_DATA.map((t, i) => `
       <div style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 20px 22px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;box-shadow:0 1px 2px rgba(11,21,51,.04)">
         <div style="position:absolute;top:-16px;right:4px;font-size:78px;font-weight:800;color:rgba(11,21,51,.05);line-height:1;user-select:none">${String(i + 1).padStart(2, '0')}</div>
@@ -850,7 +850,10 @@
       { id: 'editor', label: 'Editor Picks' },
       { id: 'apps', label: 'Free Apps' },
       { id: 'tips', label: 'Tips & Tricks' },
-      { id: 'help', label: 'Troubleshooting' }
+      { id: 'help', label: 'Troubleshooting' },
+      // An outbound link rather than a section: it carries an href, so it
+      // renders as an anchor and never takes the active underline.
+      { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
     ];
     const SECTIONS = { profile: profileSection, watch: watchSection, apps: appsSection, editor: editorSection, tips: tipsSection, help: helpSection };
 
@@ -935,7 +938,7 @@
         body = `<div style="display:flex;flex-direction:column;gap:16px">
           <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div>
           ${items.length
-            ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px">${items.map(posterGridItem).join('')}</div>`
+            ? `<div class="as-grid-posters" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px">${items.map(posterGridItem).join('')}</div>`
             : `<div style="font-size:13px;color:rgba(11,21,51,.55)">Nothing in this collection right now — check back after the next update.</div>`}
         </div>`;
       } else if (obj.detailKind === 'app') {
@@ -999,7 +1002,12 @@
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
     <div class="as-tabs" style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
-      ${NAV.map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`).join('')}
+      ${NAV.map((n) => (n.href
+        // noopener/noreferrer because target=_blank otherwise hands the opened
+        // page a window.opener handle back to this one. No data-act, so the
+        // delegated click handler leaves it alone and the browser navigates.
+        ? `<a href="${esc(n.href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(n.label)} (opens in a new tab)" style="${navBtn(false)};text-decoration:none;display:flex;align-items:center" data-testid="nav-${n.id}">${esc(n.label)}<span aria-hidden="true" style="margin-left:5px;font-size:11px;line-height:1">↗</span></a>`
+        : `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`)).join('')}
     </div>
     <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none;white-space:nowrap">
       <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
@@ -1027,14 +1035,19 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         if (closeBtn) closeBtn.focus();
       }
 
-      // Scroll-lock the page while the modal panel is open; restore the
-      // original body overflow on close (so we don't clobber a host value).
+      // Scroll-lock the page while a modal panel is open; restore the original
+      // body overflow on close (so we don't clobber a host value). Both panels
+      // count: the filters drawer is just as modal as the detail one — a fixed
+      // panel over a full-viewport scrim — and on a phone a page left scrolling
+      // underneath is obvious, because dragging the filter list takes the
+      // catalogue behind it along too.
       const body = root.ownerDocument && root.ownerDocument.body;
+      const modalOpen = !!state.detail || !!state.filtersOpen;
       if (body) {
-        if (state.detail && prevBodyOverflow === null) {
+        if (modalOpen && prevBodyOverflow === null) {
           prevBodyOverflow = body.style.overflow;
           body.style.overflow = 'hidden';
-        } else if (!state.detail && prevBodyOverflow !== null) {
+        } else if (!modalOpen && prevBodyOverflow !== null) {
           body.style.overflow = prevBodyOverflow;
           prevBodyOverflow = null;
         }

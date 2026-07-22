@@ -4,14 +4,47 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-07-22
+
+### Added
+
+- New **Free Apps** tab, sitting between Editor Picks and Tips & Tricks: a curated directory of free and free-tier streaming apps covering sport, movies, series, documentaries and live TV, filterable by device type (Smart TV, consoles, sticks and boxes, tablets, phones), content type and region.
+- Each app carries a plain-language description, the devices it installs on, where it is available, whether it is fully free or a free tier, and per-device install steps — shown in the existing detail drawer, with a link out to the official site.
+- The directory ships as `data/apps.json` inside the plugin (30 entries, each checked against the vendor's own site or store listing) and is fetched lazily the first time the tab is opened, with the plugin version appended so a new build can't be served from a stale cache. Region availability is recorded as coarse groups for filtering plus a precise free-text note, because free services are heavily region-locked and a country-level filter would need a hundred-entry dropdown.
+- App logos are deliberately not used — the cards use the portal's existing initial-on-gradient treatment, tinted by the app's primary content type, so nothing is loaded from a third-party host.
+
+## [0.11.0] - 2026-07-22
+
+### Added
+
+- **A real sports TV guide, baked in at build time** — a new `npm run sync-listings` step reads the published EPG for SuperSport and Sky Sports via [iptv-org/epg](https://github.com/iptv-org/epg) and writes `data/sports-listings.json` into the plugin zip. That answers the channel-first question the fixture feeds can't — what is actually on SuperSport Cricket at 18:00 — and it is the only permanently free source of it; every commercial sports API puts broadcaster listings behind a paid plan. The current guide carries 1,263 listings across 29 channels over three days.
+
+  The grabber is a Node project of its own that clones ~150MB and takes about half an hour, so like the IMDb watchlist sync it runs at build/deploy time rather than from WordPress, cached in a gitignored `.cache/`. What ships is only the resulting JSON.
+
+  Turning a broadcaster's EPG into something a listings row can show takes some cleaning: highlight reels and repeats are dropped (a sports channel's day is mostly the same fixture's highlights on a loop — 1,415 such programmes were filtered from the current guide), fixture names come from the fuller programme description rather than the broadcaster's shorthand ("Int CRI '26: WI v NZL 5th ODI" becomes "West Indies vs New Zealand 5th ODI"), the sport is read from the guide's own category tags, and DStv's per-market channel lists and Sky's separate UK and Ireland feeds are collapsed to one entry per channel so nothing appears twice.
+
+### Changed
+
+- **Sport listings now merge three free sources rather than two** — ESPN for fixtures and US networks, TheSportsDB for broadcasters elsewhere, and the baked guide for what is actually on. The baked guide is capped at 6 of the row's 12 slots: three days of SuperSport and Sky Sports is hundreds of programmes, every one of them sooner than most fixtures in the live feeds, so without that cap the row would sort itself into a single platform's schedule instead of a spread of what is on around the world.
+
+### Notes
+
+- The plugin drops any programme that has already finished and ignores the baked guide entirely once it is more than 10 days old, so a stale build quietly falls back to the two live feeds rather than showing last week's schedule as if it were current.
+- `npm run sync-listings` needs `git` on PATH. It is a build-time step only — nothing about it runs on the WordPress server, and no API key, account or paid tier is involved in any of the three sources.
+
 ## [0.10.0] - 2026-07-22
 
 ### Added
 
-- New **Free Apps** tab, sitting after Editor Picks: a curated directory of free and free-tier streaming apps covering sport, movies, series, documentaries and live TV, filterable by device type (Smart TV, consoles, sticks and boxes, tablets, phones), content type and region.
-- Each app carries a plain-language description, the devices it installs on, where it is available, whether it is fully free or a free tier, and per-device install steps — shown in the existing detail drawer, with a link out to the official site.
-- The directory ships as `data/apps.json` inside the plugin and is fetched lazily the first time the tab is opened. Region availability is recorded as coarse groups for filtering plus a precise free-text note, because free services are heavily region-locked and a country-level filter would need a hundred-entry dropdown.
-- App logos are deliberately not used — the cards use the portal's existing initial-on-gradient treatment, so nothing is loaded from a third-party host.
+- **Affiliates link in the top bar** — a sixth item at the end of the tab list, opening the AfriStream affiliate programme (`afristream.surecart.com/affiliates/`) in a new tab. Unlike the other five it isn't a portal section, so it renders as a real anchor rather than a button: it never takes the active underline, it carries `rel="noopener noreferrer"` (without which the opened page gets a `window.opener` handle back to the portal), and it's marked with a ↗ plus an accessible name saying it opens in a new tab.
+
+## [0.9.1] - 2026-07-22
+
+### Fixed
+
+- **The portal scales correctly on a phone again.** The rule that lifts a host theme's width cap (so the portal fills the content area rather than sitting in a narrow column) set `width: 100%` without sizing the border box. On a `content-box` wrapper — the browser default, and what plenty of theme containers still are — the theme's own horizontal padding is then added on top of that 100%, so the wrapper ends up wider than its parent: on a 390px phone with a 24px theme gutter the document came out 438px wide. The browser's response to a document wider than the viewport is to zoom the whole page out to fit, which is why the portal rendered shrunk with the page scrolling sideways. The rule now sizes the border box, so "fill the content area" can no longer overflow it.
+- **The filters drawer no longer lets the page scroll behind it.** The scroll-lock only keyed on the detail panel, so with the filters drawer open the catalogue still scrolled underneath — most obvious over the scrim beside the panel, where a wheel or a drag went straight to the page. The lock now covers both overlays, which are equally modal. (Scrolling *inside* the panel was already contained by `overscroll-behavior`; it was the area around it that leaked.)
+- **Poster grids no longer collapse to one title per row on a phone.** The Editor Picks, search-result and collection grids are `auto-fill` with a pixel floor (146–150px), which assumed the portal owned the full viewport width. It doesn't: the host theme's gutter and the portal's own gutter both come off the top, leaving roughly 295px of content on a 390px phone — just under the ~316px two columns need — so `auto-fill` quietly dropped to a single column of roughly 300×450 posters. Mobile now pins the count at two columns instead of inferring it from a width the portal can't predict, and the columns use `minmax(0, 1fr)` so they can always shrink to the space available rather than overflowing the narrowest phones.
 
 ## [0.9.0] - 2026-07-22
 

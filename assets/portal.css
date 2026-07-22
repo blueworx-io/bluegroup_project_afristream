@@ -30,10 +30,20 @@
    would box the portal in. Lift the width cap on the element that *directly*
    wraps the portal so it fills the full content area it was dropped into.
    Scoped with :has() so only the wrapper actually containing the portal is
-   affected — the rest of the page (and any sidebar) is left untouched. */
+   affected — the rest of the page (and any sidebar) is left untouched.
+
+   box-sizing is part of the fix, not a tidy-up: on a content-box wrapper (the
+   browser default, and what plenty of theme containers still are) width:100%
+   sizes the *content* box and any horizontal padding is added on top, so the
+   wrapper ends up wider than its parent. On a phone that pushes the document
+   past the viewport and the browser zooms the whole page out to fit — the
+   portal renders shrunk with the page scrolling sideways. Sizing the border
+   box instead absorbs the padding inside the 100%, so "fill the content area"
+   can never overflow it. */
 :has(> .afristream-portal) {
   max-width: none !important;
   width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .afristream-portal * {
@@ -105,7 +115,8 @@
   scroll-snap-type: x proximity;
 }
 .afristream-portal .as-tabs::-webkit-scrollbar { display: none; }
-.afristream-portal .as-tabs > button { scroll-snap-align: start; }
+.afristream-portal .as-tabs > button,
+.afristream-portal .as-tabs > a { scroll-snap-align: start; }
 
 /* Momentum scrolling for the horizontal poster/sport/channel/collection rows. */
 .afristream-portal [data-dragscroll] { -webkit-overflow-scrolling: touch; }
@@ -155,4 +166,21 @@
 @media (max-width: 600px) {
   .afristream-portal .as-plan { display: none !important; }
   .afristream-portal .as-tabs { gap: 22px !important; }
+
+  /* The grids are auto-fill with a px floor, which assumes the portal owns the
+     full viewport width. It doesn't: a host theme's container gutter and the
+     portal's own gutter both come off the top, so on a phone the content box
+     lands just under the floor and auto-fill drops to a single column — one
+     poster per row at roughly 300x450. Pin the count on mobile instead of
+     inferring it from a width the portal can't predict.
+
+     minmax(0,1fr) rather than a px floor so a column can always shrink to the
+     space available; a px floor here is what makes a grid wider than its
+     container on the narrowest phones. */
+  .afristream-portal .as-grid-posters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .afristream-portal .as-grid-cards {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
