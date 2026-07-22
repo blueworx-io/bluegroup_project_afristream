@@ -1,19 +1,19 @@
 <?php
 /**
- * Plugin Name: AfriStream Customer Portal
+ * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.12.0
+ * Version:     0.13.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
- * Text Domain: afristream-portal
+ * Text Domain: bluegroup-project-afristream
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.12.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.13.0' );
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
@@ -31,19 +31,19 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
  */
 function afristream_portal_register_assets() {
 	wp_register_style(
-		'afristream-portal-fonts',
+		'bluegroup-project-afristream-fonts',
 		'https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap',
 		array(),
 		null
 	);
 	wp_register_style(
-		'afristream-portal',
+		'bluegroup-project-afristream',
 		plugins_url( 'assets/portal.css', __FILE__ ),
-		array( 'afristream-portal-fonts' ),
+		array( 'bluegroup-project-afristream-fonts' ),
 		AFRISTREAM_PORTAL_VERSION
 	);
 	wp_register_script(
-		'afristream-portal',
+		'bluegroup-project-afristream',
 		plugins_url( 'assets/portal.js', __FILE__ ),
 		array(),
 		AFRISTREAM_PORTAL_VERSION,
@@ -67,13 +67,13 @@ function afristream_portal_shortcode( $atts ) {
 		'afristream_portal'
 	);
 
-	wp_enqueue_style( 'afristream-portal' );
-	wp_enqueue_script( 'afristream-portal' );
+	wp_enqueue_style( 'bluegroup-project-afristream' );
+	wp_enqueue_script( 'bluegroup-project-afristream' );
 
 	// Page-scoped host-theme fix: drop the right dashboard column's padding so the
 	// portal sits flush. Attached to the portal handle, which only prints on pages
 	// that actually render this shortcode — so no other page is affected.
-	wp_add_inline_style( 'afristream-portal', '.dashboard-right{padding:0 !important;}' );
+	wp_add_inline_style( 'bluegroup-project-afristream', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
 		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s"></div>',
@@ -754,7 +754,15 @@ function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movi
 
 function afristream_portal_editor_picks() {
 	$cached = get_transient( 'afristream_portal_editor' );
-	if ( false !== $cached ) {
+	if ( false !== $cached && empty( $cached['partial'] ) ) {
+		return $cached;
+	}
+	// A partial payload means an earlier request ran out of time part-way through
+	// the list. Hand it straight back only while another request is already
+	// resolving the rest; otherwise this request picks up where that one stopped,
+	// warm from the per-title cache. Without that, the short list is simply
+	// re-served until the transient expires and the visitor never sees the rest.
+	if ( false !== $cached && get_transient( 'afristream_portal_editor_lock' ) ) {
 		return $cached;
 	}
 	if ( ! afristream_portal_tmdb_key() ) {
@@ -774,6 +782,9 @@ function afristream_portal_editor_picks() {
 	$started      = microtime( true );
 	$budget       = afristream_portal_pick_budget();
 	$partial      = false;
+	// Held for the length of one resolve pass so concurrent visitors read the
+	// partial payload above instead of all stampeding TMDB with the same work.
+	set_transient( 'afristream_portal_editor_lock', 1, (int) ceil( $budget ) + 10 );
 	foreach ( $ids as $imdb_id => $imdb_rating ) {
 		// Stop short rather than let a cold cache blow PHP's max execution time
 		// and 500 the request. Whatever resolved is served now and the rest is
@@ -795,6 +806,7 @@ function afristream_portal_editor_picks() {
 			$rank++;
 		}
 	}
+	delete_transient( 'afristream_portal_editor_lock' );
 	if ( empty( $picks ) ) {
 		return $last_good ? $last_good : array( 'source' => 'fallback', 'reason' => 'none-resolved' );
 	}
@@ -803,9 +815,9 @@ function afristream_portal_editor_picks() {
 	if ( $partial ) {
 		$payload['partial'] = true;
 	}
-	// A partial run is cached only briefly, so the next visitor finishes the list
-	// off instead of being stuck with the short version for the full 12 hours.
-	set_transient( 'afristream_portal_editor', $payload, $partial ? MINUTE_IN_SECONDS : 12 * HOUR_IN_SECONDS );
+	// A partial run is kept only as the answer to serve while the next pass runs —
+	// the front end is polling for the rest, so a long TTL here would just stall it.
+	set_transient( 'afristream_portal_editor', $payload, $partial ? 5 * MINUTE_IN_SECONDS : 12 * HOUR_IN_SECONDS );
 	// Only a complete run becomes the last-good copy — a truncated list should
 	// never replace a full one as the TMDB-outage fallback.
 	if ( ! $partial ) {
@@ -941,16 +953,16 @@ function afristream_portal_register_settings() {
 
 	add_settings_section(
 		'afristream_portal_data',
-		__( 'Live data sources', 'afristream-portal' ),
+		__( 'Live data sources', 'bluegroup-project-afristream' ),
 		'afristream_portal_settings_intro',
-		'afristream-portal'
+		'bluegroup-project-afristream'
 	);
 
 	add_settings_field(
 		'afristream_tmdb_api_key',
-		__( 'TMDB API key', 'afristream-portal' ),
+		__( 'TMDB API key', 'bluegroup-project-afristream' ),
 		'afristream_portal_tmdb_key_field',
-		'afristream-portal',
+		'bluegroup-project-afristream',
 		'afristream_portal_data',
 		array( 'label_for' => 'afristream_tmdb_api_key' )
 	);
@@ -967,9 +979,9 @@ function afristream_portal_register_settings() {
 
 	add_settings_field(
 		'afristream_editor_picks_ids',
-		__( 'Editor Picks (IMDb IDs)', 'afristream-portal' ),
+		__( 'Editor Picks (IMDb IDs)', 'bluegroup-project-afristream' ),
 		'afristream_portal_editor_ids_field',
-		'afristream-portal',
+		'bluegroup-project-afristream',
 		'afristream_portal_data',
 		array( 'label_for' => 'afristream_editor_picks_ids' )
 	);
@@ -994,18 +1006,18 @@ function afristream_portal_editor_ids_field() {
 		esc_textarea( (string) get_option( 'afristream_editor_picks_ids', '' ) )
 	);
 	echo '<p class="description">' . wp_kses(
-		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Leave this empty to use the watchlist synced at build time (via <code>npm run sync-watchlist</code>, bundled in <code>data/editor-picks-ids.txt</code>). To override, paste <code>tt…</code> IDs here — one per line, or full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). Up to 60; saving refreshes immediately.', 'afristream-portal' ),
+		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Leave this empty to use the watchlist synced at build time (via <code>npm run sync-watchlist</code>, bundled in <code>data/editor-picks-ids.txt</code>). To override, paste <code>tt…</code> IDs here — one per line, or full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). Up to 300; a long list fills in over the first few minutes after saving.', 'bluegroup-project-afristream' ),
 		array( 'code' => array() )
 	) . '</p>';
 }
 
 function afristream_portal_settings_intro() {
-	echo '<p>' . esc_html__( 'Sport fixtures and TV channels need no configuration — they come from two keyless, permanently free public feeds (ESPN for fixtures and US networks, TheSportsDB for broadcasters elsewhere in the world). Trending movies, series and new releases come from TMDB once an API key is saved; without one the portal shows its built-in lists.', 'afristream-portal' ) . '</p>';
+	echo '<p>' . esc_html__( 'Sport fixtures and TV channels need no configuration — they come from two keyless, permanently free public feeds (ESPN for fixtures and US networks, TheSportsDB for broadcasters elsewhere in the world). Trending movies, series and new releases come from TMDB once an API key is saved; without one the portal shows its built-in lists.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 function afristream_portal_tmdb_key_field() {
 	if ( defined( 'AFRISTREAM_TMDB_API_KEY' ) && AFRISTREAM_TMDB_API_KEY ) {
-		echo '<p><em>' . esc_html__( 'The key is defined in wp-config.php (AFRISTREAM_TMDB_API_KEY), which takes precedence over this setting.', 'afristream-portal' ) . '</em></p>';
+		echo '<p><em>' . esc_html__( 'The key is defined in wp-config.php (AFRISTREAM_TMDB_API_KEY), which takes precedence over this setting.', 'bluegroup-project-afristream' ) . '</em></p>';
 		return;
 	}
 	printf(
@@ -1013,7 +1025,7 @@ function afristream_portal_tmdb_key_field() {
 		esc_attr( get_option( 'afristream_tmdb_api_key', '' ) )
 	);
 	echo '<p class="description">' . wp_kses(
-		__( 'Free API key (v3 auth) from <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">themoviedb.org</a> (sign up → Settings → API). Saving refreshes the catalog immediately.', 'afristream-portal' ),
+		__( 'Free API key (v3 auth) from <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener noreferrer">themoviedb.org</a> (sign up → Settings → API). Saving refreshes the catalog immediately.', 'bluegroup-project-afristream' ),
 		array(
 			'a' => array(
 				'href'   => array(),
@@ -1026,10 +1038,10 @@ function afristream_portal_tmdb_key_field() {
 
 function afristream_portal_add_settings_page() {
 	add_options_page(
-		__( 'AfriStream Portal', 'afristream-portal' ),
-		__( 'AfriStream Portal', 'afristream-portal' ),
+		__( 'AfriStream Portal', 'bluegroup-project-afristream' ),
+		__( 'AfriStream Portal', 'bluegroup-project-afristream' ),
 		'manage_options',
-		'afristream-portal',
+		'bluegroup-project-afristream',
 		'afristream_portal_render_settings_page'
 	);
 }
@@ -1042,20 +1054,20 @@ function afristream_portal_render_settings_page() {
 	$connected = (bool) afristream_portal_tmdb_key();
 	?>
 	<div class="wrap">
-		<h1><?php esc_html_e( 'AfriStream Portal', 'afristream-portal' ); ?></h1>
+		<h1><?php esc_html_e( 'AfriStream Portal', 'bluegroup-project-afristream' ); ?></h1>
 		<p>
 			<?php if ( $connected ) : ?>
 				<strong style="color:#00a32a">&#9679;</strong>
-				<?php esc_html_e( 'TMDB connected — trending movies, series and new releases are live.', 'afristream-portal' ); ?>
+				<?php esc_html_e( 'TMDB connected — trending movies, series and new releases are live.', 'bluegroup-project-afristream' ); ?>
 			<?php else : ?>
 				<strong style="color:#d63638">&#9679;</strong>
-				<?php esc_html_e( 'No TMDB key saved — the movie and series rows are showing the built-in lists.', 'afristream-portal' ); ?>
+				<?php esc_html_e( 'No TMDB key saved — the movie and series rows are showing the built-in lists.', 'bluegroup-project-afristream' ); ?>
 			<?php endif; ?>
 		</p>
 		<form action="options.php" method="post">
 			<?php
 			settings_fields( 'afristream_portal' );
-			do_settings_sections( 'afristream-portal' );
+			do_settings_sections( 'bluegroup-project-afristream' );
 			submit_button();
 			?>
 		</form>
@@ -1064,7 +1076,7 @@ function afristream_portal_render_settings_page() {
 			<?php
 			printf(
 				/* translators: %s: shortcode example. */
-				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|apps|editor|tips|help", show_sport="true|false").', 'afristream-portal' ),
+				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|apps|editor|tips|help", show_sport="true|false").', 'bluegroup-project-afristream' ),
 				'<code>[afristream_portal]</code>'
 			);
 			?>
@@ -1076,7 +1088,7 @@ function afristream_portal_render_settings_page() {
 function afristream_portal_action_links( $links ) {
 	array_unshift(
 		$links,
-		'<a href="' . esc_url( admin_url( 'options-general.php?page=afristream-portal' ) ) . '">' . esc_html__( 'Settings', 'afristream-portal' ) . '</a>'
+		'<a href="' . esc_url( admin_url( 'options-general.php?page=bluegroup-project-afristream' ) ) . '">' . esc_html__( 'Settings', 'bluegroup-project-afristream' ) . '</a>'
 	);
 	return $links;
 }

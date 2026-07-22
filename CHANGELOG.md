@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-07-22
+
+### Changed
+
+- **Renamed the plugin to "BlueGroup | AfriStream Portal"**, and the plugin slug from `afristream-portal` to `bluegroup-project-afristream` to match the repo. The main file, the plugin folder inside the zip, the text domain, the registered style/script handles, the settings page slug and the deployment artifact (`bluegroup-project-afristream.zip`) all follow.
+
+  The `[afristream_portal]` shortcode, the `afristream/v1` REST namespace, the `afristream_*` option names and the `.afristream-portal` CSS class are deliberately unchanged — pages using the shortcode keep working and saved settings carry across. Because WordPress keys plugins on the folder name, this installs alongside the old one rather than over it: deactivate and delete **AfriStream Customer Portal** after activating the new plugin.
+
+### Fixed
+
+- **Editor Picks stopped short of the full watchlist.** Resolving titles through TMDB is time-budgeted so a cold cache can't blow PHP's execution limit, and a truncated run was flagged `partial` — but the front end asked once and the truncated payload was cached and re-served, so a 130-title watchlist showed as roughly 60 and stayed there. The front end now keeps polling while the server reports `partial`, each pass resuming from the warm per-title cache, and a resolve lock stops concurrent visitors repeating the same work. The settings hint no longer claims a 60-title limit; the real cap is 300.
+- **The portal could still push a phone's page wider than the screen.** The full-width fix only reached the portal's immediate parent, so a dashboard shell that nests shortcode output several containers deep (SureCart's customer dashboard) left every wrapper above it stacking its own gutter on top of `width:100%` — the document overflowed and the browser zoomed the whole page out. The reset now walks up to three levels of containing ancestors (never `html` or `body`) and clears `min-width` so a wrapper that happens to be a flex or grid item can actually shrink.
+
 ## [0.12.0] - 2026-07-22
 
 ### Added

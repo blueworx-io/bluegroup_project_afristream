@@ -39,11 +39,31 @@
    past the viewport and the browser zooms the whole page out to fit — the
    portal renders shrunk with the page scrolling sideways. Sizing the border
    box instead absorbs the padding inside the 100%, so "fill the content area"
-   can never overflow it. */
-:has(> .afristream-portal) {
+   can never overflow it.
+
+   The immediate parent is not far enough up. A dashboard shell (SureCart's
+   customer dashboard is the one that bit us) nests shortcode output several
+   containers deep, each with its own gutter — fixing only the direct parent
+   leaves every wrapper above it stacking padding on top of width:100% and the
+   page still ends up wider than the screen. So the same reset walks up the
+   ancestors that actually contain the portal, stopping at three levels: deep
+   enough for real dashboard markup, shallow enough that it can't wander into
+   unrelated page structure. html and body are excluded — widening those is the
+   host theme's business, not the portal's.
+
+   min-width:0 is the other half. A wrapper that happens to be a flex or grid
+   item defaults to min-width:auto, which refuses to shrink below its content;
+   the row it sits in then forces the same sideways scroll no matter how the
+   box is sized. */
+:is(
+  :has(> .afristream-portal),
+  :has(> * > .afristream-portal),
+  :has(> * > * > .afristream-portal)
+):not(html):not(body) {
   max-width: none !important;
   width: 100% !important;
   box-sizing: border-box !important;
+  min-width: 0 !important;
 }
 
 .afristream-portal * {

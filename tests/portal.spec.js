@@ -989,6 +989,68 @@ test('the Apps tab loads on its own when the portal boots straight into it', asy
   await expect(grid.locator('[data-app-id]')).toHaveCount(apps.length);
 });
 
+test('the portal stays inside the viewport when a theme nests it several levels deep', async ({ page }) => {
+  // The full-width rule has to reach past the portal's immediate parent. Dashboard
+  // shells (SureCart's customer dashboard, say) wrap shortcode output in several
+  // containers, each with its own gutter. Fixing only the direct parent leaves
+  // every wrapper above it adding padding on top of width:100% — which is what
+  // pushes the document past the screen and makes a phone zoom the whole page out.
+  // The flex wrapper covers the other half of it: a flex item defaults to
+  // min-width:auto and refuses to shrink below its content.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setContent(
+    '<link rel="stylesheet" href="/assets/portal.css">' +
+    '<div style="box-sizing:content-box;width:100%;padding:0 20px">' +
+      '<div style="box-sizing:content-box;width:100%;padding:0 16px;display:flex">' +
+        '<div class="dashboard-right" style="box-sizing:content-box;width:100%;padding:0 12px">' +
+          '<div class="afristream-portal" data-afristream-portal data-default-tab="profile" data-show-sport="true"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
+
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+
+  const overflow = await page.evaluate(() => {
+    const de = document.documentElement;
+    return de.scrollWidth - de.clientWidth;
+  });
+  expect(overflow, 'a nested theme wrapper widens the page past the viewport').toBe(0);
+});
+
+test('Editor Picks keeps filling in while the server reports a partial list', async ({ page }) => {
+  // Resolving the watchlist through TMDB is time-budgeted server-side, so a cold
+  // cache answers with only part of the list and flags it `partial`. The front end
+  // has to keep asking — otherwise the visitor is stranded on the short version,
+  // which is what made a 130-title watchlist show as 60.
+  const pick = (i) => ({
+    t: `Pick ${i + 1}`, id: 100 + i, genre: 'Drama', rating: 8, rank: i + 1,
+    type: 'Movies', poster: null, meta: '2024', platform: '★ 8.0', country: '',
+  });
+  let calls = 0;
+  await page.route('**/api/editor-picks*', async (route) => {
+    calls += 1;
+    const partial = calls === 1;
+    await route.fulfill({
+      json: {
+        source: 'imdb',
+        partial,
+        picks: Array.from({ length: partial ? 3 : 7 }, (_, i) => pick(i)),
+      },
+    });
+  });
+
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+
+  // Today's Pick is lifted out of the list, so the grid carries the remainder.
+  const cards = page.getByTestId('editor-grid').locator('.as-editor-card');
+  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(6, { timeout: 20000 });
+  expect(calls).toBeGreaterThan(1);
+});
+
 test('the Apps tab shows the unavailable notice when no apps URL is configured', async ({ page }) => {
   // No data-apps-url at all (an older host page) — must show the dedicated
   // "unavailable" notice, not the error state and not an empty grid, and the

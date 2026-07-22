@@ -1246,17 +1246,35 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       const prepPicks = (arr) => (Array.isArray(arr) ? arr : [])
         .filter((x) => x && x.t)
         .map((x) => ({ ...x, initial: String(x.t)[0], bg: bg(x.genre) }));
-      fetch(props.editorEndpoint)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((payload) => {
-          if (!payload || payload.source === 'fallback') return;
-          const picks = prepPicks(payload.picks);
-          if (!picks.length) return;
-          data.editorPicks = picks;
-          editorSource = 'imdb';
-          if (state.section === 'editor') render(true);
-        })
-        .catch(() => { /* endpoint unreachable — built-in picks stay */ });
+      // Resolving the watchlist through TMDB is time-budgeted on the server, so a
+      // cold cache comes back with only part of the list and `partial: true`. Each
+      // follow-up request resumes from the server's warm per-title cache and
+      // returns more, so keep asking until the list is complete — one fetch alone
+      // strands the visitor on the truncated version.
+      const EDITOR_POLL_MS = 4000;
+      const EDITOR_POLL_MAX = 25;
+      const loadPicks = (attempt) => {
+        // Cache-bust the retries: a proxy or service worker holding on to the
+        // first (partial) response would otherwise stall the poll forever.
+        const sep = props.editorEndpoint.indexOf('?') < 0 ? '?' : '&';
+        const url = attempt ? props.editorEndpoint + sep + '_r=' + attempt : props.editorEndpoint;
+        fetch(url, { cache: 'no-store' })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((payload) => {
+            if (!payload || payload.source === 'fallback') return;
+            const picks = prepPicks(payload.picks);
+            if (picks.length) {
+              data.editorPicks = picks;
+              editorSource = 'imdb';
+              if (state.section === 'editor') render(true);
+            }
+            if (payload.partial && attempt < EDITOR_POLL_MAX) {
+              setTimeout(() => loadPicks(attempt + 1), EDITOR_POLL_MS);
+            }
+          })
+          .catch(() => { /* endpoint unreachable — built-in picks stay */ });
+      };
+      loadPicks(0);
     }
 
     // Fetch the logged-in user's real credentials for the Profile tab. Only

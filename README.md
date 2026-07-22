@@ -1,10 +1,10 @@
 # bluegroup_project_afristream
 
-**AfriStream Customer Portal** — a WordPress plugin giving AfriStream subscribers their app profile credentials, a "What to Watch" catalog, tips & tricks, and troubleshooting guides. Built from the Claude Design handoff (AfriStream Portal v2) on the shared [`bluegroup_core_foundation`](https://github.com/blueworx-io/bluegroup_core_foundation) guardrails.
+**BlueGroup | AfriStream Portal** — a WordPress plugin giving AfriStream subscribers their app profile credentials, a "What to Watch" catalog, tips & tricks, and troubleshooting guides. Built from the Claude Design handoff (AfriStream Portal v2) on the shared [`bluegroup_core_foundation`](https://github.com/blueworx-io/bluegroup_core_foundation) guardrails.
 
 ## Using the plugin
 
-Install `afristream-portal.zip` (the deployment artifact at the repo root), then place the shortcode on any page:
+Install `bluegroup-project-afristream.zip` (the deployment artifact, built one level above the repo), then place the shortcode on any page:
 
 ```
 [afristream_portal default_tab="profile" show_sport="true"]
@@ -14,7 +14,7 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 
 ## Live "What to Watch" data
 
-**Sport (no key needed):** major global events — Soccer (FIFA World Cup, Premier League, Champions League), Cricket (ICC World Cup / T20 / Champions Trophy), Rugby, Golf, F1, UFC, NFL, NBA, tennis — come from ESPN's public scoreboard API: live events first, then the week's soonest kick-offs with broadcaster, in the viewer's local time. Extend the league list in [afristream-portal.php](afristream-portal.php) and [scripts/preview-server.mjs](scripts/preview-server.mjs) (keep the two in sync). Cached 2 hours. Note this is an unofficial API — if it ever breaks, the portal just shows its curated sport list (which always includes Cricket, Golf, Rugby and Soccer).
+**Sport (no key needed):** major global events — Soccer (FIFA World Cup, Premier League, Champions League), Cricket (ICC World Cup / T20 / Champions Trophy), Rugby, Golf, F1, UFC, NFL, NBA, tennis — come from ESPN's public scoreboard API: live events first, then the week's soonest kick-offs with broadcaster, in the viewer's local time. Extend the league list in [bluegroup-project-afristream.php](bluegroup-project-afristream.php) and [scripts/preview-server.mjs](scripts/preview-server.mjs) (keep the two in sync). Cached 2 hours. Note this is an unofficial API — if it ever breaks, the portal just shows its curated sport list (which always includes Cricket, Golf, Rugby and Soccer).
 
 **Movies & series (TMDB key):** trending movies/series and new releases come from [TMDB](https://www.themoviedb.org/) (free API key, non-commercial use, attribution shown). Without a key the portal falls back to its built-in curated lists — nothing breaks.
 
@@ -72,10 +72,17 @@ Playwright smoke tests run against the local preview harness until a real stagin
 ## Build / deploy
 
 ```bash
-npm run build     # stages dist/afristream-portal/
+npm run build     # stages dist/bluegroup-project-afristream/
 ```
 
-Then zip the staged folder as `afristream-portal.zip` at the repo root — the zip is the deployment artifact; only the current version's zip may exist. On Windows run `scripts/zip-plugin.ps1` to build it: PowerShell's `Compress-Archive` (and .NET Framework's `ZipFile.CreateFromDirectory`) write backslash path separators, which WordPress's extractor mishandles — the plugin then installs as a stray file instead of a folder. The script writes proper forward-slash entries.
+Then zip the staged folder as `bluegroup-project-afristream.zip` **one level above the repo** — the zip is the deployment artifact; only the current version's zip may exist. Build it with bsdtar, which writes forward-slash entry names on every platform:
+
+```bash
+/c/Windows/System32/tar.exe -a -c -f ../bluegroup-project-afristream.zip -C dist bluegroup-project-afristream   # Windows
+tar -a -c -f ../bluegroup-project-afristream.zip -C dist bluegroup-project-afristream                           # macOS / Linux
+```
+
+`scripts/zip-plugin.ps1` is the PowerShell equivalent. Never use `Compress-Archive` (or .NET Framework's `ZipFile.CreateFromDirectory`): both write backslash path separators, which WordPress's extractor mishandles — the plugin then installs as a stray file instead of a folder and activation fails with "Plugin file does not exist." Always list the finished zip (`unzip -l`) and confirm every entry reads `bluegroup-project-afristream/...` with forward slashes.
 
 ## Process
 
