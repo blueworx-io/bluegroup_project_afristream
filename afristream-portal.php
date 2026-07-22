@@ -76,13 +76,14 @@ function afristream_portal_shortcode( $atts ) {
 	wp_add_inline_style( 'afristream-portal', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-rest-nonce="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
 		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
 		esc_url( rest_url( 'afristream/v1/detail' ) ),
 		esc_url( rest_url( 'afristream/v1/credentials' ) ),
+		esc_url( plugins_url( 'data/apps.json', __FILE__ ) ),
 		esc_attr( wp_create_nonce( 'wp_rest' ) )
 	);
 }

@@ -641,3 +641,25 @@ test('apps database covers every content type and every device class', async ({ 
     expect(apps.some((a) => a.devices.includes(d)), `no app installs on ${d}`).toBe(true);
   }
 });
+
+test('the Apps tab renders the app grid from the database', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible();
+
+  const grid = page.getByTestId('apps-grid');
+  await expect(grid).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  await expect(grid.locator('[data-app-id]')).toHaveCount(apps.length);
+  await expect(grid.locator('[data-app-id="tubi"]')).toBeVisible();
+});
+
+test('the Apps tab reports a failed database load instead of rendering an empty grid', async ({ page }) => {
+  await page.route('**/data/apps.json', (route) => route.fulfill({ status: 500, body: 'boom' }));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+
+  await expect(page.getByTestId('apps-error')).toBeVisible();
+  await expect(page.getByTestId('apps-grid')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+});
