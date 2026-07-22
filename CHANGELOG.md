@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-07-22
+
+### Added
+
+- **A Setup tab**, sitting immediately right of Account. Pick your device and the page walks you through installing the streaming app and signing in, written for someone who has never sideloaded anything. The Fire TV route is the full guide — set up the stick, install FireSend, join room `10325`, pull Downloader, then code `6573365` and the Shockwave profile — with the codes rendered oversized so they can be read from a sofa and typed on a TV remote. Android TV, Android, iOS, Smart TV and desktop each get their own staged walkthrough.
+
+- **A Download tab**, explaining how to add the portal to an iPhone or Android home screen so it opens like an app. No app store and nothing to update — this adds a home-screen shortcut, since the portal ships no web app manifest.
+
+- **The Account tab now says what the credentials are not for**, in a notice placed above the username so it is read before anything is copied: they work with the apps used via AfriStream and give no access to the Free Streaming apps listed elsewhere in the portal.
+
+### Changed
+
+- **"Profile" is now "Account" and "Free Apps" is now "Free Streaming".** The internal section id stays `profile`, so any page already pinned with `default_tab="profile"` keeps working.
+
+- **Tips & Tricks and Troubleshooting are hidden from the nav.** Both sections, their content and the `[troubleshooting_guide]` shortcode are untouched and still reachable through `default_tab="tips"` / `"help"`, so bringing them back is a two-line change.
+
+- **Free Streaming is down to eight apps, capped at four per category.** Live TV and Documentaries are retired as categories, leaving Movies, Series and Sport with four apps each: Tubi, Plex, Kanopy and ARTE.tv for films, plus BBC iPlayer for series, and DAZN, Red Bull TV and the Olympics app for sport. There is deliberately no per-device cap — nearly every app runs on all five device classes, so capping by device would force the whole directory down to four entries.
+
+- **The region filter is gone from Free Streaming**, along with the `regions` array on every entry. Regional scope is now stated once, in the `availability` line inside the app drawer, instead of being both a filter and a sentence.
+
+### Fixed
+
+- **Editor Picks rating filters were thresholds pretending to be bands.** Choosing "★ 7+" returned everything at 7 and above, so the 8s and 9s came with it and narrowing the filter barely narrowed the grid. Each band is now exclusive — ★ 8–8.9 returns only the 8s — with ★ 9+ left open-ended so a perfect 10 is not stranded outside every band, and a new ★ 6–6.9 band at the bottom. Bands with nothing behind them are still not offered.
+
 ## [0.15.1] - 2026-07-22
 
 ### Fixed

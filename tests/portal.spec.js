@@ -42,8 +42,8 @@ test('on mobile the top bar is a horizontally scrollable tab list', async ({ pag
   await expect(page.locator('.as-plan')).toBeHidden();
 
   // Every tab is still reachable and still navigates.
-  await page.getByRole('button', { name: 'Troubleshooting' }).click();
-  await expect(page.getByRole('heading', { name: 'AfriStream Troubleshooting Guide' })).toBeVisible();
+  await page.getByRole('button', { name: 'Download' }).click();
+  await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
 });
 
 test('nav switches to What to Watch with poster rows and sport', async ({ page }) => {
@@ -77,8 +77,15 @@ test('filter drawer filters by type', async ({ page }) => {
   await expect(page.getByText('Iron Vows')).not.toBeVisible();
 });
 
-test('tips section links through to troubleshooting', async ({ page }) => {
-  await page.getByRole('button', { name: 'Tips & Tricks' }).click();
+// Tips & Tricks and Troubleshooting are hidden from the nav but not deleted, so
+// they stay reachable through default_tab and keep working once opened.
+test('tips section is hidden from the nav but still reachable via default_tab', async ({ page }) => {
+  await expect(page.getByRole('button', { name: 'Tips & Tricks' })).toHaveCount(0);
+
+  await page.setContent(
+    '<div class="afristream-portal" data-afristream-portal data-default-tab="tips" data-show-sport="true"></div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
   await expect(page.getByText('Setup Tips')).toBeVisible();
 
   await page.getByRole('button', { name: 'Open Troubleshooting' }).click();
@@ -523,22 +530,43 @@ test('editor picks offers only the three content types, not a genre dump', async
   await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
 });
 
-test('editor picks filters by minimum rating', async ({ page }) => {
+// Bands are exclusive, not thresholds: picking 8 must not drag the 9.1 pick in
+// with it. Fixture ratings are 6.4, 7.6, 8.1, 8.5 and 9.1 — one per band, with
+// two in the 8s so a band can hold more than one.
+test('editor picks filters by exclusive rating band', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
   const section = page.locator('[data-screen-label="Editor Picks"]');
   const ratingRow = section.getByRole('group', { name: 'Filter by IMDb rating' });
 
-  await expect(ratingRow.getByRole('button')).toHaveText(['Any', '★ 7+', '★ 8+', '★ 9+']);
+  await expect(ratingRow.getByRole('button')).toHaveText(['Any', '★ 6–6.9', '★ 7–7.9', '★ 8–8.9', '★ 9+']);
 
-  // 9+ leaves only the 9.1 pick; the 7.6 and 8.1 picks drop out.
+  // The top band stays open-ended, so it holds the 9.1 pick and nothing else.
   await ratingRow.getByRole('button', { name: '★ 9+' }).click();
   await expect(page.getByText('Fixture Pick Four')).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
   await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
-  await expect(page.getByText('Fixture Pick Two')).toHaveCount(0);
+
+  // 8–8.9 holds both 8s and excludes the 9.1 above it and the 7.6 below.
+  await ratingRow.getByRole('button', { name: '★ 8–8.9' }).click();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Four')).toHaveCount(0);
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+
+  // 7–7.9 holds only the 7.6, with the 8s excluded.
+  await ratingRow.getByRole('button', { name: '★ 7–7.9' }).click();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
+
+  // And the new bottom band holds only the 6.4.
+  await ratingRow.getByRole('button', { name: '★ 6–6.9' }).click();
+  await expect(page.getByText('Fixture Pick Five')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
 
   await ratingRow.getByRole('button', { name: 'Any' }).click();
   await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Four')).toBeVisible();
 });
 
 test('editor picks are ordered best-rated first', async ({ page }) => {
@@ -590,7 +618,11 @@ test('editor picks tab shows the built-in list when the endpoint is offline', as
 });
 
 test('troubleshooting accordion works', async ({ page }) => {
-  await page.getByRole('button', { name: 'Troubleshooting' }).click();
+  // Hidden from the nav, so reach it the way a pinned host page would.
+  await page.setContent(
+    '<div class="afristream-portal" data-afristream-portal data-default-tab="help" data-show-sport="true"></div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
 
   // First item is open by default; clicking another swaps the open panel.
   await expect(page.getByText('Do not uninstall your app unless instructed')).toBeVisible();
@@ -606,7 +638,7 @@ test('profile tab shows the logged-in user credentials from the endpoint', async
   // fixture.html supplies a credentials endpoint, mirroring the WordPress mount
   // (the plain preview keeps its built-in demo profiles).
   await page.goto('/preview/fixture.html');
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
 
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
   await expect(page.getByText('afri_fixture', { exact: true })).toBeVisible();
@@ -655,7 +687,7 @@ test('portal never widens the page past the viewport inside a padded theme conta
   await page.goto('/');
   await page.addStyleTag({ content: 'body{padding:0 24px}' });
 
-  for (const tab of ['Profile', 'What to Watch', 'Editor Picks', 'Free Apps', 'Tips & Tricks', 'Troubleshooting']) {
+  for (const tab of ['Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     const overflow = await page.evaluate(() => {
       const de = document.documentElement;
@@ -735,15 +767,104 @@ test('the Affiliates tab is an outbound link that opens in a new tab', async ({ 
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
 });
 
+// ------------------------------------------------------------ account, setup
+
+test('the nav offers exactly the visible tabs, with tips and troubleshooting hidden', async ({ page }) => {
+  const tabs = page.locator('.as-tabs');
+  await expect(tabs.getByRole('button')).toHaveText([
+    'Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download',
+  ]);
+  await expect(tabs.getByRole('button', { name: 'Tips & Tricks' })).toHaveCount(0);
+  await expect(tabs.getByRole('button', { name: 'Troubleshooting' })).toHaveCount(0);
+});
+
+test('the Account tab explains what the credentials do not unlock', async ({ page }) => {
+  const notice = page.getByTestId('account-scope-notice');
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText('used in conjunction with your Apps used via AfriStream');
+  await expect(notice).toContainText('do not provide any access to the Free Streaming Apps provided');
+
+  // It has to be read before the credentials, so it sits above them.
+  const noticeY = (await notice.boundingBox()).y;
+  const userY = (await page.getByText('Active Username').boundingBox()).y;
+  expect(noticeY).toBeLessThan(userY);
+});
+
+test('the Setup tab holds back the steps until a device is chosen', async ({ page }) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  await expect(page.getByRole('heading', { name: 'Set Up AfriStream' })).toBeVisible();
+
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
+  await expect(page.getByTestId('setup-steps')).toBeVisible();
+  await expect(page.getByTestId('setup-device-picker')).toHaveCount(0);
+  await expect(page.getByTestId('setup-chosen')).toContainText('Amazon Fire TV / Firestick');
+});
+
+test('the Firestick setup walks through every stage and shows both codes', async ({ page }) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
+
+  const steps = page.getByTestId('setup-steps');
+  await expect(steps.getByRole('heading', { name: 'Set up your FireStick' })).toBeVisible();
+  await expect(steps.getByRole('heading', { name: 'Install FireSend' })).toBeVisible();
+  await expect(steps.getByRole('heading', { name: 'Get the Downloader app' })).toBeVisible();
+  await expect(steps.getByRole('heading', { name: 'Install the streaming app and sign in' })).toBeVisible();
+
+  // The two codes a customer has to type are called out, not buried in prose.
+  await expect(steps.locator('[data-setup-code]')).toHaveText(['10325', '6573365']);
+  await expect(steps).toContainText('Shockwave');
+  // And the developer-mode caveat is flagged rather than left as a plain step.
+  await expect(steps.locator('[data-setup-note]').first()).toBeVisible();
+});
+
+test('changing the setup device swaps the steps', async ({ page }) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
+  await expect(page.getByTestId('setup-steps')).toContainText('FireSend');
+
+  await page.getByRole('button', { name: 'Change device' }).click();
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+
+  await page.getByRole('button', { name: 'iPhone or iPad' }).click();
+  await expect(page.getByTestId('setup-steps')).toContainText('App Store');
+  await expect(page.getByTestId('setup-steps')).not.toContainText('FireSend');
+});
+
+test('the setup flow links back to the Account tab for the login details', async ({ page }) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  await page.getByRole('button', { name: 'Windows or Mac' }).click();
+
+  await page.getByRole('button', { name: 'Open Account' }).click();
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+});
+
+test('the Download tab covers both mobile platforms', async ({ page }) => {
+  await page.getByRole('button', { name: 'Download' }).click();
+  await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
+
+  const ios = page.getByTestId('download-ios');
+  await expect(ios).toContainText('Safari');
+  await expect(ios).toContainText('Add to Home Screen');
+
+  const android = page.getByTestId('download-android');
+  await expect(android).toContainText('Chrome');
+  await expect(android).toContainText('Add to Home screen');
+
+  // It points at Setup for the thing it is not: installing the streaming app.
+  await expect(page.locator('[data-screen-label="Download"]')).toContainText('Setup');
+});
+
 // ---------------------------------------------------------------- apps data
 
 const APP_COSTS = ['free', 'free-tier'];
-const APP_CONTENT_VALUES = ['Sport', 'Movies', 'Series', 'Documentaries', 'Live TV'];
+// Movies, Series and Sport only — Live TV and Documentaries were retired, and
+// the directory is capped at four apps per category.
+const APP_CONTENT_VALUES = ['Movies', 'Series', 'Sport'];
+const APP_CONTENT_CAP = 4;
 const APP_DEVICE_KEYS = ['smart-tv', 'consoles', 'sticks', 'tablets', 'phones'];
-const APP_REGION_VALUES = [
-  'Worldwide', 'Africa', 'Europe', 'UK & Ireland',
-  'North America', 'Latin America', 'Asia-Pacific', 'Middle East',
-];
 
 test('apps database is served and every entry matches the schema', async ({ request }) => {
   const res = await request.get('/data/apps.json');
@@ -752,7 +873,7 @@ test('apps database is served and every entry matches the schema', async ({ requ
   const payload = await res.json();
   expect(payload.updated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   expect(Array.isArray(payload.apps)).toBe(true);
-  expect(payload.apps.length).toBeGreaterThanOrEqual(25);
+  expect(payload.apps.length).toBeGreaterThan(0);
 
   const ids = new Set();
   for (const app of payload.apps) {
@@ -775,8 +896,9 @@ test('apps database is served and every entry matches the schema', async ({ requ
     expect(app.devices.length, where).toBeGreaterThan(0);
     for (const d of app.devices) expect(APP_DEVICE_KEYS, where).toContain(d);
 
-    expect(app.regions.length, where).toBeGreaterThan(0);
-    for (const r of app.regions) expect(APP_REGION_VALUES, where).toContain(r);
+    // The region filter is gone; `availability` is now the only place regional
+    // scope is stated, so a leftover regions array is dead weight.
+    expect(app.regions, `${where} still carries a retired regions array`).toBeUndefined();
 
     for (const key of Object.keys(app.install || {})) {
       expect(APP_DEVICE_KEYS, `${where} install key`).toContain(key);
@@ -795,9 +917,17 @@ test('apps database covers every content type and every device class', async ({ 
   }
 });
 
+test('no content category carries more than four apps', async ({ request }) => {
+  const { apps } = await (await request.get('/data/apps.json')).json();
+  for (const c of APP_CONTENT_VALUES) {
+    const inCategory = apps.filter((a) => a.content.includes(c));
+    expect(inCategory.length, `${c} carries ${inCategory.length} apps`).toBeLessThanOrEqual(APP_CONTENT_CAP);
+  }
+});
+
 test('the Apps tab renders the app grid from the database', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Free Apps' })).toBeVisible();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Free Streaming' })).toBeVisible();
 
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
@@ -810,7 +940,7 @@ test('the Apps tab renders the app grid from the database', async ({ page }) => 
 test('the Apps tab reports a failed database load instead of rendering an empty grid', async ({ page }) => {
   await page.route('**/data/apps.json', (route) => route.fulfill({ status: 500, body: 'boom' }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
 
   await expect(page.getByTestId('apps-error')).toBeVisible();
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
@@ -818,7 +948,7 @@ test('the Apps tab reports a failed database load instead of rendering an empty 
 });
 
 test('device pills narrow the app grid to apps that run on that device', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
 
@@ -831,47 +961,67 @@ test('device pills narrow the app grid to apps that run on that device', async (
   for (const a of expected) await expect(grid.locator(`[data-app-id="${a.id}"]`)).toBeVisible();
 });
 
-test('content and region filters combine with the device filter', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+test('the content filter combines with the device filter', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
 
   await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Phones' }).click();
   await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
-  await page.getByLabel('Region').selectOption('Worldwide');
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
-  const expected = apps.filter((a) =>
-    a.devices.includes('phones') && a.content.includes('Sport') && a.regions.includes('Worldwide'));
+  const expected = apps.filter((a) => a.devices.includes('phones') && a.content.includes('Sport'));
   expect(expected.length).toBeGreaterThan(0);
   await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(expected.length);
 });
 
-test('an impossible filter combination shows an empty state that resets', async ({ page }) => {
-  // Consoles + Sport + Middle East matches nothing in data/apps.json. That is
-  // asserted against the data first, so if the database ever gains such an app
-  // this fails here loudly instead of silently skipping the checks below.
-  const { apps } = await (await page.request.get('/data/apps.json')).json();
-  const matches = apps.filter((a) =>
-    a.devices.includes('consoles') && a.content.includes('Sport') && a.regions.includes('Middle East'));
-  expect(matches, 'pick a different zero-match combination').toHaveLength(0);
+test('the region control is gone', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await expect(page.getByTestId('apps-grid')).toBeVisible();
+  await expect(page.getByLabel('Region')).toHaveCount(0);
+});
 
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+test('the content filters offer only Movies, Series and Sport', async ({ page }) => {
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await expect(page.getByTestId('apps-content-filters').getByRole('button'))
+    .toHaveText(['All', 'Movies', 'Series', 'Sport']);
+});
+
+test('an impossible filter combination shows an empty state that resets', async ({ page }) => {
+  // Every device x category pair in the shipped directory now has at least one
+  // app behind it, so the empty state is only reachable against a stub. This
+  // one runs on phones only, leaving Consoles + Sport with nothing.
+  const stub = {
+    updated: '2026-07-22',
+    apps: [{
+      id: 'stub-sport',
+      name: 'Stub Sport',
+      cost: 'free',
+      blurb: 'A stub entry that exists only to leave one filter pair empty.',
+      content: ['Sport'],
+      devices: ['phones'],
+      availability: 'Nowhere - this is a test fixture',
+      url: 'https://example.com',
+    }],
+  };
+  await page.route('**/data/apps.json', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(stub) }));
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
   await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
-  await page.getByLabel('Region').selectOption('Middle East');
 
   const empty = page.getByTestId('apps-empty');
   await expect(empty).toBeVisible();
   await expect(empty).toContainText('Consoles');
   await expect(empty).toContainText('Sport');
-  await expect(empty).toContainText('Middle East');
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Reset filters' }).click();
-  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(apps.length);
+  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(stub.apps.length);
 });
 
 test('the active device pill is marked pressed for assistive tech', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   const pills = page.getByTestId('apps-device-filters');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await pills.getByRole('button', { name: 'Tablets' }).click();
@@ -880,7 +1030,7 @@ test('the active device pill is marked pressed for assistive tech', async ({ pag
 });
 
 test('app cards show cost, blurb, content and devices', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await expect(card).toBeVisible();
 
@@ -894,7 +1044,7 @@ test('app cards show cost, blurb, content and devices', async ({ page }) => {
 });
 
 test('clicking an app card opens a drawer with install steps and an official link', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const drawer = page.getByTestId('detail-drawer');
@@ -911,7 +1061,7 @@ test('clicking an app card opens a drawer with install steps and an official lin
 });
 
 test('the app drawer lists a step for every device the app supports', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
@@ -922,15 +1072,15 @@ test('the app drawer lists a step for every device the app supports', async ({ p
 
 test('the app drawer shows an install override where one exists and the default elsewhere', async ({ page }) => {
   const { apps } = await (await page.request.get('/data/apps.json')).json();
-  const app = apps.find((a) => a.id === 'rakuten-tv');
-  // Guards the fixture: this test only means something while rakuten-tv overrides
+  const app = apps.find((a) => a.id === 'red-bull-tv');
+  // Guards the fixture: this test only means something while red-bull-tv overrides
   // exactly one device and leaves at least one on the shared default.
   expect(Object.keys(app.install || {})).toEqual(['consoles']);
   const plain = app.devices.filter((d) => d !== 'consoles');
   expect(plain.length).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
-  await page.getByTestId('apps-grid').locator('[data-app-id="rakuten-tv"]').click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="red-bull-tv"]').click();
   const drawer = page.getByTestId('detail-drawer');
   await expect(drawer).toBeVisible();
 
@@ -948,7 +1098,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
   const detailCalls = [];
   page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
 
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
 
@@ -956,7 +1106,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
 });
 
 test('the app drawer closes on Escape and returns focus to its card', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await card.click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
@@ -967,11 +1117,11 @@ test('the app drawer closes on Escape and returns focus to its card', async ({ p
 });
 
 test('an app card opens its drawer from the keyboard', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
-  const card = page.getByTestId('apps-grid').locator('[data-app-id="pluto-tv"]');
+  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="plex"]');
   await card.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('detail-drawer')).toContainText('Pluto TV');
+  await expect(page.getByTestId('detail-drawer')).toContainText('Plex');
 });
 
 test('the Apps tab loads on its own when the portal boots straight into it', async ({ page }) => {
@@ -1144,6 +1294,6 @@ test('the Apps tab shows the unavailable notice when no apps URL is configured',
   await expect(page.getByTestId('apps-error')).toHaveCount(0);
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page.getByRole('button', { name: 'Account', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
 });

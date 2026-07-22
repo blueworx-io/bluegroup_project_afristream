@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.15.1
+ * Version:     0.16.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.15.1' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.16.0' );
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
@@ -55,7 +55,9 @@ add_action( 'wp_enqueue_scripts', 'afristream_portal_register_assets' );
 /**
  * [afristream_portal default_tab="profile" show_sport="true"]
  *
- * default_tab: profile | watch | apps | editor | tips | help
+ * default_tab: profile | setup | watch | apps | editor | download | tips | help
+ *
+ * 'tips' and 'help' are hidden from the portal nav but remain valid entry points.
  */
 function afristream_portal_shortcode( $atts ) {
 	$atts = shortcode_atts(
@@ -1111,7 +1113,7 @@ function afristream_portal_render_settings_page() {
 			<?php
 			printf(
 				/* translators: %s: shortcode example. */
-				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|apps|editor|tips|help", show_sport="true|false").', 'bluegroup-project-afristream' ),
+				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|setup|watch|apps|editor|download", show_sport="true|false").', 'bluegroup-project-afristream' ),
 				'<code>[afristream_portal]</code>'
 			);
 			?>

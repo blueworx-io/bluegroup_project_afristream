@@ -43,8 +43,8 @@ A notice is added directly above the Active Username field, inside the white
 card:
 
 > The following usernames and passwords are to be used in conjunction with your
-> Apps used via AfriStream. They do not provide any access to the Streaming Apps
-> provided.
+> Apps used via AfriStream. They do not provide any access to the Free Streaming
+> Apps provided.
 
 Styled as an amber advisory panel so it reads as a caveat rather than as more
 credential chrome, and placed above the credentials so it is read before they
@@ -68,18 +68,27 @@ A two-step flow held in one section, driven by a single new state field
 | `desktop` | Windows or Mac |
 
 **Step 2 — install instructions.** Once a device is chosen, the tiles collapse to
-a compact selected-state row (with a "Change device" affordance) and numbered
-install steps for that device render below, followed by a shared "Sign in"
-panel telling the user to enter the username and password from the Account tab,
-with a button that switches to it.
+a compact selected-state row (with a "Change device" affordance) and that
+device's instructions render below, followed by a shared "Sign in" panel
+pointing at the Account tab, with a button that switches to it.
 
-Step content is authored from material already in this repo — the Downloader
-codes (`569138`, `6573365`, `617725`, `9469460`) and the login guidance in
-`TROUBLESHOOTING` and `TIPS_DATA`. Two devices carry an extra warning:
-Firestick and Android TV need "Apps from Unknown Sources" enabled first.
+Instructions are **staged**, not one flat list: each device holds an ordered
+list of stages, each with a title and its own numbered steps. A stage may carry
+a `note`, rendered as a highlighted caveat beneath its steps. A step is either a
+plain string or `{ text, code }`; `code` renders oversized and monospaced,
+because these are read from a sofa and typed on a TV remote.
 
-The steps are copy, not verified installation procedure. **Luke must confirm the
-per-device steps before merge.**
+The Fire TV walkthrough is Luke's own guide, expanded for a non-technical
+reader: set up the stick → install FireSend (with Developer Mode) → join room
+`10325` and pull Downloader → code `6573365`, then the Shockwave profile and the
+Account credentials.
+
+**Only the Fire TV route comes from a verified guide.** Android TV reuses the
+same Downloader and Shockwave flow, which is a reasonable extrapolation but is
+not confirmed. Android, iOS, Smart TV and desktop are written generically —
+they name the app store and the sign-in shape but not the specific player app,
+because that name was never supplied. Luke should confirm or replace those five
+before this reaches customers.
 
 ## Download tab (new)
 
@@ -132,7 +141,7 @@ Movies and Series consumes a slot in both buckets, this lands at 8 apps:
 | Tubi | • | • | |
 | Plex | • | • | |
 | Kanopy | • | | |
-| ARTE | • | • | |
+| ARTE.tv | • | • | |
 | BBC iPlayer | | • | • |
 | DAZN | | | • |
 | Red Bull TV | | | • |
@@ -143,6 +152,11 @@ The 22 other entries are removed from `data/apps.json`. YouTube is excluded by
 explicit instruction. Blurbs that sold a service on its live-channel lineup
 (Plex) are reworded to describe the on-demand catalogue instead, since Live TV
 is no longer something the directory surfaces.
+
+A consequence worth noting: with only eight apps left, every device × category
+pair has at least one app behind it, so the "no apps match these filters" empty
+state is no longer reachable from the shipped data. Its test drives a stubbed
+directory instead.
 
 There is deliberately **no cap per device type**. Nearly every app runs on all
 five device classes, so a 4-per-device cap would force the whole directory down
@@ -175,6 +189,8 @@ than the threshold, so an empty band is never offered.
 - `assets/portal.js` — nav, Account notice, `setupSection()`, `downloadSection()`,
   apps constants and filters, rating bands, state, event handlers
 - `data/apps.json` — trimmed to 8 entries, `regions` removed, tags reduced
+- `scripts/preview-server.mjs` — a fifth editor-picks fixture at 6.4, so every
+  rating band has something to isolate
 - `bluegroup-project-afristream.php` — `default_tab` whitelist, docblock, admin
   help string, version
 - `tests/portal.spec.js` — nav labels, apps schema and filters, new tab tests,
@@ -185,15 +201,16 @@ than the threshold, so an empty band is never offered.
 
 Playwright, against the local preview harness:
 
-- Nav renders exactly the seven expected labels; Tips and Troubleshooting are
+- Nav renders exactly the six expected buttons; Tips and Troubleshooting are
   absent from the nav but still reachable via `default_tab`.
-- Account shows the disclaimer above the username.
-- Setup: no steps before a device is picked; picking Firestick shows Firestick
-  steps; changing device swaps them; the sign-in button lands on Account.
-- Download: both platform panels render.
+- Account shows the disclaimer, and it sits above the username.
+- Setup: no steps before a device is picked; Firestick shows all four stages,
+  both codes and the developer-mode note; changing device swaps the steps; the
+  sign-in button lands on Account.
+- Download: both platform panels render and the page points at Setup.
 - Free Streaming: heading renamed, no region control, content filters are
-  exactly All/Movies/Series/Sport, each category filter returns at most 4 cards.
+  exactly All/Movies/Series/Sport.
 - Apps schema test updated — no `regions` key, content values within the new
   vocabulary, at most 4 per category.
-- Editor Picks: selecting ★ 8–8.9 returns only picks in that band, and a 9.x
-  pick is excluded.
+- Editor Picks: each band is isolated in turn against a five-pick fixture
+  (6.4, 7.6, 8.1, 8.5, 9.1) and asserted to exclude the bands either side.

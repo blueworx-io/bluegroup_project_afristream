@@ -6,124 +6,50 @@
       "name": "Tubi",
       "cost": "free",
       "blurb": "Free ad-supported streaming with a large back catalogue of films and TV. No account is needed to start watching.",
-      "content": ["Movies", "Series", "Documentaries"],
+      "content": ["Movies", "Series"],
       "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["North America", "Latin America", "UK & Ireland", "Asia-Pacific"],
       "availability": "US, Canada, Mexico, UK, Australia and several Latin American markets",
       "url": "https://tubitv.com"
-    },
-    {
-      "id": "pluto-tv",
-      "name": "Pluto TV",
-      "cost": "free",
-      "blurb": "Hundreds of free live channels arranged like traditional TV, plus an on-demand library of films and series.",
-      "content": ["Live TV", "Movies", "Series"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["North America", "Europe", "UK & Ireland", "Latin America"],
-      "availability": "Around 30 countries across the Americas and Europe, including the US, Canada, UK, Germany, France, Spain, Italy and Brazil",
-      "url": "https://pluto.tv"
     },
     {
       "id": "plex",
       "name": "Plex",
       "cost": "free-tier",
-      "blurb": "Plex streams thousands of ad-supported films and series plus hundreds of free live channels. The paid Plex Pass only adds features for your own media library.",
-      "content": ["Live TV", "Movies", "Series"],
+      "blurb": "Plex streams thousands of ad-supported films and series on demand. The paid Plex Pass only adds features for your own media library.",
+      "content": ["Movies", "Series"],
       "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
       "availability": "Free catalogue reaches more than 180 countries, though individual titles vary by territory",
       "url": "https://www.plex.tv"
     },
     {
-      "id": "youtube",
-      "name": "YouTube",
-      "cost": "free-tier",
-      "blurb": "The free ad-supported tier carries official channels from broadcasters, leagues and studios, including free films, live streams and full documentaries. Premium is optional and only removes ads.",
-      "content": ["Sport", "Movies", "Series", "Documentaries", "Live TV"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
-      "availability": "Worldwide",
-      "url": "https://www.youtube.com"
-    },
-    {
-      "id": "the-roku-channel",
-      "name": "The Roku Channel",
+      "id": "kanopy",
+      "name": "Kanopy",
       "cost": "free",
-      "blurb": "Roku's own free service mixes an on-demand film and series library with hundreds of free live channels. No Roku hardware is needed on web or mobile.",
-      "content": ["Movies", "Series", "Live TV"],
+      "blurb": "Arthouse films and world cinema streamed with no ads. It is free if your public library or university subscribes — you sign in with your library card.",
+      "content": ["Movies"],
       "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["North America", "UK & Ireland"],
-      "availability": "US, Canada and the UK on Roku devices, web and mobile; Mexico on Roku devices only",
-      "url": "https://therokuchannel.roku.com"
+      "availability": "US, Canada, UK, Australia and New Zealand, through participating libraries and universities",
+      "url": "https://www.kanopy.com"
     },
     {
-      "id": "samsung-tv-plus",
-      "name": "Samsung TV Plus",
+      "id": "arte",
+      "name": "ARTE.tv",
       "cost": "free",
-      "blurb": "Samsung's free channel service is built into its TVs, with live channels and an on-demand film library. It needs no account and no subscription.",
-      "content": ["Live TV", "Movies"],
-      "devices": ["smart-tv", "tablets", "phones"],
-      "regions": ["North America", "Europe", "UK & Ireland", "Latin America", "Asia-Pacific"],
-      "availability": "23 countries on Samsung smart TVs; the mobile app covers 11 of them",
-      "url": "https://www.samsungtvplus.com",
-      "install": {
-        "smart-tv": "Already built into Samsung smart TVs from 2016 onwards — open it from the home row, there is nothing to install.",
-        "phones": "Galaxy phones only, running Android 8.0 or later, in selected countries.",
-        "tablets": "Galaxy tablets only, running Android 8.0 or later, in selected countries."
-      }
-    },
-    {
-      "id": "lg-channels",
-      "name": "LG Channels",
-      "cost": "free",
-      "blurb": "LG's free live channel service is pre-installed on its smart TVs. The line-up is set per country, so it differs from market to market.",
-      "content": ["Live TV"],
-      "devices": ["smart-tv"],
-      "regions": ["North America", "Europe", "UK & Ireland", "Latin America", "Asia-Pacific"],
-      "availability": "33 countries, on LG smart TVs from 2019 onwards",
-      "url": "https://www.lg.com/us/lg-channels",
-      "install": {
-        "smart-tv": "Built into LG webOS TVs — open LG Channels from the home screen, there is nothing to install."
-      }
-    },
-    {
-      "id": "rakuten-tv",
-      "name": "Rakuten TV",
-      "cost": "free-tier",
-      "blurb": "Rakuten TV runs a free ad-supported section with hundreds of live channels and on-demand titles, alongside a separate paid rent-and-buy store.",
-      "content": ["Live TV", "Movies", "Series"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Europe", "UK & Ireland"],
-      "availability": "Around 40 European countries, including the UK, Ireland, Germany, France, Spain, Italy and the Nordics",
-      "url": "https://rakuten.tv",
-      "install": {
-        "consoles": "PlayStation 4 and 5 in 16 European markets, plus Xbox One — check your console's store for your country."
-      }
-    },
-    {
-      "id": "xumo-play",
-      "name": "Xumo Play",
-      "cost": "free",
-      "blurb": "A free service built around live channels, with several hundred streams plus an on-demand catalogue of films and shows.",
-      "content": ["Live TV", "Movies", "Series"],
+      "blurb": "The Franco-German public culture channel streams arthouse cinema, drama and reportage free of charge, subtitled in seven languages.",
+      "content": ["Movies", "Series"],
       "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["North America", "UK & Ireland"],
-      "availability": "US; Canada on Rogers and Shaw Ignite boxes; UK on Sky Glass and Sky Stream only",
-      "url": "https://play.xumo.com"
+      "availability": "Free across Europe in English, French, German, Italian, Polish, Romanian and Spanish; some titles are limited to France and Germany",
+      "url": "https://www.arte.tv/en/"
     },
     {
-      "id": "red-bull-tv",
-      "name": "Red Bull TV",
+      "id": "bbc-iplayer",
+      "name": "BBC iPlayer",
       "cost": "free",
-      "blurb": "Free live and on-demand action sport, motorsport and music, alongside a deep library of sport documentaries.",
-      "content": ["Sport", "Documentaries"],
+      "blurb": "Catch-up streaming of every BBC channel, with a deep archive of drama and a rolling slate of live sport.",
+      "content": ["Series", "Sport"],
       "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
-      "availability": "Worldwide",
-      "url": "https://www.redbull.com/int-en/tv",
-      "install": {
-        "consoles": "PlayStation 5, Xbox Series S and Xbox Series X — search your console's store for \"Red Bull TV\"."
-      }
+      "availability": "UK only; a TV licence is required to watch",
+      "url": "https://www.bbc.co.uk/iplayer"
     },
     {
       "id": "dazn",
@@ -132,227 +58,31 @@
       "blurb": "A free DAZN account unlocks a set of always-on sport channels covering boxing, darts, motorsport and more, plus the FIFA+ football library. Marquee events stay behind the paid tier.",
       "content": ["Sport"],
       "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
       "availability": "Free channels in every DAZN market, though the free line-up varies by country",
       "url": "https://www.dazn.com"
+    },
+    {
+      "id": "red-bull-tv",
+      "name": "Red Bull TV",
+      "cost": "free",
+      "blurb": "Free live and on-demand action sport, motorsport and music, alongside a deep library of sport films.",
+      "content": ["Sport"],
+      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
+      "availability": "Worldwide",
+      "url": "https://www.redbull.com/int-en/tv",
+      "install": {
+        "consoles": "PlayStation 5, Xbox Series S and Xbox Series X — search your console's store for \"Red Bull TV\"."
+      }
     },
     {
       "id": "olympics",
       "name": "Olympics",
       "cost": "free",
-      "blurb": "The International Olympic Committee's own app carries Olympic news, highlights, original series and sport documentaries. Live rights are held by local broadcasters, so live coverage depends on where you are.",
-      "content": ["Sport", "Documentaries"],
+      "blurb": "The International Olympic Committee's own app carries Olympic highlights, original series and sport films. Live rights are held by local broadcasters, so live coverage depends on where you are.",
+      "content": ["Sport"],
       "devices": ["tablets", "phones"],
-      "regions": ["Worldwide"],
       "availability": "Worldwide on iOS and Android; live event coverage varies by territory",
       "url": "https://www.olympics.com"
-    },
-    {
-      "id": "arte",
-      "name": "ARTE.tv",
-      "cost": "free",
-      "blurb": "The Franco-German public culture channel streams documentaries, reportage, concerts and arthouse cinema free of charge, subtitled in seven languages.",
-      "content": ["Documentaries", "Movies", "Series"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["Europe"],
-      "availability": "Free across Europe in English, French, German, Italian, Polish, Romanian and Spanish; some titles are limited to France and Germany",
-      "url": "https://www.arte.tv/en/"
-    },
-    {
-      "id": "dw",
-      "name": "DW (Deutsche Welle)",
-      "cost": "free",
-      "blurb": "Germany's international broadcaster streams a 24-hour news channel plus an on-demand library of documentaries on politics, science, culture and sport. No account or subscription is required.",
-      "content": ["Documentaries", "Live TV"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
-      "availability": "Worldwide",
-      "url": "https://www.dw.com"
-    },
-    {
-      "id": "nhk-world-japan",
-      "name": "NHK WORLD-JAPAN",
-      "cost": "free",
-      "blurb": "Japan's public broadcaster streams its international channel live around the clock, with most programmes also available on demand. It is free and needs no sign-in.",
-      "content": ["Documentaries", "Live TV"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
-      "availability": "Worldwide, with subtitles and audio in 19 languages",
-      "url": "https://www3.nhk.or.jp/nhkworld/"
-    },
-    {
-      "id": "al-jazeera-english",
-      "name": "Al Jazeera English",
-      "cost": "free",
-      "blurb": "A free 24-hour news channel with a strong current-affairs documentary strand, streaming live and on demand.",
-      "content": ["Live TV", "Documentaries"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["Worldwide"],
-      "availability": "Worldwide; a small number of programmes are not cleared for the US",
-      "url": "https://www.aljazeera.com/live/"
-    },
-    {
-      "id": "kanopy",
-      "name": "Kanopy",
-      "cost": "free",
-      "blurb": "Arthouse films, world cinema and documentaries streamed with no ads. It is free if your public library or university subscribes — you sign in with your library card.",
-      "content": ["Movies", "Documentaries"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["North America", "UK & Ireland", "Asia-Pacific"],
-      "availability": "US, Canada, UK, Australia and New Zealand, through participating libraries and universities",
-      "url": "https://www.kanopy.com"
-    },
-    {
-      "id": "hoopla",
-      "name": "hoopla",
-      "cost": "free",
-      "blurb": "Borrow and stream films and TV series with a card from a participating public library. There are no ads and no fee.",
-      "content": ["Movies", "Series"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["North America", "Asia-Pacific"],
-      "availability": "US, Canada, Australia and New Zealand, through participating libraries",
-      "url": "https://www.hoopladigital.com"
-    },
-    {
-      "id": "bbc-iplayer",
-      "name": "BBC iPlayer",
-      "cost": "free",
-      "blurb": "Live and catch-up streaming of every BBC channel, with a deep archive of drama, documentaries and sport.",
-      "content": ["Series", "Documentaries", "Sport"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["UK & Ireland"],
-      "availability": "UK only; a TV licence is required to watch",
-      "url": "https://www.bbc.co.uk/iplayer"
-    },
-    {
-      "id": "itvx",
-      "name": "ITVX",
-      "cost": "free-tier",
-      "blurb": "ITV's streaming service offers thousands of hours free with ads, covering drama, films and live sport. The paid Premium tier only removes ads and adds BritBox.",
-      "content": ["Series", "Movies", "Sport"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["UK & Ireland"],
-      "availability": "UK only",
-      "url": "https://www.itv.com/watch"
-    },
-    {
-      "id": "channel-4",
-      "name": "Channel 4",
-      "cost": "free",
-      "blurb": "Free catch-up and live streaming from Channel 4, with a large documentary and drama archive. It is advertiser-funded, so there is nothing to pay.",
-      "content": ["Series", "Documentaries"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["UK & Ireland"],
-      "availability": "UK only",
-      "url": "https://www.channel4.com",
-      "install": {
-        "consoles": "PlayStation 4, PlayStation 5 and Xbox One — search your console's store for \"Channel 4\"."
-      }
-    },
-    {
-      "id": "channel-5",
-      "name": "5 (My5)",
-      "cost": "free",
-      "blurb": "Channel 5's free streaming service carries live channels plus catch-up drama, documentaries and factual series.",
-      "content": ["Series", "Documentaries", "Live TV"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["UK & Ireland"],
-      "availability": "UK only",
-      "url": "https://www.channel5.com",
-      "install": {
-        "consoles": "PlayStation 4 only — there is no Xbox app."
-      }
-    },
-    {
-      "id": "sbs-on-demand",
-      "name": "SBS On Demand",
-      "cost": "free",
-      "blurb": "Australia's multicultural broadcaster streams free world cinema, subtitled drama, documentaries and selected live sport.",
-      "content": ["Series", "Movies", "Documentaries", "Sport"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["Asia-Pacific"],
-      "availability": "Australia only; the old PlayStation and Xbox apps were retired, so use a TV or streaming device",
-      "url": "https://www.sbs.com.au/ondemand"
-    },
-    {
-      "id": "abc-iview",
-      "name": "ABC iview",
-      "cost": "free",
-      "blurb": "The Australian public broadcaster's free service, carrying live channels plus catch-up drama, factual and documentary programming.",
-      "content": ["Series", "Documentaries", "Live TV"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Asia-Pacific"],
-      "availability": "Australia only",
-      "url": "https://iview.abc.net.au"
-    },
-    {
-      "id": "9now",
-      "name": "9Now",
-      "cost": "free",
-      "blurb": "Free live streams of the Nine network channels plus catch-up episodes and sport coverage.",
-      "content": ["Series", "Live TV", "Sport"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["Asia-Pacific"],
-      "availability": "Australia only",
-      "url": "https://www.9now.com.au"
-    },
-    {
-      "id": "cbc-gem",
-      "name": "CBC Gem",
-      "cost": "free-tier",
-      "blurb": "Canada's public broadcaster streams live channels, drama and documentaries free with ads. The paid tier only removes the ads.",
-      "content": ["Series", "Documentaries", "Live TV"],
-      "devices": ["smart-tv", "consoles", "sticks", "tablets", "phones"],
-      "regions": ["North America"],
-      "availability": "Canada only",
-      "url": "https://gem.cbc.ca",
-      "install": {
-        "consoles": "Xbox One and Xbox Series S|X only — there is no PlayStation app."
-      }
-    },
-    {
-      "id": "sabc-plus",
-      "name": "SABC+",
-      "cost": "free-tier",
-      "blurb": "The South African public broadcaster streams its free-to-air TV channels, sport and radio, with catch-up on top. A paid tier adds extra content.",
-      "content": ["Series", "Live TV", "Sport"],
-      "devices": ["smart-tv", "tablets", "phones"],
-      "regions": ["Africa"],
-      "availability": "South Africa; SABC News, radio and podcasts stream worldwide",
-      "url": "https://www.sabc-plus.com"
-    },
-    {
-      "id": "vix",
-      "name": "ViX",
-      "cost": "free-tier",
-      "blurb": "The largest Spanish-language free service, with novelas, films, news and live sport. A separate premium tier is optional.",
-      "content": ["Series", "Movies", "Sport", "Live TV"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["North America", "Latin America"],
-      "availability": "US, Mexico and 16 other Spanish-speaking countries in Latin America",
-      "url": "https://vix.com"
-    },
-    {
-      "id": "viu",
-      "name": "Viu",
-      "cost": "free-tier",
-      "blurb": "Asian drama, Korean series and local originals with a free ad-supported tier. The paid tier adds the full catalogue and higher quality.",
-      "content": ["Series", "Movies"],
-      "devices": ["smart-tv", "tablets", "phones"],
-      "regions": ["Asia-Pacific", "Middle East", "Africa"],
-      "availability": "16 markets across South-East Asia, the Middle East and South Africa",
-      "url": "https://www.viu.com"
-    },
-    {
-      "id": "tver",
-      "name": "TVer",
-      "cost": "free",
-      "blurb": "The joint catch-up service of Japan's commercial broadcasters, carrying drama, anime, variety and documentaries free with ads. No account is needed.",
-      "content": ["Series", "Documentaries"],
-      "devices": ["smart-tv", "sticks", "tablets", "phones"],
-      "regions": ["Asia-Pacific"],
-      "availability": "Japan only",
-      "url": "https://tver.jp"
     }
   ]
 }

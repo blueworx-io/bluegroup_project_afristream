@@ -96,6 +96,9 @@ const EDITOR_FIXTURE = {
     { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', rating: 8.1, meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2, id: 502 },
     { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', rating: 7.6, meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3, id: 503 },
     { t: 'Fixture Pick Four', genre: 'Documentary', platform: '★ 9.1', rating: 9.1, meta: '2021', poster: null, type: 'Movies', country: 'Kenya', rank: 4, id: 504 },
+    // One pick per rating band, so the Editor Picks band filter has something
+    // to isolate in each of 6, 7, 8 and 9.
+    { t: 'Fixture Pick Five', genre: 'Drama', platform: '★ 6.4', rating: 6.4, meta: 'TV · 2020', poster: null, type: 'Series', country: 'Ghana', rank: 5, id: 505 },
   ],
 };
 

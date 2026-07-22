@@ -112,10 +112,22 @@
   ].map((c) => ({ ...c, bg: `linear-gradient(135deg, oklch(0.42 0.12 ${c.h}), oklch(0.24 0.09 ${(c.h + 50) % 360}))` }));
 
   // Editor Picks filters: a fixed, mutually exclusive set of content types, and
-  // the IMDb rating thresholds offered alongside them. Both are filtered down to
+  // the IMDb rating bands offered alongside them. Both are filtered down to
   // the options that actually have picks behind them before rendering.
   const EDITOR_TYPES = ['Movies', 'Series', 'Documentaries'];
-  const EDITOR_RATING_STEPS = [7, 8, 9];
+  // Each step is the floor of a one-point band, not a minimum: picking 8 shows
+  // 8.0–8.9 and nothing higher. The top step stays open-ended so a perfect 10
+  // is not stranded outside every band.
+  const EDITOR_RATING_STEPS = [6, 7, 8, 9];
+  const EDITOR_RATING_TOP = Math.max(...EDITOR_RATING_STEPS);
+  const inRatingBand = (rating, floor) => {
+    const r = Number(rating);
+    if (!floor) return true;
+    if (!isFinite(r)) return false;
+    return floor === EDITOR_RATING_TOP ? r >= floor : r >= floor && r < floor + 1;
+  };
+  const ratingBandLabel = (floor) =>
+    (floor === EDITOR_RATING_TOP ? `★ ${floor}+` : `★ ${floor}–${floor}.9`);
 
   // Ceiling for a What-to-Watch row once a single category is selected. Large
   // enough to feel like the full catalog, bounded so one row can't render the
@@ -150,13 +162,16 @@
     { key: 'tablets', label: 'Tablets' },
     { key: 'phones', label: 'Phones' }
   ];
-  const APP_CONTENT = ['Sport', 'Movies', 'Series', 'Documentaries', 'Live TV'];
-  const APP_REGIONS = ['Worldwide', 'Africa', 'Europe', 'UK & Ireland', 'North America', 'Latin America', 'Asia-Pacific', 'Middle East'];
+  // Movies, Series and Sport only. Live TV and Documentaries were dropped
+  // deliberately — the directory is for on-demand films, series and sport, not
+  // for live channels or news. Anything still tagged with a retired value is
+  // discarded by prepApp() below.
+  const APP_CONTENT = ['Movies', 'Series', 'Sport'];
 
   // Card tint per content type, reusing the portal's existing hues so app tiles
   // sit in the same palette as the poster cards instead of all defaulting to one
   // colour. Falls back to bg()'s own default for anything unmapped.
-  const APP_CONTENT_HUE = { Sport: 'Sport', Movies: 'Movies', Documentaries: 'Docs', Series: 'Drama', 'Live TV': 'News' };
+  const APP_CONTENT_HUE = { Movies: 'Movies', Series: 'Drama', Sport: 'Sport' };
 
   // Generic install steps per device class. An app only carries an `install`
   // entry where its real steps differ from these.
@@ -189,8 +204,7 @@
     url: /^https:\/\//.test(String(a.url || '')) ? String(a.url) : '',
     install: a.install && typeof a.install === 'object' ? a.install : {},
     content: (Array.isArray(a.content) ? a.content : []).filter((c) => APP_CONTENT.includes(c)),
-    devices: (Array.isArray(a.devices) ? a.devices : []).filter((d) => APP_DEVICES.some((x) => x.key === d)),
-    regions: (Array.isArray(a.regions) ? a.regions : []).filter((r) => APP_REGIONS.includes(r))
+    devices: (Array.isArray(a.devices) ? a.devices : []).filter((d) => APP_DEVICES.some((x) => x.key === d))
   });
 
   // Troubleshooting accordion. `body` is trusted static HTML (rendered as-is,
@@ -301,9 +315,14 @@
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' };
 
     const state = {
-      section: ['profile', 'watch', 'apps', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      // 'tips' and 'help' are hidden from the nav but still valid entry points,
+      // so a host page that already pins one of them keeps working.
+      section: ['profile', 'setup', 'watch', 'apps', 'editor', 'download', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       guideOpen: 0,
+      // '' until the user picks a device on the Setup tab; step 2 stays hidden
+      // until then.
+      setupDevice: '',
       accIdx: 0,
       copied: '',
       query: '',
@@ -314,7 +333,6 @@
       sort: 'Recommended',
       appsDevice: 'All',
       appsContent: 'All',
-      appsRegion: 'All',
       editorTag: 'All',
       editorRating: 0,
       filtersOpen: false,
@@ -372,6 +390,7 @@
         </div>`;
       } else {
         body = `<div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:22px">
+      <div data-testid="account-scope-notice" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">The following usernames and passwords are to be used in conjunction with your Apps used via AfriStream. They do not provide any access to the Free Streaming Apps provided.</div>
       <div>
         <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Active Username</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -585,7 +604,8 @@
     function editorSection() {
       const picks = data.editorPicks || [];
       const tag = state.editorTag || 'All';
-      const minRating = Number(state.editorRating) || 0;
+      // The floor of the selected one-point band, or 0 for "Any".
+      const ratingBand = Number(state.editorRating) || 0;
 
       // Three mutually exclusive content types rather than a genre dump: a
       // documentary is only ever a Documentary, never also Movies or Series, so
@@ -596,15 +616,15 @@
       const present = new Set(picks.map(typeOf).filter(Boolean));
       const tagOpts = ['All', ...EDITOR_TYPES.filter((t) => present.has(t))];
 
-      // Rating steps are offered only where they'd leave something on screen,
+      // Rating bands are offered only where they'd leave something on screen,
       // so the row never shows a pill that can only produce an empty grid.
       const ratingOpts = [0, ...EDITOR_RATING_STEPS.filter(
-        (r) => picks.some((p) => matchesTag(p) && Number(p.rating) >= r)
+        (r) => picks.some((p) => matchesTag(p) && inRatingBand(p.rating, r))
       )];
 
       // Best first. Watchlist position only breaks ties, so an unrated pick
       // (rating null) sinks to the bottom rather than jumping the queue.
-      let list = picks.filter((p) => matchesTag(p) && (!minRating || Number(p.rating) >= minRating));
+      let list = picks.filter((p) => matchesTag(p) && inRatingBand(p.rating, ratingBand));
       list = [...list].sort((a, b) => {
         const diff = (Number(b.rating) || 0) - (Number(a.rating) || 0);
         return diff || (a.rank || 0) - (b.rank || 0);
@@ -638,7 +658,7 @@
     ${ratingOpts.length > 1 ? `
     <div role="group" aria-label="Filter by IMDb rating" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <span style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(11,21,51,.45)">Rating</span>
-      ${ratingOpts.map((r) => `<button style="${subBtn(minRating === r)}" data-act="editor-filter" data-key="editorRating" data-val="${r}" aria-pressed="${minRating === r}">${r ? `★ ${r}+` : 'Any'}</button>`).join('')}
+      ${ratingOpts.map((r) => `<button style="${subBtn(ratingBand === r)}" data-act="editor-filter" data-key="editorRating" data-val="${r}" aria-pressed="${ratingBand === r}">${r ? ratingBandLabel(r) : 'Any'}</button>`).join('')}
     </div>` : ''}
   </div>` : ''}
   ${hero ? `
@@ -658,6 +678,339 @@
   ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
   ${!picks.length ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">The editors' list is refreshing — check back shortly.</div>` : ''}
   ${editorSource === 'imdb' ? tmdbAttribution() : ''}
+</section>`;
+    }
+
+    // Guided install flow. Step 1 picks a device, step 2 renders that device's
+    // stages — nothing below the picker exists until state.setupDevice is set.
+    //
+    // Each device holds an ordered list of stages, and each stage a list of
+    // plain-language steps. Written for someone who has never sideloaded
+    // anything: name the button, say where it is, say what should happen next.
+    // A stage may carry a `note` (rendered as a highlighted caveat under its
+    // steps) and a step may be a plain string or { text, code } — `code` renders
+    // the value big and monospaced so it can be read off a sofa and typed into a
+    // TV remote without squinting.
+    const SETUP_DEVICES = [
+      {
+        key: 'firestick',
+        label: 'Amazon Fire TV / Firestick',
+        icon: '📺',
+        blurb: 'The full walkthrough, from plugging the stick in to watching. Set aside about 20 minutes the first time.',
+        stages: [
+          {
+            title: 'Set up your FireStick',
+            steps: [
+              'Plug the FireStick into a spare HDMI port on your TV, then plug its power cable into the mains. Using the supplied power adapter matters — a USB port on the TV often will not supply enough power.',
+              'Turn the TV on and switch it to the HDMI input the FireStick is plugged into. Use the Source or Input button on your TV remote if you are not sure which one.',
+              'Follow the on-screen prompts to pair the Fire TV remote and connect to your home WiFi. You will need your WiFi password for this.',
+              'Sign in with an Amazon account when asked. If you do not have one, choose the option to create a new account — it is free, and you never have to add a payment card.',
+              'Let the FireStick finish any updates it asks for before going any further. It may restart once or twice on its own.'
+            ]
+          },
+          {
+            title: 'Install FireSend',
+            steps: [
+              'From the FireStick home screen, move up to the top menu and open the Apps section, then choose the search icon.',
+              'Search for FireSend, select it in the results, and choose Get or Download to install it.',
+              'Before FireSend can do anything useful, your FireStick needs Developer Mode switched on. This is a normal Amazon setting, not a modification of your device.',
+              'To turn it on, go to Settings, then My Fire TV, then Developer Options, and switch on Apps from Unknown Sources. If you do not see Developer Options, open Settings → My Fire TV → About and click the Fire TV Stick line seven times — the menu then appears.',
+              'Go back to your home screen and open FireSend.'
+            ],
+            note: 'If a warning appears telling you installing unknown apps can be harmful, choose to continue. This is the standard Amazon prompt shown for anything not installed from their own store.'
+          },
+          {
+            title: 'Get the Downloader app',
+            steps: [
+              'With FireSend open, go to the Rooms or Share section in its menu.',
+              'Choose Join Room.',
+              { text: 'Enter this room code exactly as shown, then confirm:', code: '10325' },
+              'The room unlocks a list of apps you can install. Scroll down that list until you find the app called Downloader.',
+              'Select Downloader and choose to download it. Wait for the progress bar to reach the end without leaving the screen.',
+              'Follow the prompts through to the end of the install. If you are asked to allow the app to install other apps or to access files, choose Allow — it cannot do its job otherwise.'
+            ]
+          },
+          {
+            title: 'Install the streaming app and sign in',
+            steps: [
+              'Open the Downloader app from your FireStick home screen.',
+              { text: 'Click into the search or URL box at the top, and enter this code:', code: '6573365' },
+              'Click the search box again, or press Go, to start the download.',
+              'Follow the prompts until the streaming app has downloaded and installed. Do not press Back or leave the screen while it is working.',
+              'When the install has finished, choose Open to launch the streaming app.',
+              'Select the Shockwave profile, then choose Edit.',
+              'Enter the username and password from your Account tab. They are case-sensitive, so copy them exactly — a capital letter in the wrong place is the single most common reason a login fails.',
+              'Save, then select the Shockwave profile again and choose Connect.',
+              'Give it ten to fifteen seconds to load. You should now have access to the streaming app.'
+            ]
+          }
+        ]
+      },
+      {
+        key: 'android-tv',
+        label: 'Android TV & TV Boxes',
+        icon: '🖥️',
+        blurb: 'For Google TV, Nvidia Shield, Chromecast with Google TV and most generic Android TV boxes.',
+        stages: [
+          {
+            title: 'Allow the install',
+            steps: [
+              'From the home screen, open Settings — usually the cog icon in the top corner.',
+              'Go to Device Preferences, then Security & Restrictions.',
+              'Turn on Unknown Sources. If your device lists apps individually here, you can leave everything off for now and come back to switch on Downloader once it is installed.'
+            ],
+            note: 'Android TV shows a warning when you do this. It is the standard Google prompt for anything installed from outside the Play Store — choose to continue.'
+          },
+          {
+            title: 'Get the Downloader app',
+            steps: [
+              'Go back to the home screen and open the Google Play Store.',
+              'Search for Downloader — the orange icon by AFTVnews — and choose Install.',
+              'Once it has installed, open it. If it asks for permission to access files or photos, choose Allow.'
+            ]
+          },
+          {
+            title: 'Install the streaming app and sign in',
+            steps: [
+              { text: 'In the Downloader search or URL box, enter this code and press Go:', code: '6573365' },
+              'Wait for the download to finish, then choose Install and let it run through to the end.',
+              'Choose Open when the install completes.',
+              'Select the Shockwave profile, choose Edit, and enter the username and password from your Account tab exactly as shown — they are case-sensitive.',
+              'Save, select the Shockwave profile again, and choose Connect. Allow ten to fifteen seconds for the content to load.'
+            ]
+          }
+        ]
+      },
+      {
+        key: 'android',
+        label: 'Android Phone or Tablet',
+        icon: '📱',
+        blurb: 'For any Samsung, Google Pixel, Xiaomi or other Android phone and tablet.',
+        stages: [
+          {
+            title: 'Install the app',
+            steps: [
+              'Unlock your phone or tablet and open the Google Play Store — the multicoloured triangle icon.',
+              'Tap the search bar at the top and search for the player app by the name you were given when you signed up.',
+              'Tap Install and wait for the download to finish. The button changes to Open when it is done.',
+              'Tap Open. If the app asks for permission to access files or storage, tap Allow.'
+            ]
+          },
+          {
+            title: 'Sign in',
+            steps: [
+              'Look for an option to add a playlist, add a profile or add a user, depending on the app.',
+              'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
+              'Save, then connect. Give it ten to fifteen seconds to load the content the first time.'
+            ],
+            note: 'Copy and paste the details from the Account tab rather than typing them. A single mistyped character is the most common reason a login is rejected.'
+          }
+        ]
+      },
+      {
+        key: 'ios',
+        label: 'iPhone or iPad',
+        icon: '🍎',
+        blurb: 'For any iPhone or iPad. Apple does not allow sideloading, so everything here comes from the App Store.',
+        stages: [
+          {
+            title: 'Install the app',
+            steps: [
+              'Unlock your iPhone or iPad and open the App Store — the blue icon with a white A.',
+              'Tap Search at the bottom right, then search for the player app by the name you were given when you signed up.',
+              'Tap Get, then confirm with Face ID, Touch ID or your Apple Account password. Some player apps are a small one-off purchase on iOS.',
+              'Wait for it to install, then tap Open.'
+            ]
+          },
+          {
+            title: 'Sign in',
+            steps: [
+              'Look for an option to add a playlist, add a profile or add a user.',
+              'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
+              'Save, then connect. Give it ten to fifteen seconds to load the content the first time.'
+            ],
+            note: 'Copy and paste the details from the Account tab rather than typing them. A single mistyped character is the most common reason a login is rejected.'
+          }
+        ]
+      },
+      {
+        key: 'smart-tv',
+        label: 'Smart TV (Samsung / LG)',
+        icon: '📡',
+        blurb: 'For Samsung Tizen and LG webOS televisions with no stick or box attached.',
+        stages: [
+          {
+            title: 'Install the app',
+            steps: [
+              "Press the Home or Smart Hub button on your TV remote to bring up your TV's own menu.",
+              'Open the app store — Samsung Apps on a Samsung TV, the LG Content Store on an LG.',
+              'Use the search option and look for the player app by the name you were given when you signed up.',
+              'Select Install, and wait for the TV to finish downloading it. This can take a few minutes on an older set.'
+            ]
+          },
+          {
+            title: 'Sign in',
+            steps: [
+              'Open the app. Many TV players show a device ID or MAC address on the very first screen.',
+              'If you are shown one, write it down and email it to support@afristream.io — some apps need it registered before they will connect.',
+              'Otherwise, find the option to add a playlist or profile, and enter the username and password from your Account tab exactly as shown.',
+              'Save, then connect, and allow ten to fifteen seconds for the content to load.'
+            ],
+            note: 'Smart TV apps vary a lot between brands and model years. If yours does not match these steps, email support@afristream.io with your TV make and model and we will send the right ones.'
+          }
+        ]
+      },
+      {
+        key: 'desktop',
+        label: 'Windows or Mac',
+        icon: '💻',
+        blurb: 'For a laptop or desktop computer, watching straight in a web browser.',
+        stages: [
+          {
+            title: 'Open the player',
+            steps: [
+              'Open your usual web browser — Chrome, Edge, Safari or Firefox all work.',
+              'Type the player address you were given when you signed up into the address bar at the top, and press Enter.',
+              'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
+              'Save the page as a bookmark so you do not have to type the address again next time.'
+            ],
+            note: 'Nothing is installed on a computer — it all runs in the browser, so there is nothing to update and nothing taking up disk space.'
+          }
+        ]
+      }
+    ];
+
+    function setupSection() {
+      const chosen = SETUP_DEVICES.find((d) => d.key === state.setupDevice) || null;
+
+      const picker = chosen
+        ? `
+  <div data-testid="setup-chosen" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.09);border-radius:15px;padding:14px 17px;margin:0 2px 18px">
+    <span style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45)">Step 1</span>
+    <span aria-hidden="true" style="font-size:19px">${chosen.icon}</span>
+    <span style="flex:1;min-width:0;font-size:15px;font-weight:800">${esc(chosen.label)}</span>
+    <button class="as-hover-ghost" data-act="setup-restart" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:11px;padding:9px 16px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">Change device</button>
+  </div>`
+        : `
+  <div style="margin:0 2px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45)">Step 1 — choose your device</div>
+  <div data-testid="setup-device-picker" role="group" aria-label="Choose your device" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin:0 2px">
+    ${SETUP_DEVICES.map((d) => `
+      <button class="as-editor-card" data-act="setup-device" data-val="${esc(d.key)}" style="display:flex;align-items:center;gap:13px;text-align:left;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:18px 19px;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <span aria-hidden="true" style="flex:none;font-size:23px">${d.icon}</span>
+        <span style="flex:1;min-width:0;font-size:15px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(d.label)}</span>
+        <span aria-hidden="true" style="flex:none;font-size:14px;color:#65009F">→</span>
+      </button>`).join('')}
+  </div>`;
+
+      // A step is either a plain string or { text, code }. The code block is
+      // rendered oversized and monospaced because these get typed into a TV
+      // remote from across a room.
+      const stepBody = (s) => (typeof s === 'string'
+        ? `<span style="font-size:14.5px;line-height:1.65;color:rgba(11,21,51,.78)">${esc(s)}</span>`
+        : `<span style="display:flex;flex-direction:column;gap:9px;align-items:flex-start">
+             <span style="font-size:14.5px;line-height:1.65;color:rgba(11,21,51,.78)">${esc(s.text)}</span>
+             <code data-setup-code style="background:#F7E9FF;border:1px solid rgba(101,0,159,.2);border-radius:11px;padding:9px 17px;font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:.1em;color:#65009F">${esc(s.code)}</code>
+           </span>`);
+
+      const instructions = !chosen ? '' : `
+  <div data-testid="setup-steps" style="margin:0 2px">
+    <div style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45)">Step 2 — install the app</div>
+    ${chosen.blurb ? `<p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58)">${esc(chosen.blurb)}</p>` : ''}
+    <div style="display:flex;flex-direction:column;gap:16px">
+      ${chosen.stages.map((stage, si) => `
+        <div data-setup-stage="${si}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <span aria-hidden="true" style="flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#65009F,#CD2DF5);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:800">${si + 1}</span>
+            <h2 style="margin:0;font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(stage.title)}</h2>
+          </div>
+          <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
+            ${stage.steps.map((s, i) => `
+              <li style="display:flex;gap:13px">
+                <span aria-hidden="true" style="flex:none;width:24px;height:24px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-top:1px">${i + 1}</span>
+                ${stepBody(s)}
+              </li>`).join('')}
+          </ol>
+          ${stage.note ? `<div data-setup-note style="margin-top:16px;background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:13px 16px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(stage.note)}</div>` : ''}
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:18px;background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
+      <div style="flex:1 1 300px">
+        <div class="as-on-dark" style="font-size:15.5px;font-weight:800;margin-bottom:3px;color:#fff">Need your login details?</div>
+        <div class="as-on-dark" style="font-size:13px;line-height:1.55;color:rgba(255,255,255,.72)">Your username and password are on the Account tab. They are case-sensitive — copy them rather than typing them out.</div>
+      </div>
+      <button class="as-hover-light" data-act="go-profile" style="flex:none;background:#fff;color:#65009F;border:none;border-radius:12px;padding:12px 22px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">Open Account</button>
+    </div>
+  </div>`;
+
+      return `
+<section data-screen-label="Setup">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Set Up AfriStream</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Pick the device you want to watch on and we'll show you how to install and sign in.</p>
+  </div>
+  ${picker}
+  ${instructions}
+  <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Stuck on any step? Email <a href="mailto:support@afristream.io">support@afristream.io</a> with your device type and the step number — we reply within one business day.</p>
+</section>`;
+    }
+
+    // Home-screen install guidance. Static: no manifest ships with this plugin,
+    // so both platforms create a home-screen shortcut rather than a store
+    // install — the copy is written to hold either way.
+    const DOWNLOAD_PLATFORMS = [
+      {
+        key: 'ios',
+        label: 'iPhone & iPad',
+        icon: '🍎',
+        note: 'You must use Safari. Chrome and Firefox on iOS cannot add a site to the Home Screen.',
+        steps: [
+          'Open this portal in Safari.',
+          'Tap the Share button — the square with an arrow pointing up, at the bottom of the screen.',
+          'Scroll down the share sheet and tap Add to Home Screen.',
+          'Give it a name — AfriStream works well — then tap Add.',
+          'The AfriStream icon now sits on your Home Screen alongside your other apps.'
+        ]
+      },
+      {
+        key: 'android',
+        label: 'Android',
+        icon: '🤖',
+        note: 'These steps are for Chrome. Samsung Internet and Edge have the same option under their own menus.',
+        steps: [
+          'Open this portal in Chrome.',
+          'Tap the three-dot menu button in the top right.',
+          'Tap Install app, or Add to Home screen if you do not see Install app.',
+          'Confirm the name, then tap Install or Add.',
+          'The AfriStream icon now sits on your home screen alongside your other apps.'
+        ]
+      }
+    ];
+
+    function downloadSection() {
+      return `
+<section data-screen-label="Download">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Add AfriStream to Your Device</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Put this portal on your phone or tablet home screen so it opens like an app — no app store, no download.</p>
+  </div>
+  <div class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+    ${DOWNLOAD_PLATFORMS.map((p) => `
+      <div data-testid="download-${esc(p.key)}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 22px 24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span aria-hidden="true" style="flex:none;font-size:24px">${p.icon}</span>
+          <h2 style="margin:0;font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(p.label)}</h2>
+        </div>
+        <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px">
+          ${p.steps.map((s, i) => `
+            <li style="display:flex;gap:11px">
+              <span aria-hidden="true" style="flex:none;width:23px;height:23px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">${i + 1}</span>
+              <span style="flex:1;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(s)}</span>
+            </li>`).join('')}
+        </ol>
+        <div style="margin-top:auto;padding-top:4px;font-size:12px;line-height:1.55;color:rgba(11,21,51,.5)">${esc(p.note)}</div>
+      </div>`).join('')}
+  </div>
+  <div style="margin-top:18px;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:15px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:rgba(11,21,51,.72)">This adds an icon that opens the portal full screen — it is not an app store download, so there is nothing to update and nothing taking up space on your device. Looking to install the streaming app itself? That is on the <strong>Setup</strong> tab.</div>
 </section>`;
     }
 
@@ -699,7 +1052,6 @@
       const bits = [];
       if (state.appsDevice !== 'All') bits.push(APP_DEVICE_LABEL(state.appsDevice));
       if (state.appsContent !== 'All') bits.push(state.appsContent);
-      if (state.appsRegion !== 'All') bits.push(state.appsRegion);
       return bits.length ? bits.join(' · ') : 'these filters';
     }
 
@@ -707,8 +1059,7 @@
       const list = appsData || [];
       return list.filter((a) =>
         (state.appsDevice === 'All' || a.devices.includes(state.appsDevice)) &&
-        (state.appsContent === 'All' || a.content.includes(state.appsContent)) &&
-        (state.appsRegion === 'All' || a.regions.includes(state.appsRegion)));
+        (state.appsContent === 'All' || a.content.includes(state.appsContent)));
     }
 
     const costBadge = (a) => `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:${a.cost === 'free' ? '#E7F8EF' : '#F7E9FF'};color:${a.cost === 'free' ? '#0B7A44' : '#65009F'}">${a.cost === 'free' ? 'Free' : 'Free tier'}</span>`;
@@ -729,10 +1080,10 @@
 
     function appsSection() {
       const shell = (inner) => `
-<section data-screen-label="Free Apps">
+<section data-screen-label="Free Streaming">
   <div style="margin:2px 2px 18px">
-    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Apps</h1>
-    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free apps you can install alongside AfriStream — pick your device to see what runs on it.</p>
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Streaming</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free films, series and sport you can watch alongside AfriStream — pick your device to see what runs on it.</p>
   </div>
   ${inner}
   <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Availability and free tiers change without notice. AfriStream is not affiliated with any of the services listed here.</p>
@@ -771,12 +1122,6 @@
       ${pill('apps-content', 'All', 'All', state.appsContent === 'All')}
       ${APP_CONTENT.map((c) => pill('apps-content', c, c, state.appsContent === c)).join('')}
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.62)">
-      <span>Region</span>
-      <select data-act="apps-region" style="font-family:inherit;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.72);background:#fff;border:1px solid rgba(11,21,51,.12);border-radius:999px;padding:8px 13px;cursor:pointer">
-        ${['All'].concat(APP_REGIONS).map((r) => `<option value="${esc(r)}"${state.appsRegion === r ? ' selected' : ''}>${esc(r === 'All' ? 'All regions' : r)}</option>`).join('')}
-      </select>
-    </label>
   </div>
   ${shown.length
     ? `<div data-testid="apps-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">${shown.map(appCard).join('')}</div>`
@@ -844,18 +1189,22 @@
 
     // -------------------------------------------------------------- render
 
+    // Tips & Tricks and Troubleshooting are deliberately absent here while they
+    // are hidden — their sections stay in SECTIONS below, so they are still
+    // reachable via default_tab="tips"/"help" and restoring them to the portal
+    // nav is a matter of adding the two rows back.
     const NAV = [
-      { id: 'profile', label: 'Profile' },
+      { id: 'profile', label: 'Account' },
+      { id: 'setup', label: 'Setup' },
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
-      { id: 'apps', label: 'Free Apps' },
-      { id: 'tips', label: 'Tips & Tricks' },
-      { id: 'help', label: 'Troubleshooting' },
+      { id: 'apps', label: 'Free Streaming' },
+      { id: 'download', label: 'Download' },
       // An outbound link rather than a section: it carries an href, so it
       // renders as an anchor and never takes the active underline.
       { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
     ];
-    const SECTIONS = { profile: profileSection, watch: watchSection, apps: appsSection, editor: editorSection, tips: tipsSection, help: helpSection };
+    const SECTIONS = { profile: profileSection, setup: setupSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, tips: tipsSection, help: helpSection };
 
     // Render-scoped registry of clickable cards: reg(obj) stashes the item
     // and returns its index so a data-card="<idx>" attribute can look it up
@@ -952,7 +1301,6 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap">${costBadge(obj)}${obj.content.map((c) => `<span style="font-size:12px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`).join('')}</div>
           <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.blurb)}</div>
           <div style="display:flex;flex-direction:column;gap:12px">
-            ${row('Regions', obj.regions.join(', '))}
             ${row('Where', obj.availability)}
           </div>
           <div>
@@ -1078,7 +1426,10 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'apps-retry': loadApps(); break;
         case 'apps-device': setState({ appsDevice: val }); break;
         case 'apps-content': setState({ appsContent: val }); break;
-        case 'apps-reset': setState({ appsDevice: 'All', appsContent: 'All', appsRegion: 'All' }); break;
+        case 'apps-reset': setState({ appsDevice: 'All', appsContent: 'All' }); break;
+        case 'setup-device': setState({ setupDevice: val }); break;
+        case 'setup-restart': setState({ setupDevice: '' }); break;
+        case 'go-profile': setState({ section: 'profile' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
@@ -1109,12 +1460,6 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       if (e.target.getAttribute && e.target.getAttribute('data-act') === 'query') {
         state.query = e.target.value;
         render(true);
-      }
-    });
-
-    root.addEventListener('change', (e) => {
-      if (e.target.getAttribute && e.target.getAttribute('data-act') === 'apps-region') {
-        setState({ appsRegion: e.target.value });
       }
     });
 
