@@ -3,7 +3,7 @@
  * Plugin Name: AfriStream Customer Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.6.0
+ * Version:     0.9.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: afristream-portal
@@ -13,7 +13,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.6.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.9.0' );
+
+/**
+ * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
+ * so this is deliberately generous rather than unlimited; the resolve loop is
+ * additionally time-budgeted (see afristream_portal_pick_budget).
+ */
+define( 'AFRISTREAM_PORTAL_PICK_CAP', 300 );
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
@@ -62,6 +69,11 @@ function afristream_portal_shortcode( $atts ) {
 
 	wp_enqueue_style( 'afristream-portal' );
 	wp_enqueue_script( 'afristream-portal' );
+
+	// Page-scoped host-theme fix: drop the right dashboard column's padding so the
+	// portal sits flush. Attached to the portal handle, which only prints on pages
+	// that actually render this shortcode — so no other page is affected.
+	wp_add_inline_style( 'afristream-portal', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
 		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-rest-nonce="%s"></div>',
@@ -283,16 +295,16 @@ function afristream_portal_sport_events() {
 	// 'International' for global competitions). Keep in sync with the preview
 	// server's ESPN_LEAGUES.
 	$leagues = array(
-		// Football (soccer) — mostly European seasons, so quiet over the summer.
-		'soccer/fifa.world'       => array( 'FIFA World Cup', 'Football', 'International' ),
-		'soccer/eng.1'            => array( 'Premier League', 'Football', 'England' ),
-		'soccer/esp.1'            => array( 'LaLiga', 'Football', 'Spain' ),
-		'soccer/ita.1'            => array( 'Serie A', 'Football', 'Italy' ),
-		'soccer/ger.1'            => array( 'Bundesliga', 'Football', 'Germany' ),
-		'soccer/fra.1'            => array( 'Ligue 1', 'Football', 'France' ),
-		'soccer/uefa.champions'   => array( 'Champions League', 'Football', 'International' ),
-		'soccer/uefa.europa'      => array( 'Europa League', 'Football', 'International' ),
-		'soccer/usa.1'            => array( 'MLS', 'Football', 'United States' ),
+		// Soccer — mostly European seasons, so quiet over the summer.
+		'soccer/fifa.world'       => array( 'FIFA World Cup', 'Soccer', 'International' ),
+		'soccer/eng.1'            => array( 'Premier League', 'Soccer', 'England' ),
+		'soccer/esp.1'            => array( 'LaLiga', 'Soccer', 'Spain' ),
+		'soccer/ita.1'            => array( 'Serie A', 'Soccer', 'Italy' ),
+		'soccer/ger.1'            => array( 'Bundesliga', 'Soccer', 'Germany' ),
+		'soccer/fra.1'            => array( 'Ligue 1', 'Soccer', 'France' ),
+		'soccer/uefa.champions'   => array( 'Champions League', 'Soccer', 'International' ),
+		'soccer/uefa.europa'      => array( 'Europa League', 'Soccer', 'International' ),
+		'soccer/usa.1'            => array( 'MLS', 'Soccer', 'United States' ),
 		// Motorsport & combat.
 		'racing/f1'               => array( 'Formula 1', 'Motorsport', 'International' ),
 		'mma/ufc'                 => array( 'UFC', 'MMA', 'International' ),
@@ -301,9 +313,12 @@ function afristream_portal_sport_events() {
 		'basketball/nba'          => array( 'NBA', 'Basketball', 'United States' ),
 		'baseball/mlb'            => array( 'MLB', 'Baseball', 'United States' ),
 		'hockey/nhl'              => array( 'NHL', 'Ice Hockey', 'United States' ),
-		// Rugby, tennis, golf, Aussie rules. ESPN omits broadcaster names for
+		// Rugby, cricket, tennis, golf, Aussie rules. ESPN omits broadcaster names for
 		// some of these; the mapping falls back to the competition label.
 		'rugby/270557'            => array( 'URC Rugby', 'Rugby', 'International' ),
+			'cricket/8039'            => array( 'ICC World Cup', 'Cricket', 'International' ),
+			'cricket/8048'            => array( 'ICC T20 World Cup', 'Cricket', 'International' ),
+			'cricket/8044'            => array( 'ICC Champions Trophy', 'Cricket', 'International' ),
 		'tennis/atp'              => array( 'ATP Tennis', 'Tennis', 'International' ),
 		'tennis/wta'              => array( 'WTA Tennis', 'Tennis', 'International' ),
 		'golf/pga'                => array( 'PGA Tour', 'Golf', 'United States' ),
@@ -340,14 +355,17 @@ function afristream_portal_sport_events() {
 			}
 			$channel  = isset( $event['competitions'][0]['broadcasts'][0]['names'][0] ) ? $event['competitions'][0]['broadcasts'][0]['names'][0] : '';
 			$events[] = array(
-				'comp'    => $label,
-				'code'    => $code,
-				'country' => $country,
-				'fx'      => str_replace( ' at ', ' vs ', $name ),
-				'iso'     => isset( $event['date'] ) ? $event['date'] : '',
-				'time'    => 'in' === $state ? 'LIVE now' : '',
-				'ch'      => '' !== $channel ? $channel : $label,
-				'live'    => 'in' === $state,
+				'comp'      => $label,
+				'code'      => $code,
+				'country'   => $country,
+				'fx'        => str_replace( ' at ', ' vs ', $name ),
+				'iso'       => isset( $event['date'] ) ? $event['date'] : '',
+				'time'      => 'in' === $state ? 'LIVE now' : '',
+				'ch'        => '' !== $channel ? $channel : $label,
+				// ESPN's scoreboard only carries US networks, so a named
+				// broadcaster here is always a US one.
+				'chCountry' => '' !== $channel ? 'United States' : '',
+				'live'      => 'in' === $state,
 			);
 			$count++;
 		}
@@ -365,10 +383,151 @@ function afristream_portal_sport_events() {
 	return array_slice( $events, 0, 8 );
 }
 
+/**
+ * Sports TV listings from TheSportsDB's free tier — keyless (the documented
+ * public key "3"/"123" needs no registration) and permanently free, unlike the
+ * trial-only sports feeds. This is the only free source that names *global*
+ * broadcasters: ESPN's scoreboard only carries US networks, so a UK, South
+ * African or Nigerian viewer gets nothing useful from it.
+ *
+ * The catch is the free-tier row cap — `eventstv.php` returns a single row per
+ * query however it is filtered, with no pagination. So rather than one big
+ * call we fan out one query per sport per day and stitch the single rows
+ * together; roughly a dozen requests buy a dozen genuine "sport · fixture ·
+ * time · channel" listings from around the world.
+ */
+function afristream_portal_sportsdb_events() {
+	// TheSportsDB sport name => the portal's sporting code (drives the "Sport
+	// Type" filter). Names must match TheSportsDB's spelling exactly.
+	$sports = array(
+		'Soccer'             => 'Soccer',
+		'Cricket'            => 'Cricket',
+		'Rugby'              => 'Rugby',
+		'Motorsport'         => 'Motorsport',
+		'Golf'               => 'Golf',
+		'Tennis'             => 'Tennis',
+		'Fighting'           => 'MMA',
+		'Basketball'         => 'Basketball',
+		'American Football'  => 'American Football',
+		'Australian Football' => 'Aussie Rules',
+	);
+	$dates   = array( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d', time() + DAY_IN_SECONDS ) );
+	$started = microtime( true );
+	$budget  = afristream_portal_pick_budget();
+	$events  = array();
+
+	foreach ( $dates as $date ) {
+		foreach ( $sports as $sport => $code ) {
+			// Same guard as the pick loop: stop short rather than risk blowing
+			// max_execution_time on a cold cache. Whatever came back is served.
+			if ( microtime( true ) - $started > $budget ) {
+				break 2;
+			}
+			$response = wp_remote_get(
+				'https://www.thesportsdb.com/api/v1/json/123/eventstv.php?d=' . rawurlencode( $date ) . '&s=' . rawurlencode( $sport ),
+				array( 'timeout' => 6 )
+			);
+			if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+				continue;
+			}
+			$json = json_decode( wp_remote_retrieve_body( $response ), true );
+			if ( ! is_array( $json ) || empty( $json['tvevents'] ) || ! is_array( $json['tvevents'] ) ) {
+				continue;
+			}
+			foreach ( $json['tvevents'] as $row ) {
+				if ( empty( $row['strEvent'] ) || empty( $row['strChannel'] ) ) {
+					continue;
+				}
+				// Times are UTC; the front-end renders `iso` in the viewer's zone.
+				$day  = ! empty( $row['dateEvent'] ) ? $row['dateEvent'] : $date;
+				$time = ! empty( $row['strTime'] ) ? $row['strTime'] : '00:00:00';
+				$events[] = array(
+					'comp'      => ! empty( $row['strSeason'] ) ? $sport . ' · ' . $row['strSeason'] : $sport,
+					'code'      => $code,
+					'country'   => ! empty( $row['strEventCountry'] ) ? $row['strEventCountry'] : 'International',
+					'fx'        => $row['strEvent'],
+					'iso'       => $day . 'T' . $time . '+00:00',
+					'time'      => '',
+					'ch'        => $row['strChannel'],
+					'chCountry' => ! empty( $row['strCountry'] ) ? $row['strCountry'] : '',
+					'live'      => false,
+				);
+			}
+		}
+	}
+	return $events;
+}
+
+/**
+ * Normalised key for de-duplicating the same fixture arriving from both feeds
+ * ("Arsenal at Everton" from ESPN vs "Everton vs Arsenal" from TheSportsDB).
+ * Team order is discarded so either phrasing collapses to one key.
+ */
+function afristream_portal_sport_key( $event ) {
+	$name  = strtolower( isset( $event['fx'] ) ? $event['fx'] : '' );
+	$parts = preg_split( '/\s+(?:vs?\.?|at|v)\s+/', $name );
+	$parts = array_map(
+		function ( $part ) {
+			return preg_replace( '/[^a-z0-9]/', '', $part );
+		},
+		is_array( $parts ) ? $parts : array( $name )
+	);
+	$parts = array_filter( $parts );
+	sort( $parts );
+	return implode( '|', $parts );
+}
+
+/**
+ * Both free feeds, merged. ESPN supplies the fixture list and US networks;
+ * TheSportsDB supplies broadcasters for the rest of the world. Where the same
+ * fixture appears in both, the row that actually names a broadcaster wins —
+ * ESPN falls back to the competition label when it has no broadcast data, and
+ * a real channel name is always the more useful answer.
+ */
+function afristream_portal_sport_merged() {
+	$merged = array();
+
+	foreach ( array( afristream_portal_sport_events(), afristream_portal_sportsdb_events() ) as $feed ) {
+		foreach ( $feed as $event ) {
+			$key = afristream_portal_sport_key( $event );
+			if ( '' === $key ) {
+				continue;
+			}
+			if ( ! isset( $merged[ $key ] ) ) {
+				$merged[ $key ] = $event;
+				continue;
+			}
+			$existing = $merged[ $key ];
+			// Keep whichever row names a channel; prefer the one that also
+			// knows which country that channel broadcasts in.
+			$has_channel = ! empty( $event['ch'] ) && $event['ch'] !== $event['comp'];
+			$had_channel = ! empty( $existing['ch'] ) && $existing['ch'] !== $existing['comp'];
+			if ( $has_channel && ! $had_channel ) {
+				// Keep the richer fixture metadata, take the better channel.
+				$existing['ch']        = $event['ch'];
+				$existing['chCountry'] = isset( $event['chCountry'] ) ? $event['chCountry'] : '';
+			}
+			$merged[ $key ] = $existing;
+		}
+	}
+
+	$events = array_values( $merged );
+	usort(
+		$events,
+		function ( $a, $b ) {
+			if ( $a['live'] !== $b['live'] ) {
+				return $a['live'] ? -1 : 1;
+			}
+			return strcmp( $a['iso'], $b['iso'] );
+		}
+	);
+	return array_slice( $events, 0, 12 );
+}
+
 function afristream_portal_sport_cached() {
 	$sport = get_transient( 'afristream_portal_sport' );
 	if ( false === $sport ) {
-		$sport = afristream_portal_sport_events();
+		$sport = afristream_portal_sport_merged();
 		set_transient( 'afristream_portal_sport', $sport, 2 * HOUR_IN_SECONDS );
 	}
 	return is_array( $sport ) ? $sport : array();
@@ -402,17 +561,73 @@ function afristream_portal_watch_data() {
 }
 
 /**
- * Editor Picks — a hand-curated list of IMDb title IDs (IMDb's watchlist page
- * is behind AWS WAF and can't be scraped server-side, so the editor pastes the
- * IDs from their watchlist into the afristream_editor_picks_ids option). Each
- * ID is resolved via TMDB for consistent artwork, and a last-good copy is kept
- * so a TMDB hiccup never blanks the page.
+ * Editor Picks — a list of IMDb title IDs. IMDb's watchlist page is behind AWS
+ * WAF and can't be fetched server-side, so the IDs are pulled at build/deploy
+ * time by `npm run sync-watchlist` (a real browser) into the bundled
+ * data/editor-picks-ids.txt. That file is the default; the
+ * afristream_editor_picks_ids option overrides it when set. Each ID is resolved
+ * via TMDB for consistent artwork, and a last-good copy is kept so a TMDB hiccup
+ * never blanks the page.
+ *
+ * Returns an ordered map of IMDb ID => IMDb rating (a float, or null when the
+ * line carries no rating — always the case for hand-typed admin entries).
  */
 function afristream_portal_editor_ids() {
-	// Accept any tt-id, whether pasted bare, comma/newline separated, or inside
-	// a full IMDb title URL. Order preserved, deduped, capped at 24.
-	preg_match_all( '/tt\d+/', (string) get_option( 'afristream_editor_picks_ids', '' ), $m );
-	return array_slice( array_values( array_unique( $m[0] ) ), 0, 24 );
+	// The admin box wins; otherwise fall back to the synced watchlist file.
+	$raw = (string) get_option( 'afristream_editor_picks_ids', '' );
+	if ( '' === trim( $raw ) ) {
+		$file = plugin_dir_path( __FILE__ ) . 'data/editor-picks-ids.txt';
+		if ( is_readable( $file ) ) {
+			$raw = (string) file_get_contents( $file );
+		}
+	}
+	// Accept any tt-id, whether bare, comma/newline separated, or inside a full
+	// IMDb title URL, optionally followed by the IMDb rating the sync recorded
+	// ("tt0099348 8.0"). Order preserved, deduped, capped at the pick cap.
+	$ids = array();
+	foreach ( preg_split( '/[\r\n,]+/', $raw ) as $line ) {
+		$line = trim( $line );
+		if ( '' === $line || '#' === $line[0] ) {
+			continue;
+		}
+		if ( ! preg_match( '/(tt\d+)(?:\D+(\d+(?:\.\d+)?))?/', $line, $m ) ) {
+			continue;
+		}
+		if ( isset( $ids[ $m[1] ] ) ) {
+			continue;
+		}
+		// Guard the rating: a stray number on the line (a year pasted alongside
+		// the ID, say) must not masquerade as a 0–10 score.
+		$rating              = ( isset( $m[2] ) && $m[2] >= 0 && $m[2] <= 10 ) ? (float) $m[2] : null;
+		$ids[ $m[1] ] = $rating;
+		if ( count( $ids ) >= AFRISTREAM_PORTAL_PICK_CAP ) {
+			break;
+		}
+	}
+	return $ids;
+}
+
+/**
+ * Resolve one IMDb ID through TMDB, memoised per ID for a week.
+ *
+ * Each pick costs a TMDB /find round-trip, so at full cap a cold build is
+ * hundreds of sequential HTTP calls. The per-ID cache means that cost is paid
+ * once per title rather than once per rebuild, and lets a run that ran out of
+ * time (see afristream_portal_editor_picks) resume cheaply on the next request.
+ * Rank is positional, so it is applied by the caller and never cached.
+ */
+function afristream_portal_resolve_pick_cached( $imdb_id, $movie_genres, $tv_genres ) {
+	$key    = 'afristream_pick_' . $imdb_id;
+	$cached = get_transient( $key );
+	if ( false !== $cached ) {
+		return is_array( $cached ) ? $cached : null;
+	}
+	$pick = afristream_portal_resolve_pick( $imdb_id, '', 0, $movie_genres, $tv_genres );
+	// Cache misses too (as an empty array), so an ID TMDB doesn't know isn't
+	// re-requested on every rebuild — but for a shorter window, in case TMDB
+	// gains the title later.
+	set_transient( $key, $pick ? $pick : array(), $pick ? WEEK_IN_SECONDS : DAY_IN_SECONDS );
+	return $pick;
 }
 
 function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movie_genres, $tv_genres ) {
@@ -425,7 +640,7 @@ function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movi
 			return null;
 		}
 		return array(
-			't' => $fallback_title, 'genre' => 'Film', 'platform' => 'IMDb',
+			't' => $fallback_title, 'genre' => 'Film', 'platform' => 'IMDb', 'rating' => null,
 			'meta' => '', 'poster' => null, 'type' => 'Movies', 'country' => '', 'rank' => $rank, 'id' => 0,
 		);
 	}
@@ -442,6 +657,9 @@ function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movi
 		't'        => $title,
 		'id'       => isset( $hit['id'] ) ? (int) $hit['id'] : 0,
 		'genre'    => isset( $genres[ $genre_id ] ) ? $genres[ $genre_id ] : $type,
+		// TMDB's score, used for the badge and the rating filter only when the
+		// synced list carries no IMDb rating for this title.
+		'rating'   => $rating > 0 ? round( $rating, 1 ) : null,
 		'platform' => $rating > 0 ? '★ ' . number_format( $rating, 1 ) : 'IMDb',
 		'meta'     => ( 'Series' === $type ) ? trim( 'TV · ' . $year, ' ·' ) : $year,
 		'poster'   => ! empty( $hit['poster_path'] ) ? 'https://image.tmdb.org/t/p/w342' . $hit['poster_path'] : null,
@@ -470,9 +688,26 @@ function afristream_portal_editor_picks() {
 	$tv_genres    = afristream_portal_tmdb_genres( 'tv' );
 	$picks        = array();
 	$rank         = 1;
-	foreach ( $ids as $imdb_id ) {
-		$pick = afristream_portal_resolve_pick( $imdb_id, '', $rank, $movie_genres, $tv_genres );
+	$started      = microtime( true );
+	$budget       = afristream_portal_pick_budget();
+	$partial      = false;
+	foreach ( $ids as $imdb_id => $imdb_rating ) {
+		// Stop short rather than let a cold cache blow PHP's max execution time
+		// and 500 the request. Whatever resolved is served now and the rest is
+		// picked up on a later request, warm from the per-ID cache.
+		if ( microtime( true ) - $started > $budget ) {
+			$partial = true;
+			break;
+		}
+		$pick = afristream_portal_resolve_pick_cached( $imdb_id, $movie_genres, $tv_genres );
 		if ( $pick ) {
+			$pick['rank'] = $rank;
+			// The IMDb rating comes from the synced list, not TMDB, so it is
+			// applied here rather than inside the (TMDB-only) per-ID cache.
+			if ( null !== $imdb_rating ) {
+				$pick['rating']   = $imdb_rating;
+				$pick['platform'] = '★ ' . number_format( $imdb_rating, 1 );
+			}
 			$picks[] = $pick;
 			$rank++;
 		}
@@ -482,9 +717,31 @@ function afristream_portal_editor_picks() {
 	}
 
 	$payload = array( 'source' => 'imdb', 'updated' => gmdate( 'c' ), 'picks' => $picks );
-	set_transient( 'afristream_portal_editor', $payload, 12 * HOUR_IN_SECONDS );
-	update_option( 'afristream_portal_editor_lastgood', $payload, false );
+	if ( $partial ) {
+		$payload['partial'] = true;
+	}
+	// A partial run is cached only briefly, so the next visitor finishes the list
+	// off instead of being stuck with the short version for the full 12 hours.
+	set_transient( 'afristream_portal_editor', $payload, $partial ? MINUTE_IN_SECONDS : 12 * HOUR_IN_SECONDS );
+	// Only a complete run becomes the last-good copy — a truncated list should
+	// never replace a full one as the TMDB-outage fallback.
+	if ( ! $partial ) {
+		update_option( 'afristream_portal_editor_lastgood', $payload, false );
+	}
 	return $payload;
+}
+
+/**
+ * Seconds the pick-resolving loop may spend before saving what it has. Sized to
+ * leave headroom under PHP's max_execution_time (0 / unlimited on CLI or some
+ * hosts, in which case a flat ceiling keeps the request responsive).
+ */
+function afristream_portal_pick_budget() {
+	$max = (int) ini_get( 'max_execution_time' );
+	if ( $max <= 0 ) {
+		return 20.0;
+	}
+	return max( 5.0, min( 20.0, $max * 0.5 ) );
 }
 
 function afristream_portal_editor_data() {
@@ -654,13 +911,13 @@ function afristream_portal_editor_ids_field() {
 		esc_textarea( (string) get_option( 'afristream_editor_picks_ids', '' ) )
 	);
 	echo '<p class="description">' . wp_kses(
-		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Paste the <code>tt…</code> IDs from your IMDb watchlist — one per line, or the full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). IMDb\'s watchlist page can\'t be read automatically, so the list is maintained here. Up to 24; saving refreshes immediately.', 'afristream-portal' ),
+		__( 'The IMDb title IDs for the Editor Picks page, in order (top of the list becomes the featured pick). Leave this empty to use the watchlist synced at build time (via <code>npm run sync-watchlist</code>, bundled in <code>data/editor-picks-ids.txt</code>). To override, paste <code>tt…</code> IDs here — one per line, or full title URLs; IDs are extracted automatically and resolved through TMDB for artwork (needs a TMDB key). Up to 60; saving refreshes immediately.', 'afristream-portal' ),
 		array( 'code' => array() )
 	) . '</p>';
 }
 
 function afristream_portal_settings_intro() {
-	echo '<p>' . esc_html__( 'Sport fixtures need no configuration — they come from a free public feed. Trending movies, series and new releases come from TMDB once an API key is saved; without one the portal shows its built-in lists.', 'afristream-portal' ) . '</p>';
+	echo '<p>' . esc_html__( 'Sport fixtures and TV channels need no configuration — they come from two keyless, permanently free public feeds (ESPN for fixtures and US networks, TheSportsDB for broadcasters elsewhere in the world). Trending movies, series and new releases come from TMDB once an API key is saved; without one the portal shows its built-in lists.', 'afristream-portal' ) . '</p>';
 }
 
 function afristream_portal_tmdb_key_field() {

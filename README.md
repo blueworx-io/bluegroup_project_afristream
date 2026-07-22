@@ -14,7 +14,7 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 
 ## Live "What to Watch" data
 
-**Sport (no key needed):** major global events — FIFA World Cup, Premier League, Champions League, F1, UFC, URC Rugby, NFL, NBA — come from ESPN's public scoreboard API: live events first, then the week's soonest kick-offs with broadcaster, in the viewer's local time. Extend the league list in [afristream-portal.php](afristream-portal.php) and [scripts/preview-server.mjs](scripts/preview-server.mjs) (keep the two in sync). Cached 2 hours. Note this is an unofficial API — if it ever breaks, the portal just shows its curated sport list.
+**Sport (no key needed):** major global events — Soccer (FIFA World Cup, Premier League, Champions League), Cricket (ICC World Cup / T20 / Champions Trophy), Rugby, Golf, F1, UFC, NFL, NBA, tennis — come from ESPN's public scoreboard API: live events first, then the week's soonest kick-offs with broadcaster, in the viewer's local time. Extend the league list in [afristream-portal.php](afristream-portal.php) and [scripts/preview-server.mjs](scripts/preview-server.mjs) (keep the two in sync). Cached 2 hours. Note this is an unofficial API — if it ever breaks, the portal just shows its curated sport list (which always includes Cricket, Golf, Rugby and Soccer).
 
 **Movies & series (TMDB key):** trending movies/series and new releases come from [TMDB](https://www.themoviedb.org/) (free API key, non-commercial use, attribution shown). Without a key the portal falls back to its built-in curated lists — nothing breaks.
 
@@ -23,7 +23,15 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 - Get a key: themoviedb.org → sign up → Settings → API → request a key (choose "Developer"/non-commercial).
 - Cached 12 hours (WP transient / in-memory locally).
 
-Live TV and Collections are curated lists — edit them in [assets/portal.js](assets/portal.js).
+Live TV is a curated list — edit it in [assets/portal.js](assets/portal.js). **Collections** are live queries over the fetched TMDB catalog (defined by a `match()` predicate per collection in [assets/portal.js](assets/portal.js)), so they populate themselves and show real counts — no manual title lists.
+
+**Editor Picks (IMDb watchlist):** the picks come from an IMDb watchlist. IMDb's watchlist is behind a WAF and can't be read by the WordPress server, so the IDs are pulled at build/deploy time by a real browser:
+
+```bash
+IMDB_WATCHLIST_URL="https://www.imdb.com/user/…/watchlist/" npm run sync-watchlist
+```
+
+This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt) (bundled in the plugin zip), which the plugin resolves through TMDB for artwork. The wp-admin **Editor Picks (IMDb IDs)** box overrides the file when set. Run the sync whenever the watchlist changes, before `npm run build`.
 
 ## Local preview (no WordPress needed)
 

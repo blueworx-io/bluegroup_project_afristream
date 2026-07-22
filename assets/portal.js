@@ -64,32 +64,70 @@
     mk('Tide Riders', 'Family', 'Disney+', 'Added Monday')
   ];
   const SPORT = [
-    { comp: 'FIFA World Cup', code: 'Football', country: 'International', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', live: true },
-    { comp: 'Premier League', code: 'Football', country: 'England', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', live: false },
-    { comp: 'Formula 1', code: 'Motorsport', country: 'International', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', live: false },
-    { comp: 'UFC', code: 'MMA', country: 'International', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', live: false },
-    { comp: 'NBA', code: 'Basketball', country: 'United States', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', live: false }
+    { comp: 'FIFA World Cup', code: 'Soccer', country: 'International', fx: 'Semi-final build-up', time: 'LIVE now', ch: 'FOX Sports', chCountry: 'United States', live: true },
+    { comp: 'Premier League', code: 'Soccer', country: 'England', fx: 'Arsenal vs Spurs', time: 'Today · 21:00', ch: 'Sky Sports PL', chCountry: 'United Kingdom', live: false },
+    { comp: 'ICC World Cup', code: 'Cricket', country: 'International', fx: 'Super Eight · Match Day', time: 'Today · 14:30', ch: 'Sky Sports Cricket', chCountry: 'United Kingdom', live: false },
+    { comp: 'PGA Tour', code: 'Golf', country: 'United States', fx: 'The Open · Round 2', time: 'Fri · 13:00', ch: 'Sky Sports Golf', chCountry: 'United Kingdom', live: false },
+    { comp: 'URC Rugby', code: 'Rugby', country: 'International', fx: 'Final · Build-up', time: 'Sat · 18:00', ch: 'SuperSport', chCountry: 'South Africa', live: false },
+    { comp: 'Formula 1', code: 'Motorsport', country: 'International', fx: 'British GP · Qualifying', time: 'Sat · 15:00', ch: 'Sky Sports F1', chCountry: 'United Kingdom', live: false },
+    { comp: 'UFC', code: 'MMA', country: 'International', fx: 'Fight Night Prelims', time: 'Sun · 02:00', ch: 'ESPN+', chCountry: 'United States', live: false },
+    { comp: 'NBA', code: 'Basketball', country: 'United States', fx: 'Summer League opener', time: 'Sun · 22:00', ch: 'ESPN', chCountry: 'United States', live: false }
   ];
-  const LIVE_TV = [
-    { name: 'ESPN', tag: 'Sport' }, { name: 'Sky News', tag: 'News' },
-    { name: 'BBC One', tag: 'Ent' }, { name: 'Sky Cinema', tag: 'Movies' },
-    { name: 'National Geographic', tag: 'Docs' }, { name: 'Cartoon Network', tag: 'Kids' },
-    { name: 'Eurosport', tag: 'Sport' }, { name: 'CNN International', tag: 'News' }
-  ].map((t) => ({ ...t, bg: `linear-gradient(150deg, oklch(0.32 0.06 ${hue(t.tag)}), oklch(0.20 0.05 ${hue(t.tag)}))` }));
+  // A stable index into a list of `len` for the current calendar day: the same
+  // pick all day, a different one tomorrow. Seeded from the local date so it
+  // turns over at the viewer's midnight, and hashed (rather than day-of-year
+  // modulo len) so consecutive days don't just walk the list in order.
+  function dailyIndex(len) {
+    if (len <= 0) return 0;
+    const d = new Date();
+    const seed = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    let h = seed;
+    h = (h ^ (h >>> 15)) * 2246822507;
+    h = (h ^ (h >>> 13)) * 3266489909;
+    h = (h ^ (h >>> 16)) >>> 0;
+    return h % len;
+  }
+
+  // Star rating parsed from a "★ 8.4" platform badge; -1 when unrated.
+  const ratingOf = (x) => { const m = String(x && x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
+
+  // Collections are live queries over the fetched TMDB catalog — no manual title
+  // lists. Each `match(item)` runs at render time over the flat INDEX (movies +
+  // series only); the card shows the real match count and the detail drawer shows
+  // the actual matching posters. `sort: 'rating'` orders a collection by rating.
   const COLLECTIONS = [
-    { name: 'Weekend Binge', count: '12 titles', desc: 'Three seasons or less — start Friday, done by Sunday.', h: 300 },
-    { name: 'True Crime Deep Dive', count: '9 titles', desc: 'Docs and dramas ripped from the headlines.', h: 265 },
-    { name: 'Family Movie Night', count: '15 titles', desc: 'Safe for the whole couch.', h: 210 },
-    { name: 'Big Match Build-Up', count: '7 titles', desc: 'Sport docs to watch before kick-off.', h: 150 },
-    { name: 'Award Season Catch-Up', count: '10 titles', desc: 'Everything nominated, in one row.', h: 25 }
+    { name: 'Weekend Binge', desc: 'Bingeable series — pick one and settle in.', h: 300, sort: 'rating', match: (x) => x.type === 'Series' },
+    // Crime and mystery only. Thriller and Documentary used to be in here too,
+    // which is how nature docs (My Octopus Teacher, Penguin Town) and any
+    // generic thriller ended up filed under true crime.
+    { name: 'True Crime Deep Dive', desc: 'Crime and mystery — the cases that keep you guessing.', h: 265, sort: 'rating', match: (x) => /^(Crime|Mystery)$/.test(x.genre) },
+    { name: 'Family Movie Night', desc: 'Safe for the whole couch.', h: 210, match: (x) => x.type === 'Movies' && /^(Family|Kids|Animation)$/.test(x.genre) },
+    // Was "Big Match Build-Up — documentaries to line up before kick-off", but
+    // nothing in the catalog marks a documentary as sport, so it was really
+    // just every documentary. Named for what it actually is.
+    { name: 'Documentary Corner', desc: 'Real stories, real people — the pick of the docs.', h: 150, sort: 'rating', match: (x) => /^(Documentary|Docs)$/.test(x.genre) },
+    // 7.5 pulled in a third of the catalog, which is not "what the critics
+    // loved" — 8.0 keeps the row genuinely selective.
+    { name: 'Award Season Catch-Up', desc: 'Everything the critics loved, in one row.', h: 25, sort: 'rating', match: (x) => ratingOf(x) >= 8 }
   ].map((c) => ({ ...c, bg: `linear-gradient(135deg, oklch(0.42 0.12 ${c.h}), oklch(0.24 0.09 ${(c.h + 50) % 360}))` }));
 
+  // Editor Picks filters: a fixed, mutually exclusive set of content types, and
+  // the IMDb rating thresholds offered alongside them. Both are filtered down to
+  // the options that actually have picks behind them before rendering.
+  const EDITOR_TYPES = ['Movies', 'Series', 'Documentaries'];
+  const EDITOR_RATING_STEPS = [7, 8, 9];
+
+  // Ceiling for a What-to-Watch row once a single category is selected. Large
+  // enough to feel like the full catalog, bounded so one row can't render the
+  // entire index into a horizontal scroller.
+  const EXPANDED_ROW_MAX = 40;
+
   const EDITOR_FALLBACK = [
-    { t: 'The Colour of Home', genre: 'Drama', platform: '★ 8.4', meta: '2024', type: 'Movies', country: 'South Africa', rank: 1 },
-    { t: 'Harmattan', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', type: 'Series', country: 'Nigeria', rank: 2 },
-    { t: 'Salt & Silver', genre: 'Docs', platform: '★ 7.9', meta: '2022', type: 'Movies', country: 'Kenya', rank: 3 },
-    { t: 'The Long Dry', genre: 'Drama', platform: '★ 7.7', meta: '2021', type: 'Movies', country: 'South Africa', rank: 4 },
-    { t: 'Northern Lights', genre: 'Family', platform: '★ 7.5', meta: 'TV · 2020', type: 'Series', country: 'United Kingdom', rank: 5 },
+    { t: 'The Colour of Home', genre: 'Drama', platform: '★ 8.4', rating: 8.4, meta: '2024', type: 'Movies', country: 'South Africa', rank: 1 },
+    { t: 'Harmattan', genre: 'Thriller', platform: '★ 8.1', rating: 8.1, meta: 'TV · 2023', type: 'Series', country: 'Nigeria', rank: 2 },
+    { t: 'Salt & Silver', genre: 'Documentary', platform: '★ 7.9', rating: 7.9, meta: '2022', type: 'Movies', country: 'Kenya', rank: 3 },
+    { t: 'The Long Dry', genre: 'Drama', platform: '★ 7.7', rating: 7.7, meta: '2021', type: 'Movies', country: 'South Africa', rank: 4 },
+    { t: 'Northern Lights', genre: 'Family', platform: '★ 7.5', rating: 7.5, meta: 'TV · 2020', type: 'Series', country: 'United Kingdom', rank: 5 },
   ].map((p) => ({ ...p, initial: p.t[0], bg: bg(p.genre) }));
 
   const TIPS_DATA = [
@@ -125,8 +163,7 @@
       ...data.series.map((x) => ({ ...x, type: x.type || 'Series' })),
       ...data.newWeek.map((x) => ({ ...x, type: x.type || (/episode/i.test(x.meta) ? 'Series' : 'Movies') })),
       ...data.sport.map((s) => ({ t: s.fx, genre: s.code || 'Sport', platform: s.ch, meta: `${s.comp} · ${s.time}`, type: 'Sport', country: s.country || '', initial: s.fx[0], bg: bg('Sport') })),
-      ...LIVE_TV.map((t) => ({ t: t.name, genre: t.tag, platform: 'Live TV', meta: 'Live channel', type: 'Live TV', initial: t.name[0], bg: t.bg })),
-      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: c.count, type: 'Collection', initial: c.name[0], bg: c.bg })),
+      ...COLLECTIONS.map((c) => ({ t: c.name, genre: 'Collection', platform: 'AfriStream', meta: 'Collection', type: 'Collection', initial: c.name[0], bg: c.bg })),
       ...(data.catalog || []).map((x) => ({ ...x, type: x.type || 'Movies' })),
     ];
     // Only the deep catalog carries origin country; the trending/newWeek copies
@@ -220,9 +257,8 @@
       country: 'All Countries',
       decade: 'All Decades',
       sort: 'Recommended',
-      editorType: 'All',
-      editorGenre: 'All',
-      editorSort: "Editor's order",
+      editorTag: 'All',
+      editorRating: 0,
       filtersOpen: false,
       detail: null
     };
@@ -329,13 +365,13 @@
       const applyLabel = searching ? `Show ${results.length} result${results.length === 1 ? '' : 's'}` : 'Done';
 
       return `
-    <div data-act="close-filters" style="position:fixed;inset:0;background:rgba(11,21,51,.45);z-index:60"></div>
-    <div data-testid="filters-drawer" style="position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);background:#fff;z-index:61;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5);display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid rgba(11,21,51,.08)">
+    <div class="as-scrim" data-act="close-filters" style="background:rgba(11,21,51,.45);z-index:60"></div>
+    <div class="as-panel" data-testid="filters-drawer" style="width:min(380px,92vw);background:#fff;z-index:61;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5)">
+      <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid rgba(11,21,51,.08)">
         <div style="font-size:17px;font-weight:800">Filters</div>
         <button class="as-hover-chip" data-act="close-filters" style="background:#F2F3F7;border:none;border-radius:999px;width:32px;height:32px;cursor:pointer;font-size:14px;color:#65009F;font-family:inherit">✕</button>
       </div>
-      <div style="flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:24px">
+      <div class="as-panel-body" style="padding:20px 22px;display:flex;flex-direction:column;gap:24px">
         ${filterGroups.map((g) => `
           <div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(11,21,51,.5);margin-bottom:10px">${esc(g.label)}</div>
@@ -344,7 +380,7 @@
             </div>
           </div>`).join('')}
       </div>
-      <div style="display:flex;gap:10px;padding:16px 22px;border-top:1px solid rgba(11,21,51,.08)">
+      <div style="flex:none;display:flex;gap:10px;padding:16px 22px;border-top:1px solid rgba(11,21,51,.08)">
         <button class="as-hover-ghost" data-act="clear-filters" style="flex:1;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer;color:#65009F">Clear all</button>
         <button class="as-hover-primary" data-act="close-filters" style="flex:1.4;background:#65009F;color:#fff;border:none;border-radius:12px;padding:12px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">${esc(applyLabel)}</button>
       </div>
@@ -363,13 +399,28 @@
       }
 
       const sub = state.subWatch;
+
+      // On "All" the rows stay short — the page is a summary of everything, and
+      // five long rows would bury the sections below it. Picking a category is
+      // the user asking for that one thing, so the row is re-backed by the whole
+      // catalog (best-rated first) instead of the short trending slice.
+      const expand = (seed, match) => {
+        const seen = new Set(seed.map((x) => x.t));
+        const rest = INDEX.filter((x) => match(x) && !seen.has(x.t))
+          .sort((a, b) => ratingOf(b) - ratingOf(a));
+        return [...seed, ...rest].slice(0, EXPANDED_ROW_MAX);
+      };
+
       const posterRows = [];
       if (!searching) {
-        if (sub === 'All' || sub === 'Movies') posterRows.push({ h: 'Trending Movies', items: data.movies });
-        if (sub === 'All' || sub === 'Series') posterRows.push({ h: 'Trending Series', items: data.series });
-        if (sub === 'Documentaries') posterRows.push({ h: 'Documentaries', items: INDEX.filter((x) => /^(Docs|Documentary)$/.test(x.genre)) });
-        if (sub === 'Kids') posterRows.push({ h: 'Kids & Family', items: INDEX.filter((x) => x.genre === 'Kids' || x.genre === 'Family') });
-        if (sub === 'All' || sub === 'New This Week') posterRows.push({ h: 'New This Week', items: data.newWeek });
+        if (sub === 'All') posterRows.push({ h: 'Trending Movies', items: data.movies });
+        else if (sub === 'Movies') posterRows.push({ h: 'Movies', items: expand(data.movies, (x) => x.type === 'Movies') });
+        if (sub === 'All') posterRows.push({ h: 'Trending Series', items: data.series });
+        else if (sub === 'Series') posterRows.push({ h: 'Series', items: expand(data.series, (x) => x.type === 'Series') });
+        if (sub === 'Documentaries') posterRows.push({ h: 'Documentaries', items: expand([], (x) => /^(Docs|Documentary)$/.test(x.genre)) });
+        if (sub === 'Kids') posterRows.push({ h: 'Kids & Family', items: expand([], (x) => x.genre === 'Kids' || x.genre === 'Family') });
+        if (sub === 'All') posterRows.push({ h: 'New This Week', items: data.newWeek });
+        else if (sub === 'New This Week') posterRows.push({ h: 'New This Week', items: expand(data.newWeek, (x) => /new|episode/i.test(x.meta || '')) });
       }
 
       const filterCount = Object.keys(FILTER_DEFAULTS).filter((k) => state[k] !== FILTER_DEFAULTS[k]).length;
@@ -378,7 +429,17 @@
 
       const quickNav = ['All', 'Movies', 'Series', 'Sport', 'Documentaries', 'Kids', 'New This Week', 'Collections'];
       const showSport = !searching && (sub === 'All' || sub === 'Sport') && props.showSport;
-      const showColl = !searching && (sub === 'All' || sub === 'Collections');
+      // Resolve each collection against the live catalog; hide thin ones (<3
+      // matches) so a card never opens to an empty grid.
+      const collectionMembers = (c) => {
+        let items = INDEX.filter((x) => (x.type === 'Movies' || x.type === 'Series') && c.match(x));
+        if (c.sort === 'rating') items = [...items].sort((a, b) => ratingOf(b) - ratingOf(a));
+        return items;
+      };
+      const collections = (!searching && (sub === 'All' || sub === 'Collections'))
+        ? COLLECTIONS.map((c) => ({ ...c, items: collectionMembers(c) })).filter((c) => c.items.length >= 3)
+        : [];
+      const showColl = collections.length > 0;
 
       return `
 <section data-screen-label="What to Watch">
@@ -422,23 +483,13 @@
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live &amp; Upcoming Sport</h2>
         <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
           ${data.sport.map((s) => `
-            <div ${cardAttrs({ detailKind: 'sport', t: s.fx, comp: s.comp, time: s.time, ch: s.ch, live: s.live, bg: 'linear-gradient(150deg,#4A0073,#2A0047)' })} style="cursor:pointer;flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#4A0073,#2A0047);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
+            <div ${cardAttrs({ detailKind: 'sport', t: s.fx, comp: s.comp, time: s.time, ch: s.ch, chCountry: s.chCountry, live: s.live, bg: 'linear-gradient(150deg,#4A0073,#2A0047)' })} style="cursor:pointer;flex:none;width:236px;border-radius:14px;background:linear-gradient(150deg,#4A0073,#2A0047);color:#fff;padding:15px 16px;display:flex;flex-direction:column;gap:8px;min-height:118px">
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
                 <span style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(s.comp)}</span>
                 ${s.live ? '<span style="display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#FF5A6E"><span style="width:7px;height:7px;border-radius:50%;background:#FF5A6E;animation:asPulse 1.4s infinite"></span>LIVE</span>' : ''}
               </div>
               <div style="font-size:15.5px;font-weight:800;line-height:1.25">${esc(s.fx)}</div>
-              <div style="margin-top:auto;display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:rgba(255,255,255,.65)"><span>${esc(s.time)}</span><span style="font-weight:700;color:rgba(255,255,255,.85)">${esc(s.ch)}</span></div>
-            </div>`).join('')}
-        </div>
-      </div>
-      <div style="margin-bottom:28px">
-        <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Live TV Channels</h2>
-        <div data-dragscroll style="display:flex;gap:12px;overflow-x:auto;padding-bottom:12px">
-          ${LIVE_TV.map((t) => `
-            <div ${cardAttrs({ detailKind: 'channel', t: t.name, tag: t.tag, bg: t.bg })} style="cursor:pointer;flex:none;width:158px;aspect-ratio:16/10;border-radius:13px;background:${t.bg};color:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;padding:10px;text-align:center">
-              <div style="font-size:13.5px;font-weight:800;line-height:1.2">${esc(t.name)}</div>
-              <div style="font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)">${esc(t.tag)}</div>
+              <div style="margin-top:auto;display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:rgba(255,255,255,.65)"><span>${esc(s.time)}</span><span data-sport-channel style="font-weight:700;color:rgba(255,255,255,.85);text-align:right">${esc(s.ch)}${s.chCountry ? `<span style="display:block;font-weight:600;color:rgba(255,255,255,.55)">${esc(s.chCountry)}</span>` : ''}</span></div>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -447,11 +498,11 @@
       <div>
         <h2 style="margin:0 0 12px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Collections</h2>
         <div data-dragscroll style="display:flex;gap:14px;overflow-x:auto;padding-bottom:12px">
-          ${COLLECTIONS.map((c) => `
-            <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: c.count, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
+          ${collections.map((c) => `
+            <div ${cardAttrs({ detailKind: 'collection', t: c.name, desc: c.desc, count: `${c.items.length} titles`, items: c.items, bg: c.bg })} style="cursor:pointer;flex:none;width:250px;border-radius:15px;background:${c.bg};color:#fff;padding:18px;display:flex;flex-direction:column;gap:6px;min-height:132px">
               <div style="font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(c.name)}</div>
               <div style="font-size:12.5px;line-height:1.45;color:rgba(255,255,255,.8)">${esc(c.desc)}</div>
-              <div style="margin-top:auto;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">${esc(c.count)}</div>
+              <div style="margin-top:auto;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)">${esc(c.items.length)} title${c.items.length === 1 ? '' : 's'}</div>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -475,38 +526,44 @@
 
     function editorSection() {
       const picks = data.editorPicks || [];
-      const EDITOR_DEFAULTS = { editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" };
-      const filtering = Object.keys(EDITOR_DEFAULTS).some((k) => state[k] !== EDITOR_DEFAULTS[k]);
+      const tag = state.editorTag || 'All';
+      const minRating = Number(state.editorRating) || 0;
 
-      // Chip options derived from the picks themselves (only what's present).
-      const typeOpts = ['All', ...[...new Set(picks.map((p) => p.type).filter(Boolean))]];
-      const genreOpts = ['All', ...[...new Set(picks.map((p) => p.genre).filter(Boolean))].sort()];
-      const sortOpts = ["Editor's order", 'Top Rated', 'A–Z', 'Newest'];
+      // Three mutually exclusive content types rather than a genre dump: a
+      // documentary is only ever a Documentary, never also Movies or Series, so
+      // the pills partition the list instead of overlapping.
+      const typeOf = (p) => (p.genre === 'Documentary' ? 'Documentaries' : p.type);
+      const matchesTag = (p) => tag === 'All' || typeOf(p) === tag;
+      // Only offer a type that actually has picks behind it.
+      const present = new Set(picks.map(typeOf).filter(Boolean));
+      const tagOpts = ['All', ...EDITOR_TYPES.filter((t) => present.has(t))];
 
-      const rate = (x) => { const m = String(x.platform).match(/([\d.]+)/); return m ? +m[1] : -1; };
-      const yr = (x) => { const m = String(x.meta).match(/\d{4}/); return m ? +m[0] : -1; };
+      // Rating steps are offered only where they'd leave something on screen,
+      // so the row never shows a pill that can only produce an empty grid.
+      const ratingOpts = [0, ...EDITOR_RATING_STEPS.filter(
+        (r) => picks.some((p) => matchesTag(p) && Number(p.rating) >= r)
+      )];
 
-      let list = picks.filter((p) =>
-        (state.editorType === 'All' || p.type === state.editorType) &&
-        (state.editorGenre === 'All' || p.genre === state.editorGenre)
-      );
-      if (state.editorSort === 'Top Rated') list = [...list].sort((a, b) => rate(b) - rate(a));
-      else if (state.editorSort === 'A–Z') list = [...list].sort((a, b) => a.t.localeCompare(b.t));
-      else if (state.editorSort === 'Newest') list = [...list].sort((a, b) => yr(b) - yr(a));
-      else list = [...list].sort((a, b) => (a.rank || 0) - (b.rank || 0));
-
-      const hero = filtering ? null : list[0];
-      const grid = hero ? list.slice(1) : list;
+      // Best first. Watchlist position only breaks ties, so an unrated pick
+      // (rating null) sinks to the bottom rather than jumping the queue.
+      let list = picks.filter((p) => matchesTag(p) && (!minRating || Number(p.rating) >= minRating));
+      list = [...list].sort((a, b) => {
+        const diff = (Number(b.rating) || 0) - (Number(a.rating) || 0);
+        return diff || (a.rank || 0) - (b.rank || 0);
+      });
+      // Today's Pick — one title drawn from whatever is currently on screen,
+      // stable for the whole day so it doesn't reshuffle on every render.
+      const heroIdx = list.length ? dailyIndex(list.length) : -1;
+      const hero = heroIdx >= 0 ? list[heroIdx] : null;
+      // Renumber only after the hero is lifted out, so the badges below read
+      // 1, 2, 3… with no gap where it used to sit.
+      const grid = list
+        .filter((_, i) => i !== heroIdx)
+        .map((p, i) => ({ ...p, rank: i + 1 }));
 
       const heroArt = (m) => m.poster
         ? `<img src="${esc(m.poster)}" alt="${esc(m.t)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`
         : `<div style="position:absolute;top:-30px;right:-6px;font-size:200px;font-weight:800;color:rgba(255,255,255,.10);line-height:1;user-select:none">${esc(m.initial)}</div>`;
-
-      const chipRow = (label, key, options) => options.length <= 1 ? '' : `
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="flex:none;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);min-width:52px">${esc(label)}</span>
-      ${options.map((o) => `<button style="${subBtn(String(state[key]) === String(o))}" data-act="editor-filter" data-key="${key}" data-val="${esc(o)}">${esc(o)}</button>`).join('')}
-    </div>`;
 
       return `
 <section data-screen-label="Editor Picks">
@@ -515,23 +572,28 @@
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Curated by the AfriStream editors — a hand-picked watchlist, refreshed regularly.</p>
   </div>
   ${picks.length ? `
-  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
-    ${chipRow('Type', 'editorType', typeOpts)}
-    ${chipRow('Genre', 'editorGenre', genreOpts)}
-    ${chipRow('Sort', 'editorSort', sortOpts)}
-    ${filtering ? `<div><button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:13px;cursor:pointer;padding:2px 0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
+  <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-bottom:26px">
+    ${tagOpts.length > 1 ? `
+    <div role="group" aria-label="Filter by type" style="display:flex;gap:8px;flex-wrap:wrap">
+      ${tagOpts.map((o) => `<button style="${subBtn(String(tag) === String(o))}" data-act="editor-filter" data-key="editorTag" data-val="${esc(o)}" aria-pressed="${String(tag) === String(o)}">${esc(o)}</button>`).join('')}
+    </div>` : ''}
+    ${ratingOpts.length > 1 ? `
+    <div role="group" aria-label="Filter by IMDb rating" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(11,21,51,.45)">Rating</span>
+      ${ratingOpts.map((r) => `<button style="${subBtn(minRating === r)}" data-act="editor-filter" data-key="editorRating" data-val="${r}" aria-pressed="${minRating === r}">${r ? `★ ${r}+` : 'Any'}</button>`).join('')}
+    </div>` : ''}
   </div>` : ''}
   ${hero ? `
   <div ${cardAttrs(hero)} style="cursor:pointer;position:relative;border-radius:22px;overflow:hidden;background:linear-gradient(120deg,#65009F 20%,#CD2DF5 80%);color:#fff;min-height:280px;display:flex;align-items:flex-end;margin-bottom:26px;box-shadow:0 24px 60px -34px rgba(11,21,51,.7)">
     <div style="position:absolute;inset:0">${heroArt(hero)}<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,9,24,.86) 0%,rgba(5,9,24,.55) 46%,rgba(5,9,24,.2) 100%)"></div></div>
     <div style="position:relative;padding:clamp(22px,4vw,40px);max-width:620px;display:flex;flex-direction:column;gap:12px">
-      <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#F4C56B">★ Editors' No.1</span>
+      <span style="align-self:flex-start;display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#F4C56B">★ Today's Pick</span>
       <div style="font-size:clamp(26px,4.5vw,40px);font-weight:800;letter-spacing:-0.02em;line-height:1.05">${esc(hero.t)}</div>
       <div style="font-size:13px;color:rgba(255,255,255,.75);display:flex;gap:8px;flex-wrap:wrap"><span style="font-weight:700">${esc(hero.genre)}</span><span>·</span><span>${esc(hero.meta)}</span>${hero.country ? `<span>·</span><span>${esc(hero.country)}</span>` : ''}<span>·</span><span>${esc(hero.platform)}</span></div>
     </div>
   </div>` : ''}
   ${grid.length ? `
-  ${hero ? `<h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">More from the list</h2>` : ''}
+  ${hero ? `<h2 style="margin:0 0 12px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Top rated</h2>` : ''}
   <div data-testid="editor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px">
     ${grid.map(editorCard).join('')}
   </div>` : ''}
@@ -675,12 +737,24 @@
     function detailDrawer(obj) {
       let body;
       if (obj.detailKind === 'sport') {
-        const rows = [['Competition', obj.comp], ['When', obj.time], ['Channel', obj.ch], obj.live ? ['Status', 'LIVE now'] : null].filter(Boolean);
+        const rows = [
+          ['Competition', obj.comp],
+          ['When', obj.time],
+          ['Channel', obj.ch],
+          obj.chCountry ? ['Broadcast in', obj.chCountry] : null,
+          obj.live ? ['Status', 'LIVE now'] : null,
+        ].filter(Boolean);
         body = `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#65009F;text-align:right">${esc(v)}</span></div>`).join('')}</div>`;
       } else if (obj.detailKind === 'channel') {
         body = `<div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)"><span style="font-weight:700">${esc(obj.tag)}</span> · Live channel</div>`;
       } else if (obj.detailKind === 'collection') {
-        body = `<div style="display:flex;flex-direction:column;gap:10px"><div style="font-size:12px;font-weight:700;color:rgba(11,21,51,.55)">${esc(obj.count || '')}</div><div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div></div>`;
+        const items = obj.items || [];
+        body = `<div style="display:flex;flex-direction:column;gap:16px">
+          <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.desc || '')}</div>
+          ${items.length
+            ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px">${items.map(posterGridItem).join('')}</div>`
+            : `<div style="font-size:13px;color:rgba(11,21,51,.55)">Nothing in this collection right now — check back after the next update.</div>`}
+        </div>`;
       } else {
         const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]
           .filter(Boolean)
@@ -692,15 +766,17 @@
         ? `<img src="${esc(obj.poster)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,9,24,0) 40%,rgba(5,9,24,.85))"></div>`
         : `<div style="position:absolute;top:-30px;right:-8px;font-size:180px;font-weight:800;color:rgba(255,255,255,.12);line-height:1;user-select:none">${esc(obj.initial || (obj.t || '')[0] || '')}</div>`;
       return `
-    <div data-act="close-detail" style="position:fixed;inset:0;background:rgba(11,21,51,.5);z-index:70"></div>
-    <div data-testid="detail-drawer" role="dialog" aria-modal="true" aria-label="${esc(obj.t)} details" style="position:fixed;top:0;right:0;bottom:0;width:min(420px,94vw);background:#fff;z-index:71;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5);display:flex;flex-direction:column;overflow-y:auto">
-      <div style="position:relative;min-height:220px;background:${obj.bg || '#65009F'};color:#fff;display:flex;align-items:flex-end;padding:18px">
-        ${art}
-        <button data-act="close-detail" aria-label="Close details" style="position:absolute;top:14px;right:14px;background:rgba(5,9,24,.55);border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:15px;color:#fff;font-family:inherit;z-index:1">✕</button>
-        <div style="position:relative;font-size:22px;font-weight:800;line-height:1.15;text-shadow:0 1px 8px rgba(0,0,0,.5)">${esc(obj.t)}</div>
-      </div>
-      <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
-        ${body}
+    <div class="as-scrim" data-act="close-detail" style="background:rgba(11,21,51,.5);z-index:70"></div>
+    <div class="as-panel" data-testid="detail-drawer" role="dialog" aria-modal="true" aria-label="${esc(obj.t)} details" style="width:min(420px,94vw);background:#fff;z-index:71;box-shadow:-24px 0 60px -30px rgba(11,21,51,.5)">
+      <div class="as-panel-body">
+        <div style="position:relative;min-height:220px;background:${obj.bg || '#65009F'};color:#fff;display:flex;align-items:flex-end;padding:18px">
+          ${art}
+          <button data-act="close-detail" aria-label="Close details" style="position:absolute;top:14px;right:14px;background:rgba(5,9,24,.55);border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:15px;color:#fff;font-family:inherit;z-index:1">✕</button>
+          <div style="position:relative;font-size:22px;font-weight:800;line-height:1.15;text-shadow:0 1px 8px rgba(0,0,0,.5)">${esc(obj.t)}</div>
+        </div>
+        <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+          ${body}
+        </div>
       </div>
     </div>`;
     }
@@ -718,9 +794,11 @@
       root.innerHTML = `
 <div style="min-height:100vh;display:flex;flex-direction:column">
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
-  <nav style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:26px;overflow-x:auto">
-    ${NAV.map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`).join('')}
-    <div style="margin-left:auto;align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none">
+  <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
+    <div class="as-tabs" style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
+      ${NAV.map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`).join('')}
+    </div>
+    <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none;white-space:nowrap">
       <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
     </div>
   </nav>
@@ -787,7 +865,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'clear-filters': setState({ query: '', type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' }); break;
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
         case 'editor-filter': setState({ [el.getAttribute('data-key')]: val }); break;
-        case 'clear-editor-filters': setState({ editorType: 'All', editorGenre: 'All', editorSort: "Editor's order" }); break;
+        case 'clear-editor-filters': setState({ editorTag: 'All', editorRating: 0 }); break;
         case 'toggle-guide': {
           const i = +val;
           setState({ guideOpen: state.guideOpen === i ? -1 : i });
@@ -906,6 +984,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
           country: s.country || '',
           fx: s.fx,
           ch: s.ch || '',
+          chCountry: s.chCountry || '',
           live: !!s.live,
           time: s.live ? (s.time || 'LIVE now') : (s.iso ? fmtKick(s.iso) : (s.time || ''))
         }));
