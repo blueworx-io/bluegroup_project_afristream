@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-07-22
+
+### Fixed
+
+- **The portal scales correctly on a phone again.** The rule that lifts a host theme's width cap (so the portal fills the content area rather than sitting in a narrow column) set `width: 100%` without sizing the border box. On a `content-box` wrapper — the browser default, and what plenty of theme containers still are — the theme's own horizontal padding is then added on top of that 100%, so the wrapper ends up wider than its parent: on a 390px phone with a 24px theme gutter the document came out 438px wide. The browser's response to a document wider than the viewport is to zoom the whole page out to fit, which is why the portal rendered shrunk with the page scrolling sideways. The rule now sizes the border box, so "fill the content area" can no longer overflow it.
+- **The filters drawer no longer lets the page scroll behind it.** The scroll-lock only keyed on the detail panel, so with the filters drawer open the catalogue still scrolled underneath — most obvious over the scrim beside the panel, where a wheel or a drag went straight to the page. The lock now covers both overlays, which are equally modal. (Scrolling *inside* the panel was already contained by `overscroll-behavior`; it was the area around it that leaked.)
+- **Poster grids no longer collapse to one title per row on a phone.** The Editor Picks, search-result and collection grids are `auto-fill` with a pixel floor (146–150px), which assumed the portal owned the full viewport width. It doesn't: the host theme's gutter and the portal's own gutter both come off the top, leaving roughly 295px of content on a 390px phone — just under the ~316px two columns need — so `auto-fill` quietly dropped to a single column of roughly 300×450 posters. Mobile now pins the count at two columns instead of inferring it from a width the portal can't predict, and the columns use `minmax(0, 1fr)` so they can always shrink to the space available rather than overflowing the narrowest phones.
+
 ## [0.9.0] - 2026-07-22
 
 ### Added
