@@ -1,4 +1,6 @@
-// Syncs Editor Picks from an IMDb watchlist into data/editor-picks-ids.txt.
+// Syncs Editor Picks from an IMDb watchlist into data/editor-picks-ids.txt, then
+// hands the list to bake-picks.mjs, which resolves every title through TMDB and
+// writes data/editor-picks.json — the file the plugin actually serves.
 //
 // IMDb's watchlist page is behind AWS WAF and returns an empty challenge to a
 // plain server fetch, so this uses a real browser (Playwright) to render it and
@@ -12,14 +14,16 @@
 // DEFAULT_URL below. On success it overwrites data/editor-picks-ids.txt; if no
 // IDs are found it exits non-zero and leaves the existing file untouched.
 //
-// Note: reads the IDs embedded in the initial page render — comfortably covers a
-// normal watchlist; a very large one (hundreds) that lazy-loads further pages
-// would need scroll-pagination added here.
+// The list lazy-loads 25 rows at a time, so the scroll loop below pages through
+// it. It refuses to overwrite the existing file with a short list: a partial
+// scrape (IMDb changing its markup, a slow network) would otherwise silently
+// shrink the watchlist, which is exactly how a 130-title list once became 25.
 
 import { chromium } from 'playwright';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
+import { bakePicks, parseEntries } from './bake-picks.mjs';
 
 const DEFAULT_URL = 'https://www.imdb.com/user/p.oaowjxrmiacczaqrabkib5cpdi/watchlist/?ref_=ext_shr_lnk';
 const WATCHLIST_URL = process.env.IMDB_WATCHLIST_URL || DEFAULT_URL;
@@ -128,9 +132,14 @@ async function main() {
     for (let i = 0; i < 120; i++) {
       ({ rows, total } = await page.evaluate(() => {
         const totalEl = document.querySelector('[data-testid="list-page-mc-total-items"]');
+        // Take the largest number in the label, not the first. IMDb words this
+        // as "1 - 25 of 130 titles" as often as "130 titles", and reading the
+        // leading 1 as the total ends the scroll loop on its first pass — which
+        // is how a full watchlist silently came back as its first page.
+        const nums = totalEl ? (totalEl.textContent.match(/\d[\d,]*/g) || []).map((n) => Number(n.replace(/,/g, ''))) : [];
         return {
           rows: document.querySelectorAll('li.ipc-metadata-list-summary-item').length,
-          total: totalEl ? Number((totalEl.textContent.match(/\d+/) || [])[0]) : 0,
+          total: nums.length ? Math.max(...nums) : 0,
         };
       }));
       if (total && rows >= total) break;
@@ -158,6 +167,23 @@ async function main() {
       process.exitCode = 1;
       return;
     }
+    // Never trade a longer list for a shorter one. A scrape that comes back with
+    // fewer titles than the file already holds is a partial render, not someone
+    // emptying their watchlist — and overwriting loses IDs we cannot get back
+    // without a working scrape. Re-run, or delete the file deliberately.
+    let existing = [];
+    try {
+      existing = parseEntries(readFileSync(OUT, 'utf8'));
+    } catch { /* no file yet — first run */ }
+    if (existing.length > entries.length) {
+      console.error(
+        `Scraped only ${entries.length} titles but data/editor-picks-ids.txt already holds ${existing.length} — ` +
+          'refusing to overwrite. Re-run, or delete the file if the watchlist really did shrink.'
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     const lines = entries.map((e) => (e.rating ? `${e.id} ${e.rating}` : e.id));
     writeFileSync(OUT, HEADER + lines.join('\n') + '\n');
     const rated = entries.filter((e) => e.rating).length;
@@ -168,6 +194,8 @@ async function main() {
     if (total && entries.length < total) {
       process.exitCode = 1;
     }
+
+    await bakePicks(entries);
   } finally {
     await browser.close();
   }

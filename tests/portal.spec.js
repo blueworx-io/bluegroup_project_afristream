@@ -1051,6 +1051,42 @@ test('Editor Picks keeps filling in while the server reports a partial list', as
   expect(calls).toBeGreaterThan(1);
 });
 
+test('the baked Editor Picks list is complete, well-formed and in the plugin payload', async ({ request }) => {
+  // data/editor-picks.json is the watchlist already resolved through TMDB at
+  // build time — the whole point being that serving it costs a file read rather
+  // than one round-trip per title. It ships inside the plugin, so a malformed or
+  // truncated bake is a deploy problem, not a runtime one.
+  const ids = await (await request.get('/data/editor-picks-ids.txt')).text();
+  const idCount = (ids.match(/tt\d+/g) || []).length;
+  expect(idCount).toBeGreaterThan(0);
+
+  const res = await request.get('/data/editor-picks.json');
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+
+  expect(json.source).toBe('imdb');
+  expect(Array.isArray(json.picks)).toBeTruthy();
+  // Every ID should resolve; allow a small margin for a title TMDB genuinely
+  // does not carry, but not for a run that quietly stopped part-way.
+  expect(json.picks.length).toBeGreaterThanOrEqual(Math.floor(idCount * 0.9));
+
+  for (const p of json.picks) {
+    expect(typeof p.t).toBe('string');
+    expect(p.t.length).toBeGreaterThan(0);
+    expect(typeof p.id).toBe('number');
+    expect(['Movies', 'Series']).toContain(p.type);
+    if (p.rating !== null) {
+      expect(p.rating).toBeGreaterThan(0);
+      expect(p.rating).toBeLessThanOrEqual(10);
+    }
+  }
+  // Ranks are gap-free and in order — the front end renders them as badges.
+  expect(json.picks.map((p) => p.rank)).toEqual(json.picks.map((_, i) => i + 1));
+  // A baked payload is complete by definition, so it must never ask the front
+  // end to poll for more.
+  expect(json.partial).toBeUndefined();
+});
+
 test('the Apps tab shows the unavailable notice when no apps URL is configured', async ({ page }) => {
   // No data-apps-url at all (an older host page) — must show the dedicated
   // "unavailable" notice, not the error state and not an empty grid, and the

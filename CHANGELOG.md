@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-07-22
+
+### Changed
+
+- **Editor Picks are now resolved through TMDB at build time**, not on the live site. `npm run sync-watchlist` scrapes the IMDb watchlist as before, then hands the IDs to a new `npm run bake-picks` step that resolves each one and writes `data/editor-picks.json` into the plugin — the same pattern `apps.json` and `sports-listings.json` already use. Serving Editor Picks is now a file read (~30ms for 130 titles) instead of one TMDB round-trip per title, so the page is complete on first paint with no filling-in and no polling.
+
+  The runtime resolver, the partial/poll handling and the resolve lock all stay, because the WP admin override box can hold hand-entered IDs that have no baked copy. `bake-picks` can also be re-run on its own to refresh artwork and ratings without re-scraping IMDb.
+
+### Fixed
+
+- **The watchlist sync could silently truncate the list to its first page.** IMDb labels the count as "1 – 25 of 130 titles" and the scroll loop read the leading `1` as the total, so it stopped after one pass and wrote 25 IDs over a 130-ID file. It now takes the largest number in the label, and refuses outright to overwrite the ID list with a shorter scrape — a partial render can no longer destroy IDs that only a working scrape can recover.
+
 ## [0.13.0] - 2026-07-22
 
 ### Changed

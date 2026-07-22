@@ -31,7 +31,15 @@ Live TV is a curated list — edit it in [assets/portal.js](assets/portal.js). *
 IMDB_WATCHLIST_URL="https://www.imdb.com/user/…/watchlist/" npm run sync-watchlist
 ```
 
-This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt) (bundled in the plugin zip), which the plugin resolves through TMDB for artwork. The wp-admin **Editor Picks (IMDb IDs)** box overrides the file when set. Run the sync whenever the watchlist changes, before `npm run build`.
+This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt), then resolves every title through TMDB and writes the finished list to [data/editor-picks.json](data/editor-picks.json). Both are bundled in the plugin zip, and it is the JSON the plugin actually serves — a file read, rather than one TMDB round-trip per title from WordPress. Needs `TMDB_API_KEY` in the environment.
+
+To refresh artwork and ratings without re-scraping IMDb:
+
+```bash
+npm run bake-picks     # re-resolves data/editor-picks-ids.txt into data/editor-picks.json
+```
+
+The wp-admin **Editor Picks (IMDb IDs)** box overrides both files when set; because hand-entered IDs have no baked copy, that path resolves through TMDB live and fills in over the first few page loads. Run the sync whenever the watchlist changes, before `npm run build`.
 
 **Free Apps:** a bundled directory of free and free-tier streaming apps (`data/apps.json`), filterable by device, content type and region, with per-device install steps. No API key or configuration needed — the file ships with the plugin.
 

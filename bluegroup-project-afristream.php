@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.13.0
+ * Version:     0.14.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.13.0' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.14.0' );
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
@@ -752,7 +752,42 @@ function afristream_portal_resolve_pick( $imdb_id, $fallback_title, $rank, $movi
 	);
 }
 
+/**
+ * The watchlist already resolved through TMDB at build time — data/editor-picks.json,
+ * written by `npm run sync-watchlist` and shipped inside the plugin.
+ *
+ * Serving this is a single file read. Resolving the same list from here costs one
+ * TMDB round-trip per title, which is why a cold cache used to spend the best part
+ * of a minute filling the page in. Only the default list is baked: if the admin
+ * override box holds hand-entered IDs there is no baked copy of them, so that path
+ * still goes through the live resolver below.
+ */
+function afristream_portal_baked_picks() {
+	static $payload = null;
+	if ( null !== $payload ) {
+		return $payload;
+	}
+	$payload = false;
+	if ( '' !== trim( (string) get_option( 'afristream_editor_picks_ids', '' ) ) ) {
+		return $payload;
+	}
+	$file = plugin_dir_path( __FILE__ ) . 'data/editor-picks.json';
+	if ( ! is_readable( $file ) ) {
+		return $payload;
+	}
+	$json = json_decode( (string) file_get_contents( $file ), true );
+	if ( is_array( $json ) && ! empty( $json['picks'] ) ) {
+		$payload = $json;
+	}
+	return $payload;
+}
+
 function afristream_portal_editor_picks() {
+	$baked = afristream_portal_baked_picks();
+	if ( $baked ) {
+		return $baked;
+	}
+
 	$cached = get_transient( 'afristream_portal_editor' );
 	if ( false !== $cached && empty( $cached['partial'] ) ) {
 		return $cached;
