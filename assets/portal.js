@@ -153,6 +153,11 @@
   const APP_CONTENT = ['Sport', 'Movies', 'Series', 'Documentaries', 'Live TV'];
   const APP_REGIONS = ['Worldwide', 'Africa', 'Europe', 'UK & Ireland', 'North America', 'Latin America', 'Asia-Pacific', 'Middle East'];
 
+  // Card tint per content type, reusing the portal's existing hues so app tiles
+  // sit in the same palette as the poster cards instead of all defaulting to one
+  // colour. Falls back to bg()'s own default for anything unmapped.
+  const APP_CONTENT_HUE = { Sport: 'Sport', Movies: 'Movies', Documentaries: 'Docs', Series: 'Drama', 'Live TV': 'News' };
+
   // Generic install steps per device class. An app only carries an `install`
   // entry where its real steps differ from these.
   const APP_INSTALL_DEFAULTS = {
@@ -173,12 +178,15 @@
     name: String(a.name),
     t: String(a.name),
     initial: String(a.name)[0],
-    bg: bg(String(a.name)),
+    bg: bg(APP_CONTENT_HUE[(Array.isArray(a.content) ? a.content : [])[0]] || ''),
     detailKind: 'app',
     cost: a.cost === 'free-tier' ? 'free-tier' : 'free',
     blurb: String(a.blurb || ''),
     availability: String(a.availability || ''),
-    url: String(a.url || ''),
+    // Defence in depth: esc() stops attribute breakout and the schema test
+    // asserts ^https://, but that guarantee lives in a different file — keep
+    // the front end safe on its own even if the data ever slips past the test.
+    url: /^https:\/\//.test(String(a.url || '')) ? String(a.url) : '',
     install: a.install && typeof a.install === 'object' ? a.install : {},
     content: (Array.isArray(a.content) ? a.content : []).filter((c) => APP_CONTENT.includes(c)),
     devices: (Array.isArray(a.devices) ? a.devices : []).filter((d) => APP_DEVICES.some((x) => x.key === d)),
@@ -750,18 +758,18 @@
       }
 
       const shown = filteredApps();
-      const pill = (act, key, val, label, active) =>
+      const pill = (act, val, label, active) =>
         `<button style="${subBtn(active)}" data-act="${act}" data-val="${esc(val)}" aria-pressed="${active}">${esc(label)}</button>`;
 
       return shell(`
   <div data-testid="apps-device-filters" role="group" aria-label="Filter apps by device" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px">
-    ${pill('apps-device', 'appsDevice', 'All', 'All', state.appsDevice === 'All')}
-    ${APP_DEVICES.map((d) => pill('apps-device', 'appsDevice', d.key, d.label, state.appsDevice === d.key)).join('')}
+    ${pill('apps-device', 'All', 'All', state.appsDevice === 'All')}
+    ${APP_DEVICES.map((d) => pill('apps-device', d.key, d.label, state.appsDevice === d.key)).join('')}
   </div>
   <div style="display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;margin:0 2px 18px">
     <div data-testid="apps-content-filters" role="group" aria-label="Filter apps by content" style="display:flex;gap:8px;flex-wrap:wrap">
-      ${pill('apps-content', 'appsContent', 'All', 'All', state.appsContent === 'All')}
-      ${APP_CONTENT.map((c) => pill('apps-content', 'appsContent', c, c, state.appsContent === c)).join('')}
+      ${pill('apps-content', 'All', 'All', state.appsContent === 'All')}
+      ${APP_CONTENT.map((c) => pill('apps-content', c, c, state.appsContent === c)).join('')}
     </div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.62)">
       <span>Region</span>
@@ -803,7 +811,9 @@
     // Apps database. Fetched lazily the first time the tab is opened — a user
     // who never opens it never pays for the request. 'unavailable' means no
     // data-apps-url was supplied at all (an older host page), which is a
-    // different message from a failed fetch.
+    // different message from a failed fetch. A well-formed response whose
+    // `apps` array is empty deliberately throws into the 'error' state too —
+    // an empty bundled directory is a fault, not a valid state to render.
     let appsData = null;
     let appsState = 'idle';
 
@@ -939,14 +949,14 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap">${costBadge(obj)}${obj.content.map((c) => `<span style="font-size:12px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`).join('')}</div>
           <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.blurb)}</div>
           <div style="display:flex;flex-direction:column;gap:12px">
-            ${row('Watch', obj.content.join(', '))}
+            ${row('Regions', obj.regions.join(', '))}
             ${row('Where', obj.availability)}
           </div>
           <div>
             <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:10px">Install on</div>
             <div style="display:flex;flex-direction:column;gap:10px">${steps}</div>
           </div>
-          <a href="${esc(obj.url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;background:#65009F;color:#fff;border-radius:13px;padding:13px 18px;font-weight:700;font-size:13.5px;text-decoration:none">Open ${esc(obj.name)} →</a>
+          ${obj.url ? `<a href="${esc(obj.url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;background:#65009F;color:#fff;border-radius:13px;padding:13px 18px;font-weight:700;font-size:13.5px;text-decoration:none">Open ${esc(obj.name)} →</a>` : ''}
         </div>`;
       } else {
         const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]

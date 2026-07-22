@@ -55,7 +55,7 @@ add_action( 'wp_enqueue_scripts', 'afristream_portal_register_assets' );
 /**
  * [afristream_portal default_tab="profile" show_sport="true"]
  *
- * default_tab: profile | watch | tips | help
+ * default_tab: profile | watch | apps | editor | tips | help
  */
 function afristream_portal_shortcode( $atts ) {
 	$atts = shortcode_atts(
@@ -83,7 +83,7 @@ function afristream_portal_shortcode( $atts ) {
 		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
 		esc_url( rest_url( 'afristream/v1/detail' ) ),
 		esc_url( rest_url( 'afristream/v1/credentials' ) ),
-		esc_url( plugins_url( 'data/apps.json', __FILE__ ) ),
+		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
 		esc_attr( wp_create_nonce( 'wp_rest' ) )
 	);
 }

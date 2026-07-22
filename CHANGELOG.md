@@ -4,7 +4,9 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.10.0
+## [0.10.0] - 2026-07-22
+
+### Added
 
 - New **Apps** tab: a curated directory of free and free-tier streaming apps covering sport, movies, series, documentaries and live TV, filterable by device type (Smart TV, consoles, sticks and boxes, tablets, phones), content type and region.
 - Each app carries a plain-language description, the devices it installs on, where it is available, whether it is fully free or a free tier, and per-device install steps — shown in the existing detail drawer, with a link out to the official site.

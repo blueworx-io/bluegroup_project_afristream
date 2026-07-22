@@ -688,6 +688,7 @@ test('content and region filters combine with the device filter', async ({ page 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
   const expected = apps.filter((a) =>
     a.devices.includes('phones') && a.content.includes('Sport') && a.regions.includes('Worldwide'));
+  expect(expected.length).toBeGreaterThan(0);
   await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(expected.length);
 });
 
@@ -818,4 +819,37 @@ test('an app card opens its drawer from the keyboard', async ({ page }) => {
   await card.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('detail-drawer')).toContainText('Pluto TV');
+});
+
+test('the Apps tab loads on its own when the portal boots straight into it', async ({ page }) => {
+  // default_tab="apps" has its own load-at-mount trigger, separate from the
+  // nav-click path every other apps test exercises — mount a portal root
+  // pre-set to it, with no click on the Apps nav button anywhere in this test.
+  await page.setContent(
+    '<div class="afristream-portal" data-afristream-portal data-default-tab="apps" data-show-sport="true" data-apps-url="/data/apps.json"></div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
+
+  const grid = page.getByTestId('apps-grid');
+  await expect(grid).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  await expect(grid.locator('[data-app-id]')).toHaveCount(apps.length);
+});
+
+test('the Apps tab shows the unavailable notice when no apps URL is configured', async ({ page }) => {
+  // No data-apps-url at all (an older host page) — must show the dedicated
+  // "unavailable" notice, not the error state and not an empty grid, and the
+  // rest of the portal must still work.
+  await page.setContent(
+    '<div class="afristream-portal" data-afristream-portal data-default-tab="apps" data-show-sport="true"></div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
+
+  await expect(page.getByTestId('apps-unavailable')).toBeVisible();
+  await expect(page.getByTestId('apps-error')).toHaveCount(0);
+  await expect(page.getByTestId('apps-grid')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
 });

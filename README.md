@@ -10,7 +10,7 @@ Install `afristream-portal.zip` (the deployment artifact at the repo root), then
 [afristream_portal default_tab="profile" show_sport="true"]
 ```
 
-`default_tab` is one of `profile | watch | tips | help`.
+`default_tab` is one of `profile | watch | apps | editor | tips | help`.
 
 ## Live "What to Watch" data
 
