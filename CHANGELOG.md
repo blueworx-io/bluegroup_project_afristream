@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-07-22
+
+### Added
+
+- **A real sports TV guide, baked in at build time** — a new `npm run sync-listings` step reads the published EPG for SuperSport and Sky Sports via [iptv-org/epg](https://github.com/iptv-org/epg) and writes `data/sports-listings.json` into the plugin zip. That answers the channel-first question the fixture feeds can't — what is actually on SuperSport Cricket at 18:00 — and it is the only permanently free source of it; every commercial sports API puts broadcaster listings behind a paid plan. The current guide carries 1,263 listings across 29 channels over three days.
+
+  The grabber is a Node project of its own that clones ~150MB and takes about half an hour, so like the IMDb watchlist sync it runs at build/deploy time rather than from WordPress, cached in a gitignored `.cache/`. What ships is only the resulting JSON.
+
+  Turning a broadcaster's EPG into something a listings row can show takes some cleaning: highlight reels and repeats are dropped (a sports channel's day is mostly the same fixture's highlights on a loop — 1,415 such programmes were filtered from the current guide), fixture names come from the fuller programme description rather than the broadcaster's shorthand ("Int CRI '26: WI v NZL 5th ODI" becomes "West Indies vs New Zealand 5th ODI"), the sport is read from the guide's own category tags, and DStv's per-market channel lists and Sky's separate UK and Ireland feeds are collapsed to one entry per channel so nothing appears twice.
+
+### Changed
+
+- **Sport listings now merge three free sources rather than two** — ESPN for fixtures and US networks, TheSportsDB for broadcasters elsewhere, and the baked guide for what is actually on. The baked guide is capped at 6 of the row's 12 slots: three days of SuperSport and Sky Sports is hundreds of programmes, every one of them sooner than most fixtures in the live feeds, so without that cap the row would sort itself into a single platform's schedule instead of a spread of what is on around the world.
+
+### Notes
+
+- The plugin drops any programme that has already finished and ignores the baked guide entirely once it is more than 10 days old, so a stale build quietly falls back to the two live feeds rather than showing last week's schedule as if it were current.
+- `npm run sync-listings` needs `git` on PATH. It is a build-time step only — nothing about it runs on the WordPress server, and no API key, account or paid tier is involved in any of the three sources.
+
 ## [0.10.0] - 2026-07-22
 
 ### Added

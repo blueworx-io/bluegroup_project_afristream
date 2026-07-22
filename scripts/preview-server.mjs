@@ -13,7 +13,7 @@
 
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import process from 'node:process';
 
@@ -27,6 +27,9 @@ const FIXTURE = {
   sport: [
     { comp: 'Fixture League', code: 'Soccer', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', chCountry: 'United Kingdom', live: true },
     { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', chCountry: 'Australia', live: false },
+    // Stands in for the baked iptv-org guide: a channel-first listing, so its
+    // competition is a real competition and its channel a real sports channel.
+    { comp: 'Fixture Cup', code: 'Cricket', country: 'South Africa', fx: 'Fixture Brave vs Test Fire', time: 'Tomorrow · 17:30', ch: 'Fixture SuperSport Cricket', chCountry: 'South Africa', live: false },
   ],
   movies: [
     { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', id: 101 },
@@ -429,8 +432,54 @@ async function sportsdbSport() {
 }
 
 /**
- * Normalised key for de-duplicating the same fixture arriving from both feeds
- * ("Arsenal at Everton" vs "Everton vs Arsenal"). Team order is discarded.
+ * The sports TV guide baked in by `npm run sync-listings` — SuperSport across
+ * South Africa, Nigeria and Kenya plus Sky Sports in the UK, read from the
+ * broadcasters' own published EPG. Mirrors afristream_portal_listings_events().
+ */
+const LISTINGS_CAP = 6;
+
+function bakedListings() {
+  const path = new URL('../data/sports-listings.json', import.meta.url);
+  if (!existsSync(path)) return [];
+  let json;
+  try {
+    json = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(json?.listings)) return [];
+  const generated = Date.parse(json.generated || '');
+  if (!generated || Date.now() - generated > 10 * DAY) return [];
+
+  const now = Date.now();
+  const events = json.listings.flatMap((row) => {
+    if (!row?.fx || !row?.iso || !row?.ch) return [];
+    const start = Date.parse(row.iso);
+    const end = row.endIso ? Date.parse(row.endIso) : 0;
+    if (!start || (end && end < now)) return [];
+    return [{
+      comp: row.comp || row.ch,
+      code: row.code || 'Sport',
+      country: row.country || 'International',
+      fx: row.fx,
+      iso: row.iso,
+      time: '',
+      ch: row.ch,
+      chCountry: row.chCountry || '',
+      live: start <= now && (!end || end > now),
+    }];
+  });
+
+  // Capped so three days of one platform's schedule can't crowd the worldwide
+  // fixtures out of the row. Mirrors AFRISTREAM_PORTAL_LISTINGS_CAP.
+  events.sort((a, b) => (a.live !== b.live ? (a.live ? -1 : 1) : a.iso.localeCompare(b.iso)));
+  return events.slice(0, LISTINGS_CAP);
+}
+
+/**
+ * Normalised key for de-duplicating the same fixture arriving from more than
+ * one feed ("Arsenal at Everton" vs "Everton vs Arsenal"). Team order is
+ * discarded.
  */
 function sportKey(event) {
   return String(event.fx || '')
@@ -443,15 +492,16 @@ function sportKey(event) {
 }
 
 /**
- * Both free feeds merged. ESPN supplies the fixture list and US networks;
- * TheSportsDB supplies broadcasters for the rest of the world. Where a fixture
- * appears in both, the row that actually names a broadcaster wins.
+ * All three free feeds merged. ESPN supplies the fixture list and US networks;
+ * TheSportsDB supplies broadcasters for the rest of the world; the baked
+ * iptv-org guide supplies what is actually on SuperSport and Sky Sports. Where
+ * a fixture appears in more than one, the row that names a broadcaster wins.
  */
 async function mergedSport() {
   const [espn, sportsdb] = await Promise.all([espnSport(), sportsdbSport()]);
   const merged = new Map();
 
-  for (const event of [...espn, ...sportsdb]) {
+  for (const event of [...espn, ...sportsdb, ...bakedListings()]) {
     const key = sportKey(event);
     if (!key) continue;
     const existing = merged.get(key);

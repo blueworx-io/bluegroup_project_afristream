@@ -374,6 +374,42 @@ test('watch endpoint sport rows carry channel and broadcast country', async ({ r
   }
 });
 
+test('sport listings span more than one broadcast country', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+
+  // The whole point of merging three feeds: a viewer outside the US sees a
+  // channel they can actually watch, not just a US network.
+  const channels = page.locator('[data-sport-channel]');
+  await expect(channels.first()).toBeVisible();
+  const countries = new Set(
+    (await channels.allInnerTexts()).map((text) => text.split('\n').pop().trim())
+  );
+  expect(countries.size).toBeGreaterThan(1);
+  expect([...countries]).toContain('South Africa');
+});
+
+test('the baked sports guide is well-formed and in the plugin payload', async () => {
+  // data/sports-listings.json ships inside the plugin zip, so a malformed or
+  // stale file is a deployment problem, not just a local one.
+  const { readFileSync, existsSync } = await import('node:fs');
+  const path = 'data/sports-listings.json';
+  test.skip(!existsSync(path), 'no guide baked yet — run npm run sync-listings');
+
+  const guide = JSON.parse(readFileSync(path, 'utf8'));
+  expect(guide.source).toBe('iptv-org/epg');
+  expect(Array.isArray(guide.listings)).toBeTruthy();
+  expect(guide.listings.length).toBeGreaterThan(0);
+
+  for (const row of guide.listings) {
+    expect(row.fx, 'every listing names a fixture or programme').toBeTruthy();
+    expect(row.ch, 'every listing names a channel').toBeTruthy();
+    expect(row.chCountry, 'every listing names a broadcast country').toBeTruthy();
+    expect(Number.isNaN(Date.parse(row.iso)), `start time parses: ${row.iso}`).toBeFalsy();
+    // A bare episode marker means the parser fell through to the wrong field.
+    expect(row.fx).not.toMatch(/^S\d+\/E\d+/i);
+  }
+});
+
 test('clicking an editor pick card opens its detail panel', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();

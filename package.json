@@ -1,14 +1,15 @@
 {
   "name": "afristream-portal",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "description": "AfriStream Customer Portal — WordPress plugin ([afristream_portal] shortcode).",
   "scripts": {
-    "lint": "node --check assets/portal.js && node --check scripts/preview-server.mjs && node --check scripts/build-plugin.mjs && node --check scripts/sync-watchlist.mjs",
+    "lint": "node --check assets/portal.js && node --check scripts/preview-server.mjs && node --check scripts/build-plugin.mjs && node --check scripts/sync-watchlist.mjs && node --check scripts/sync-listings.mjs",
     "build": "node scripts/build-plugin.mjs",
     "preview": "node scripts/preview-server.mjs",
     "sync-watchlist": "node scripts/sync-watchlist.mjs",
-    "test": "playwright test"
+    "test": "playwright test",
+    "sync-listings": "node scripts/sync-listings.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.53.1"

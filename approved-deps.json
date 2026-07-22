@@ -2,5 +2,14 @@
   "dependencies": {},
   "devDependencies": {
     "@playwright/test": "^1.53.1"
+  },
+  "externalTools": {
+    "iptv-org/epg": {
+      "approvedBy": "Luke",
+      "approvedOn": "2026-07-22",
+      "license": "MIT",
+      "url": "https://github.com/iptv-org/epg",
+      "why": "Only permanently free source of sports TV listings with broadcaster data (SuperSport, Sky Sports). Cloned into .cache/ and run by npm run sync-listings at build time; not a runtime dependency and not shipped in the plugin zip."
+    }
   }
 }
