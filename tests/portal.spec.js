@@ -671,3 +671,29 @@ test('the filters drawer scroll-locks the page behind it', async ({ page }) => {
   await expect(page.getByTestId('filters-drawer')).not.toBeVisible();
   expect(await scrollable(), 'page should scroll again once closed').toBe(true);
 });
+
+test('the Affiliates tab is an outbound link that opens in a new tab', async ({ page, context }) => {
+  const link = page.getByTestId('nav-affiliates');
+  await expect(link).toBeVisible();
+
+  // Last in the tab list, and a link rather than a section button.
+  const labels = await page.locator('.as-tabs > *').evaluateAll((els) => els.map((e) => e.textContent.trim()));
+  expect(labels[labels.length - 1]).toContain('Affiliates');
+  await expect(link).toHaveAttribute('href', 'https://afristream.surecart.com/affiliates/');
+  // target=_blank hands the opened page a window.opener back to this one
+  // unless it is disclaimed.
+  await expect(link).toHaveAttribute('rel', /noopener/);
+
+  // Stubbed so the suite stays hermetic — we care that the browser was sent
+  // to that URL in a new tab, not what SureCart serves back.
+  await context.route('https://afristream.surecart.com/**', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
+
+  const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
+  await tab.waitForLoadState();
+  expect(tab.url()).toBe('https://afristream.surecart.com/affiliates/');
+  await tab.close();
+
+  // The portal itself stays where it was rather than navigating away.
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+});

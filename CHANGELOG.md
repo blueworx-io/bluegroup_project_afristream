@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-22
+
+### Added
+
+- **Affiliates link in the top bar** — a sixth item at the end of the tab list, opening the AfriStream affiliate programme (`afristream.surecart.com/affiliates/`) in a new tab. Unlike the other five it isn't a portal section, so it renders as a real anchor rather than a button: it never takes the active underline, it carries `rel="noopener noreferrer"` (without which the opened page gets a `window.opener` handle back to the portal), and it's marked with a ↗ plus an accessible name saying it opens in a new tab.
+
 ## [0.9.1] - 2026-07-22
 
 ### Fixed

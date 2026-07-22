@@ -115,7 +115,8 @@
   scroll-snap-type: x proximity;
 }
 .afristream-portal .as-tabs::-webkit-scrollbar { display: none; }
-.afristream-portal .as-tabs > button { scroll-snap-align: start; }
+.afristream-portal .as-tabs > button,
+.afristream-portal .as-tabs > a { scroll-snap-align: start; }
 
 /* Momentum scrolling for the horizontal poster/sport/channel/collection rows. */
 .afristream-portal [data-dragscroll] { -webkit-overflow-scrolling: touch; }
