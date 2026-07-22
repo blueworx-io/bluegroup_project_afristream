@@ -643,8 +643,8 @@ test('apps database covers every content type and every device class', async ({ 
 });
 
 test('the Apps tab renders the app grid from the database', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Apps' })).toBeVisible();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Free Apps' })).toBeVisible();
 
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
@@ -657,7 +657,7 @@ test('the Apps tab renders the app grid from the database', async ({ page }) => 
 test('the Apps tab reports a failed database load instead of rendering an empty grid', async ({ page }) => {
   await page.route('**/data/apps.json', (route) => route.fulfill({ status: 500, body: 'boom' }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
 
   await expect(page.getByTestId('apps-error')).toBeVisible();
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
@@ -665,7 +665,7 @@ test('the Apps tab reports a failed database load instead of rendering an empty 
 });
 
 test('device pills narrow the app grid to apps that run on that device', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
 
@@ -679,7 +679,7 @@ test('device pills narrow the app grid to apps that run on that device', async (
 });
 
 test('content and region filters combine with the device filter', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
 
   await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Phones' }).click();
   await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
@@ -701,7 +701,7 @@ test('an impossible filter combination shows an empty state that resets', async 
     a.devices.includes('consoles') && a.content.includes('Sport') && a.regions.includes('Middle East'));
   expect(matches, 'pick a different zero-match combination').toHaveLength(0);
 
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
   await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
   await page.getByLabel('Region').selectOption('Middle East');
@@ -718,7 +718,7 @@ test('an impossible filter combination shows an empty state that resets', async 
 });
 
 test('the active device pill is marked pressed for assistive tech', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   const pills = page.getByTestId('apps-device-filters');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await pills.getByRole('button', { name: 'Tablets' }).click();
@@ -727,7 +727,7 @@ test('the active device pill is marked pressed for assistive tech', async ({ pag
 });
 
 test('app cards show cost, blurb, content and devices', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await expect(card).toBeVisible();
 
@@ -741,7 +741,7 @@ test('app cards show cost, blurb, content and devices', async ({ page }) => {
 });
 
 test('clicking an app card opens a drawer with install steps and an official link', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const drawer = page.getByTestId('detail-drawer');
@@ -758,7 +758,7 @@ test('clicking an app card opens a drawer with install steps and an official lin
 });
 
 test('the app drawer lists a step for every device the app supports', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
@@ -776,7 +776,7 @@ test('the app drawer shows an install override where one exists and the default 
   const plain = app.devices.filter((d) => d !== 'consoles');
   expect(plain.length).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="rakuten-tv"]').click();
   const drawer = page.getByTestId('detail-drawer');
   await expect(drawer).toBeVisible();
@@ -795,7 +795,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
   const detailCalls = [];
   page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
 
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
 
@@ -803,7 +803,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
 });
 
 test('the app drawer closes on Escape and returns focus to its card', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await card.click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
@@ -814,7 +814,7 @@ test('the app drawer closes on Escape and returns focus to its card', async ({ p
 });
 
 test('an app card opens its drawer from the keyboard', async ({ page }) => {
-  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByRole('button', { name: 'Free Apps', exact: true }).click();
   const card = page.getByTestId('apps-grid').locator('[data-app-id="pluto-tv"]');
   await card.focus();
   await page.keyboard.press('Enter');

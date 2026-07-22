@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- New **Apps** tab: a curated directory of free and free-tier streaming apps covering sport, movies, series, documentaries and live TV, filterable by device type (Smart TV, consoles, sticks and boxes, tablets, phones), content type and region.
+- New **Free Apps** tab, sitting after Editor Picks: a curated directory of free and free-tier streaming apps covering sport, movies, series, documentaries and live TV, filterable by device type (Smart TV, consoles, sticks and boxes, tablets, phones), content type and region.
 - Each app carries a plain-language description, the devices it installs on, where it is available, whether it is fully free or a free tier, and per-device install steps — shown in the existing detail drawer, with a link out to the official site.
 - The directory ships as `data/apps.json` inside the plugin and is fetched lazily the first time the tab is opened. Region availability is recorded as coarse groups for filtering plus a precise free-text note, because free services are heavily region-locked and a country-level filter would need a hundred-entry dropdown.
 - App logos are deliberately not used — the cards use the portal's existing initial-on-gradient treatment, so nothing is loaded from a third-party host.

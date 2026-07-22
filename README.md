@@ -33,7 +33,7 @@ IMDB_WATCHLIST_URL="https://www.imdb.com/user/…/watchlist/" npm run sync-watch
 
 This writes the ordered `tt` IDs into [data/editor-picks-ids.txt](data/editor-picks-ids.txt) (bundled in the plugin zip), which the plugin resolves through TMDB for artwork. The wp-admin **Editor Picks (IMDb IDs)** box overrides the file when set. Run the sync whenever the watchlist changes, before `npm run build`.
 
-**Apps:** a bundled directory of free and free-tier streaming apps (`data/apps.json`), filterable by device, content type and region, with per-device install steps. No API key or configuration needed — the file ships with the plugin.
+**Free Apps:** a bundled directory of free and free-tier streaming apps (`data/apps.json`), filterable by device, content type and region, with per-device install steps. No API key or configuration needed — the file ships with the plugin.
 
 ## Local preview (no WordPress needed)
 

@@ -729,9 +729,9 @@
 
     function appsSection() {
       const shell = (inner) => `
-<section data-screen-label="Apps">
+<section data-screen-label="Free Apps">
   <div style="margin:2px 2px 18px">
-    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Apps</h1>
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Apps</h1>
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free apps you can install alongside AfriStream — pick your device to see what runs on it.</p>
   </div>
   ${inner}
@@ -847,8 +847,8 @@
     const NAV = [
       { id: 'profile', label: 'Profile' },
       { id: 'watch', label: 'What to Watch' },
-      { id: 'apps', label: 'Apps' },
       { id: 'editor', label: 'Editor Picks' },
+      { id: 'apps', label: 'Free Apps' },
       { id: 'tips', label: 'Tips & Tricks' },
       { id: 'help', label: 'Troubleshooting' }
     ];
