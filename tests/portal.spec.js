@@ -887,7 +887,7 @@ test('the setup flow links back to the Account tab for the login details', async
 });
 
 test('the Devices tab groups approved hardware into tiers', async ({ page }) => {
-  await page.getByRole('button', { name: 'Devices' }).click();
+  await page.getByRole('button', { name: 'Devices', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Approved Devices' })).toBeVisible();
 
   const section = page.locator('[data-screen-label="Devices"]');
@@ -904,7 +904,7 @@ test('the Devices tab groups approved hardware into tiers', async ({ page }) => 
 });
 
 test('every approved device carries buying guidance rather than a model name', async ({ page }) => {
-  await page.getByRole('button', { name: 'Devices' }).click();
+  await page.getByRole('button', { name: 'Devices', exact: true }).click();
   const section = page.locator('[data-screen-label="Devices"]');
 
   const cards = section.locator('[data-device-id]');
@@ -919,9 +919,39 @@ test('every approved device carries buying guidance rather than a model name', a
 });
 
 test('the Devices tab hands off to Setup', async ({ page }) => {
-  await page.getByRole('button', { name: 'Devices' }).click();
+  await page.getByRole('button', { name: 'Devices', exact: true }).click();
   await page.getByRole('button', { name: 'Open Setup' }).click();
   await expect(page.getByRole('heading', { name: 'Set Up AfriStream' })).toBeVisible();
+});
+
+test('both Setup and Devices explain why a device is needed at all', async ({ page }) => {
+  // The commonest misunderstanding at sign-up is that AfriStream arrives on the
+  // TV by itself, so neither page assumes it.
+  for (const [tab, heading] of [['Setup', 'Why you need a device'], ['Devices', 'Why you need one of these']]) {
+    await page.getByRole('button', { name: tab, exact: true }).click();
+    const why = page.getByTestId('why-a-device');
+    await expect(why).toBeVisible();
+    await expect(why.getByRole('heading', { name: heading })).toBeVisible();
+    await expect(why).toContainText('a login, not a box');
+    await expect(why).toContainText('player app');
+    await expect(why).toContainText('has to run on something');
+  }
+});
+
+test('Setup points people without hardware at the Devices list', async ({ page }) => {
+  await page.getByRole('button', { name: 'Setup' }).click();
+  const cta = page.getByTestId('setup-need-device');
+  await expect(cta).toBeVisible();
+  await expect(cta).toContainText('Need a device?');
+  await expect(cta).toContainText('Choose from our list of recommended devices');
+
+  // Still reachable once someone is part-way through — they may have picked
+  // the wrong device, or not own one yet.
+  await page.getByRole('button', { name: 'Amazon Fire TV / Firestick' }).click();
+  await expect(page.getByTestId('setup-need-device')).toBeVisible();
+
+  await page.getByRole('button', { name: 'See recommended devices' }).click();
+  await expect(page.getByRole('heading', { name: 'Approved Devices' })).toBeVisible();
 });
 
 test('the Download tab covers both mobile platforms', async ({ page }) => {

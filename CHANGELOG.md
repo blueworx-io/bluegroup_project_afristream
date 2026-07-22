@@ -16,6 +16,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
   Codes render oversized and monospaced so they can be read from a sofa and typed on a TV remote. Every Downloader device also lists all three app codes — IBO Player `617725`, Smarters `9469460` and `6573365` — so a customer whose app will not connect can try the next without opening a support ticket.
 
+- **Both Setup and Devices now open by explaining why a device is needed at all** — that the subscription is a login rather than a box, that a player app turns that login into television, and that the app has to run on something. It is the commonest misunderstanding at sign-up, and neither page assumed it before. Setup also carries a "Need a device?" panel through to the Devices list, which stays visible once someone is part-way through the steps in case they picked the wrong thing or do not own one yet.
+
 - **A Devices tab**, right of Setup. Approved hardware grouped into three tiers: Android boxes, sticks, phones and tablets as the recommendation; Fire TV sticks as "works, with a caveat" (they need Developer Options, and Amazon keeps tightening the platform); Smart TVs, iPhones and Roku as the ones we have to register.
 
   Written as buying advice rather than a model list — RAM, storage, ethernet, WiFi generation, OS — so it stays true as manufacturer ranges change. Closes with the advice that applies whatever you buy: wire it to the router, use 5GHz, leave free storage, one screen per connection.

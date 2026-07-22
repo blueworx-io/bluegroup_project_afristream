@@ -109,6 +109,23 @@ instead: install a paid store app, then send the MAC address and device key to
 support so the device can be registered. This is an accurate reflection of how
 those platforms actually work, not a placeholder.
 
+## "Why you need a device" (shared)
+
+`WHY_A_DEVICE` holds three points, rendered by `whyDevicePanel(heading, lead)`
+at the top of **both** Setup and Devices with a page-specific heading and lead:
+
+1. AfriStream is a login, not a box — no hardware in the post, no cable.
+2. A player app turns that login into television, and the app has to be
+   installed somewhere.
+3. That somewhere is your device, because most ordinary televisions cannot
+   install the app themselves.
+
+One source, two pages, so the explanation cannot drift apart. Setup additionally
+carries a `setup-need-device` panel — "Need a device? Choose from our list of
+recommended devices" — with a button through to the Devices tab. It renders in
+both picker states, since someone part-way through the steps may realise the
+device they have is the wrong one.
+
 ## Devices tab (new)
 
 Static, no state. Approved hardware, grouped into three tiers by `DEVICE_TIERS`:

@@ -908,6 +908,38 @@
     ];
     const SETUP_USES_CODES = ['firestick', 'android-tv', 'android'];
 
+    // Why a device is needed at all. The single most common misunderstanding at
+    // sign-up is that AfriStream is a channel that arrives on the TV by itself,
+    // so both Setup and Devices lead with this rather than assuming it.
+    const WHY_A_DEVICE = [
+      {
+        title: 'AfriStream is a login, not a box',
+        body: 'Your subscription is a username and a password. There is no set-top box in the post and no cable to plug in — everything arrives over your home internet.'
+      },
+      {
+        title: 'A player app turns that login into television',
+        body: 'The username and password go into a player app. The app fetches the channels, films and series and puts them on screen, and it is the app — not us — that has to be installed somewhere.'
+      },
+      {
+        title: 'The app has to run on something',
+        body: 'That something is your device: a stick or box plugged into the TV, or a phone, tablet or Smart TV. Most ordinary televisions cannot install the app on their own, which is why a small streaming device is the usual answer.'
+      }
+    ];
+
+    const whyDevicePanel = (heading, lead) => `
+  <div data-testid="why-a-device" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(heading)}</h2>
+    <p style="margin:0 0 16px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(lead)}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+      ${WHY_A_DEVICE.map((w, i) => `
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <span aria-hidden="true" style="width:26px;height:26px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800">${i + 1}</span>
+          <div style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(w.title)}</div>
+          <div style="font-size:13px;line-height:1.6;color:rgba(11,21,51,.68)">${esc(w.body)}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
     function setupSection() {
       const chosen = SETUP_DEVICES.find((d) => d.key === state.setupDevice) || null;
 
@@ -928,6 +960,14 @@
         <span style="flex:1;min-width:0;font-size:15px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(d.label)}</span>
         <span aria-hidden="true" style="flex:none;font-size:14px;color:#65009F">→</span>
       </button>`).join('')}
+  </div>`;
+
+      // Shown in both states: someone part-way through the steps may still
+      // decide the device they have is the wrong one.
+      const needDevice = `
+  <div data-testid="setup-need-device" style="display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:15px;padding:16px 18px;margin:18px 2px 0">
+    <div style="flex:1 1 300px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)"><strong>Need a device?</strong> Choose from our list of recommended devices — what to buy, what to look for, and which ones set themselves up in twenty minutes.</div>
+    <button class="as-hover-primary" data-act="go-devices" style="flex:none;background:#65009F;color:#fff;border:none;border-radius:12px;padding:12px 22px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">See recommended devices</button>
   </div>`;
 
       // A step is either a plain string or { text, code }. The code block is
@@ -993,8 +1033,10 @@
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Set Up AfriStream</h1>
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Pick the device you want to watch on and we'll show you how to install and sign in.</p>
   </div>
+  ${whyDevicePanel('Why you need a device', 'If you are new to this, start here — it takes thirty seconds to read and explains what the rest of this page is actually doing.')}
   ${picker}
   ${instructions}
+  ${needDevice}
   <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Stuck on any step? Email <a href="mailto:support@afristream.io">support@afristream.io</a> with your device type and the step number — we reply within one business day.</p>
 </section>`;
     }
@@ -1152,6 +1194,7 @@
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Approved Devices</h1>
     <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Everything here works with AfriStream. This is written as buying advice rather than a model list, so it stays true as ranges change — take it to any retailer and match the specifications.</p>
   </div>
+  ${whyDevicePanel('Why you need one of these', 'Not sure why a subscription needs hardware at all? This is the short version.')}
   <div style="display:flex;flex-direction:column;gap:26px">
     ${DEVICE_TIERS.map((tier) => {
       const items = APPROVED_DEVICES.filter((d) => d.tier === tier.key);
@@ -1664,6 +1707,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'setup-restart': setState({ setupDevice: '' }); break;
         case 'go-profile': setState({ section: 'profile' }); break;
         case 'go-setup': setState({ section: 'setup' }); break;
+        case 'go-devices': setState({ section: 'devices' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
