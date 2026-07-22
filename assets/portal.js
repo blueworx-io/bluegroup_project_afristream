@@ -667,7 +667,10 @@
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
       { id: 'tips', label: 'Tips & Tricks' },
-      { id: 'help', label: 'Troubleshooting' }
+      { id: 'help', label: 'Troubleshooting' },
+      // An outbound link rather than a section: it carries an href, so it
+      // renders as an anchor and never takes the active underline.
+      { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
     ];
     const SECTIONS = { profile: profileSection, watch: watchSection, editor: editorSection, tips: tipsSection, help: helpSection };
 
@@ -796,7 +799,12 @@
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
     <div class="as-tabs" style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
-      ${NAV.map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`).join('')}
+      ${NAV.map((n) => (n.href
+        // noopener/noreferrer because target=_blank otherwise hands the opened
+        // page a window.opener handle back to this one. No data-act, so the
+        // delegated click handler leaves it alone and the browser navigates.
+        ? `<a href="${esc(n.href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(n.label)} (opens in a new tab)" style="${navBtn(false)};text-decoration:none;display:flex;align-items:center" data-testid="nav-${n.id}">${esc(n.label)}<span aria-hidden="true" style="margin-left:5px;font-size:11px;line-height:1">↗</span></a>`
+        : `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`)).join('')}
     </div>
     <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none;white-space:nowrap">
       <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
