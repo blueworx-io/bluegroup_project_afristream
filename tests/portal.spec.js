@@ -766,6 +766,30 @@ test('the app drawer lists a step for every device the app supports', async ({ p
   await expect(steps).toHaveCount(tubi.devices.length);
 });
 
+test('the app drawer shows an install override where one exists and the default elsewhere', async ({ page }) => {
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const app = apps.find((a) => a.id === 'rakuten-tv');
+  // Guards the fixture: this test only means something while rakuten-tv overrides
+  // exactly one device and leaves at least one on the shared default.
+  expect(Object.keys(app.install || {})).toEqual(['consoles']);
+  const plain = app.devices.filter((d) => d !== 'consoles');
+  expect(plain.length).toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="rakuten-tv"]').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+
+  // The overridden device shows the app's own wording...
+  await expect(drawer.locator('[data-install-device="consoles"]')).toContainText(app.install.consoles);
+  // ...and no other device borrows it.
+  for (const d of plain) {
+    await expect(drawer.locator(`[data-install-device="${d}"]`)).not.toContainText(app.install.consoles);
+  }
+  // A non-overridden device falls back to APP_INSTALL_DEFAULTS.
+  await expect(drawer.locator('[data-install-device="phones"]')).toContainText('App Store');
+});
+
 test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
   const detailCalls = [];
   page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
