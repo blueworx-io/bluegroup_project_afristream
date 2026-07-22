@@ -20,6 +20,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import process from 'node:process';
+import { parseEntries } from './picks-list.mjs';
 
 const ROOT = process.cwd();
 const IDS = join(ROOT, 'data', 'editor-picks-ids.txt');
@@ -33,23 +34,6 @@ const COUNTRIES = {
   ES: 'Spain', KR: 'South Korea', JP: 'Japan', BR: 'Brazil',
   DE: 'Germany', AU: 'Australia', EG: 'Egypt',
 };
-
-// "<tt-id> <imdb-rating>" per line, rating optional, # comments ignored.
-// Mirrors afristream_portal_editor_ids() in the plugin.
-export function parseEntries(raw) {
-  const out = new Map();
-  for (const line of String(raw).split(/[\r\n,]+/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const m = trimmed.match(/(tt\d+)(?:\D+(\d+(?:\.\d+)?))?/);
-    if (!m || out.has(m[1])) continue;
-    // Guard the rating: a stray number on the line (a year pasted alongside the
-    // ID, say) must not masquerade as a 0-10 score.
-    const rating = m[2] !== undefined && Number(m[2]) >= 0 && Number(m[2]) <= 10 ? Number(m[2]) : null;
-    out.set(m[1], rating);
-  }
-  return [...out.entries()].map(([id, rating]) => ({ id, rating }));
-}
 
 async function tmdbGet(path, params = {}) {
   try {
@@ -80,6 +64,10 @@ async function resolvePick(imdbId, movieGenres, tvGenres) {
   return {
     t: hit.title || hit.name || '',
     id: Number(hit.id) || 0,
+    // The IMDb ID this pick came from. Not used by the front end — it is what
+    // lets a re-bake recognise a title it has already resolved and skip the
+    // TMDB call. `id` above is TMDB's, which is no use for that.
+    imdb: imdbId,
     genre: genres[hit.genre_ids?.[0]] || type,
     // TMDB's score — overridden below by the IMDb rating when the list has one.
     rating: rating > 0 ? Math.round(rating * 10) / 10 : null,
@@ -95,28 +83,57 @@ async function resolvePick(imdbId, movieGenres, tvGenres) {
 // Resolve the whole list and write data/editor-picks.json. Runs in small batches:
 // TMDB's rate limit is generous but a few hundred simultaneous requests is a good
 // way to start collecting 429s, and this is a build step — it can afford to wait.
-export async function bakePicks(entries) {
-  if (!process.env.TMDB_API_KEY) {
+export async function bakePicks(entries, { refresh = false } = {}) {
+  // Everything resolved by a previous run, keyed by IMDb ID. A title's TMDB
+  // data barely moves, so re-resolving the whole list to add three new films is
+  // a few hundred pointless round-trips — and past the free tier's comfort zone.
+  // `--refresh` forces the full re-resolve when artwork really should be redone.
+  const cache = new Map();
+  if (!refresh) {
+    try {
+      const prev = JSON.parse(readFileSync(OUT, 'utf8'));
+      for (const p of prev?.picks ?? []) {
+        if (p.imdb) cache.set(p.imdb, p);
+      }
+    } catch { /* no previous bake — resolve everything */ }
+  }
+  const missing = entries.filter((e) => !cache.has(e.id));
+
+  if (missing.length && !process.env.TMDB_API_KEY) {
     console.error('TMDB_API_KEY is not set — cannot resolve the list.');
     process.exitCode = 1;
     return null;
   }
-  const genreList = async (type) =>
-    Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
-  const [movieGenres, tvGenres] = await Promise.all([genreList('movie'), genreList('tv')]);
-  if (!Object.keys(movieGenres).length && !Object.keys(tvGenres).length) {
-    console.error('TMDB returned no genres — key rejected or the API is down. Leaving data/editor-picks.json untouched.');
-    process.exitCode = 1;
-    return null;
+  let movieGenres = {};
+  let tvGenres = {};
+  if (missing.length) {
+    const genreList = async (type) =>
+      Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
+    [movieGenres, tvGenres] = await Promise.all([genreList('movie'), genreList('tv')]);
+    if (!Object.keys(movieGenres).length && !Object.keys(tvGenres).length) {
+      console.error('TMDB returned no genres — key rejected or the API is down. Leaving data/editor-picks.json untouched.');
+      process.exitCode = 1;
+      return null;
+    }
   }
+  console.log(
+    `${entries.length} titles: ${cache.size ? `${entries.length - missing.length} already resolved, ` : ''}` +
+      `${missing.length} to fetch from TMDB.`
+  );
 
   const picks = [];
   const BATCH = 8;
   for (let i = 0; i < entries.length; i += BATCH) {
     const slice = entries.slice(i, i + BATCH);
-    const resolved = await Promise.all(slice.map((e) => resolvePick(e.id, movieGenres, tvGenres)));
-    resolved.forEach((pick, j) => {
-      if (!pick) return;
+    const resolved = await Promise.all(
+      // Cached titles resolve to themselves — no network, and order is preserved
+      // because this maps over the list positionally either way.
+      slice.map((e) => (cache.has(e.id) ? cache.get(e.id) : resolvePick(e.id, movieGenres, tvGenres)))
+    );
+    resolved.forEach((cachedOrFresh, j) => {
+      if (!cachedOrFresh) return;
+      // Copy so re-applying the IMDb rating below can't mutate the cache entry.
+      const pick = { ...cachedOrFresh };
       // The IMDb community rating from the watchlist beats TMDB's own score.
       // Coerced here rather than trusted: the IDs file parses ratings to numbers
       // but the scraper hands them over as the strings it read off the page.
@@ -154,12 +171,13 @@ export async function bakePicks(entries) {
 // pathToFileURL rather than string-building the URL: on Windows argv[1] is a
 // drive path, and a hand-rolled file:// prefix never matches import.meta.url.
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const refresh = process.argv.includes('--refresh');
   const entries = parseEntries(readFileSync(IDS, 'utf8'));
   if (!entries.length) {
     console.error(`No title IDs in ${IDS}.`);
     process.exitCode = 1;
   } else {
-    console.log(`Resolving ${entries.length} titles through TMDB…`);
-    await bakePicks(entries);
+    if (refresh) console.log('--refresh: ignoring the previous bake, re-resolving every title.');
+    await bakePicks(entries, { refresh });
   }
 }

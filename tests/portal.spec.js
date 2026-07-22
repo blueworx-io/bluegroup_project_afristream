@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mergeEntries, parseEntries } from '../scripts/picks-list.mjs';
 
 // Smoke tests for the AfriStream Customer Portal front-end. They run against
 // baseURL — the local preview harness until a staging URL exists (see
@@ -1085,6 +1086,49 @@ test('the baked Editor Picks list is complete, well-formed and in the plugin pay
   // A baked payload is complete by definition, so it must never ask the front
   // end to poll for more.
   expect(json.partial).toBeUndefined();
+});
+
+test('the watchlist sync only ever adds titles', () => {
+  // IMDb shows at most 250 rows of a public watchlist, so a scrape is a window
+  // onto the list. Replacing the file with that window is what silently dropped
+  // 120 titles; merging has to keep everything outside it.
+  const existing = parseEntries('tt0000001 8.0\ntt0000002 7.5\ntt0000003');
+
+  // A scrape that sees only part of the list drops nothing.
+  const partial = mergeEntries(existing, [{ id: 'tt0000002', rating: '7.5' }]);
+  expect(partial.entries.map((e) => e.id)).toEqual(['tt0000001', 'tt0000002', 'tt0000003']);
+  expect(partial.added).toBe(0);
+
+  // An empty scrape is a no-op, not an erasure.
+  expect(mergeEntries(existing, []).entries).toHaveLength(3);
+
+  // New titles are appended, and existing order is preserved.
+  const grown = mergeEntries(existing, [{ id: 'tt0000009', rating: '9.1' }]);
+  expect(grown.entries.map((e) => e.id)).toEqual(['tt0000001', 'tt0000002', 'tt0000003', 'tt0000009']);
+  expect(grown.added).toBe(1);
+  expect(grown.entries[3].rating).toBe(9.1);
+
+  // A changed rating is taken; a missing one never wipes the rating we hold,
+  // because IMDb hides the score on some rows and that is not a change.
+  const rerated = mergeEntries(existing, [
+    { id: 'tt0000001', rating: '8.4' },
+    { id: 'tt0000002', rating: null },
+  ]);
+  expect(rerated.entries[0].rating).toBe(8.4);
+  expect(rerated.entries[1].rating).toBe(7.5);
+  expect(rerated.updated).toBe(1);
+});
+
+test('every baked pick carries the IMDb id its resolve cache is keyed on', async ({ request }) => {
+  // Without this a re-bake cannot tell which titles it has already resolved and
+  // re-fetches the whole list from TMDB to add a handful of new films.
+  const json = await (await request.get('/data/editor-picks.json')).json();
+  for (const p of json.picks) {
+    expect(p.imdb, `pick "${p.t}" has no imdb id`).toMatch(/^tt\d+$/);
+  }
+  // And the ids are unique, or the cache would collapse entries together.
+  const ids = json.picks.map((p) => p.imdb);
+  expect(new Set(ids).size).toBe(ids.length);
 });
 
 test('the Apps tab shows the unavailable notice when no apps URL is configured', async ({ page }) => {

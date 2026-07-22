@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-07-22
+
+### Added
+
+- **The watchlist is now an accumulating local copy.** `npm run sync-watchlist` merges each scrape into `data/editor-picks-ids.txt` instead of replacing it: new titles are appended, ratings are refreshed, and nothing is ever dropped. IMDb only renders 250 rows of a public watchlist, so a scrape is a window onto the list rather than all of it — merging lets the list grow past that ceiling as titles are added, and makes a failed or partial scrape a no-op instead of data loss. Removing a title is now a deliberate edit to the file.
+
+  A scrape that returns nothing, or only a handful of rows, can no longer shrink the list at all.
+
+- **Resolved titles are cached between bakes.** Each baked pick records the IMDb ID it came from, so `npm run bake-picks` re-uses everything it resolved last time and only calls TMDB for titles it has not seen. Adding a few films to a 250-title list is now a 2-second build step rather than 250 round-trips. `npm run bake-picks -- --refresh` forces the full re-resolve when artwork and TMDB metadata should genuinely be redone.
+
 ## [0.14.0] - 2026-07-22
 
 ### Changed

@@ -1,10 +1,11 @@
 {
   "source": "imdb",
-  "updated": "2026-07-22T19:26:06.217Z",
+  "updated": "2026-07-22T19:34:30.430Z",
   "picks": [
     {
       "t": "Dances with Wolves",
       "id": 581,
+      "imdb": "tt0099348",
       "genre": "Adventure",
       "rating": 8,
       "platform": "★ 8.0",
@@ -17,6 +18,7 @@
     {
       "t": "Widows",
       "id": 401469,
+      "imdb": "tt4218572",
       "genre": "Drama",
       "rating": 6.8,
       "platform": "★ 6.8",
@@ -29,6 +31,7 @@
     {
       "t": "Hostiles",
       "id": 384680,
+      "imdb": "tt5478478",
       "genre": "Drama",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -41,6 +44,7 @@
     {
       "t": "The Game",
       "id": 2649,
+      "imdb": "tt0119174",
       "genre": "Drama",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -53,6 +57,7 @@
     {
       "t": "The Devil's Advocate",
       "id": 1813,
+      "imdb": "tt0118971",
       "genre": "Horror",
       "rating": 7.5,
       "platform": "★ 7.5",
@@ -65,6 +70,7 @@
     {
       "t": "Primal Fear",
       "id": 1592,
+      "imdb": "tt0117381",
       "genre": "Crime",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -77,6 +83,7 @@
     {
       "t": "The Prestige",
       "id": 1124,
+      "imdb": "tt0482571",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -89,6 +96,7 @@
     {
       "t": "Se7en",
       "id": 807,
+      "imdb": "tt0114369",
       "genre": "Crime",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -101,6 +109,7 @@
     {
       "t": "The Usual Suspects",
       "id": 629,
+      "imdb": "tt0114814",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -113,6 +122,7 @@
     {
       "t": "Fracture",
       "id": 6145,
+      "imdb": "tt0488120",
       "genre": "Thriller",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -125,6 +135,7 @@
     {
       "t": "Memento",
       "id": 77,
+      "imdb": "tt0209144",
       "genre": "Mystery",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -137,6 +148,7 @@
     {
       "t": "Fight Club",
       "id": 550,
+      "imdb": "tt0137523",
       "genre": "Drama",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -149,6 +161,7 @@
     {
       "t": "The Lincoln Lawyer",
       "id": 50348,
+      "imdb": "tt1189340",
       "genre": "Crime",
       "rating": 7.3,
       "platform": "★ 7.3",
@@ -161,6 +174,7 @@
     {
       "t": "No Country for Old Men",
       "id": 6977,
+      "imdb": "tt0477348",
       "genre": "Crime",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -173,6 +187,7 @@
     {
       "t": "Shutter Island",
       "id": 11324,
+      "imdb": "tt1130884",
       "genre": "Drama",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -185,6 +200,7 @@
     {
       "t": "The Bodyguard",
       "id": 619,
+      "imdb": "tt0103855",
       "genre": "Action",
       "rating": 6.4,
       "platform": "★ 6.4",
@@ -197,6 +213,7 @@
     {
       "t": "Rain Man",
       "id": 380,
+      "imdb": "tt0095953",
       "genre": "Drama",
       "rating": 8,
       "platform": "★ 8.0",
@@ -209,6 +226,7 @@
     {
       "t": "The Untouchables",
       "id": 117,
+      "imdb": "tt0094226",
       "genre": "Crime",
       "rating": 7.8,
       "platform": "★ 7.8",
@@ -221,6 +239,7 @@
     {
       "t": "The King's Speech",
       "id": 45269,
+      "imdb": "tt1504320",
       "genre": "Drama",
       "rating": 8,
       "platform": "★ 8.0",
@@ -233,6 +252,7 @@
     {
       "t": "Pretty Woman",
       "id": 114,
+      "imdb": "tt0100405",
       "genre": "Romance",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -245,6 +265,7 @@
     {
       "t": "Fallout",
       "id": 106379,
+      "imdb": "tt12637874",
       "genre": "Action & Adventure",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -257,6 +278,7 @@
     {
       "t": "Runaway Jury",
       "id": 11329,
+      "imdb": "tt0313542",
       "genre": "Drama",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -269,6 +291,7 @@
     {
       "t": "The Outfit",
       "id": 799876,
+      "imdb": "tt14114802",
       "genre": "Crime",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -281,6 +304,7 @@
     {
       "t": "Zero Day",
       "id": 216082,
+      "imdb": "tt23872886",
       "genre": "Drama",
       "rating": 7,
       "platform": "★ 7.0",
@@ -293,6 +317,7 @@
     {
       "t": "Tinker Tailor Soldier Spy",
       "id": 49517,
+      "imdb": "tt1340800",
       "genre": "Drama",
       "rating": 7,
       "platform": "★ 7.0",
@@ -305,6 +330,7 @@
     {
       "t": "Saltburn",
       "id": 930564,
+      "imdb": "tt17351924",
       "genre": "Drama",
       "rating": 7,
       "platform": "★ 7.0",
@@ -317,6 +343,7 @@
     {
       "t": "Blade Runner 2049",
       "id": 335984,
+      "imdb": "tt1856101",
       "genre": "Science Fiction",
       "rating": 8,
       "platform": "★ 8.0",
@@ -329,6 +356,7 @@
     {
       "t": "Downsizing",
       "id": 301337,
+      "imdb": "tt1389072",
       "genre": "Drama",
       "rating": 5.8,
       "platform": "★ 5.8",
@@ -341,6 +369,7 @@
     {
       "t": "Echo Valley",
       "id": 1097311,
+      "imdb": "tt27052633",
       "genre": "Thriller",
       "rating": 6.3,
       "platform": "★ 6.3",
@@ -353,6 +382,7 @@
     {
       "t": "Ozark",
       "id": 69740,
+      "imdb": "tt5071412",
       "genre": "Crime",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -365,6 +395,7 @@
     {
       "t": "Notting Hill",
       "id": 509,
+      "imdb": "tt0125439",
       "genre": "Romance",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -377,6 +408,7 @@
     {
       "t": "Dune",
       "id": 438631,
+      "imdb": "tt1160419",
       "genre": "Science Fiction",
       "rating": 8,
       "platform": "★ 8.0",
@@ -389,6 +421,7 @@
     {
       "t": "Dune: Part Two",
       "id": 693134,
+      "imdb": "tt15239678",
       "genre": "Science Fiction",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -401,6 +434,7 @@
     {
       "t": "How to Train Your Dragon",
       "id": 10191,
+      "imdb": "tt0892769",
       "genre": "Fantasy",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -413,6 +447,7 @@
     {
       "t": "Dept. Q",
       "id": 245703,
+      "imdb": "tt27995114",
       "genre": "Drama",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -425,6 +460,7 @@
     {
       "t": "UNTAMED",
       "id": 248852,
+      "imdb": "tt31710822",
       "genre": "Mystery",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -437,6 +473,7 @@
     {
       "t": "The Guardian",
       "id": 4643,
+      "imdb": "tt0406816",
       "genre": "Action",
       "rating": 6.9,
       "platform": "★ 6.9",
@@ -449,6 +486,7 @@
     {
       "t": "The Secret Life of Walter Mitty",
       "id": 116745,
+      "imdb": "tt0359950",
       "genre": "Adventure",
       "rating": 7.3,
       "platform": "★ 7.3",
@@ -461,6 +499,7 @@
     {
       "t": "Burn After Reading",
       "id": 4944,
+      "imdb": "tt0887883",
       "genre": "Comedy",
       "rating": 7,
       "platform": "★ 7.0",
@@ -473,6 +512,7 @@
     {
       "t": "Scott Pilgrim vs. the World",
       "id": 22538,
+      "imdb": "tt0446029",
       "genre": "Action",
       "rating": 7.5,
       "platform": "★ 7.5",
@@ -485,6 +525,7 @@
     {
       "t": "Fantastic Mr. Fox",
       "id": 10315,
+      "imdb": "tt0432283",
       "genre": "Adventure",
       "rating": 7.9,
       "platform": "★ 7.9",
@@ -497,6 +538,7 @@
     {
       "t": "American Made",
       "id": 337170,
+      "imdb": "tt3532216",
       "genre": "Comedy",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -509,6 +551,7 @@
     {
       "t": "This Is 40",
       "id": 89492,
+      "imdb": "tt1758830",
       "genre": "Comedy",
       "rating": 6.2,
       "platform": "★ 6.2",
@@ -521,6 +564,7 @@
     {
       "t": "Tangled",
       "id": 38757,
+      "imdb": "tt0398286",
       "genre": "Animation",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -533,6 +577,7 @@
     {
       "t": "A Simple Favor",
       "id": 484247,
+      "imdb": "tt7040874",
       "genre": "Thriller",
       "rating": 6.7,
       "platform": "★ 6.7",
@@ -545,6 +590,7 @@
     {
       "t": "Vicky Cristina Barcelona",
       "id": 5038,
+      "imdb": "tt0497465",
       "genre": "Drama",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -557,6 +603,7 @@
     {
       "t": "Easy A",
       "id": 37735,
+      "imdb": "tt1282140",
       "genre": "Comedy",
       "rating": 7,
       "platform": "★ 7.0",
@@ -569,6 +616,7 @@
     {
       "t": "Up in the Air",
       "id": 22947,
+      "imdb": "tt1193138",
       "genre": "Drama",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -581,6 +629,7 @@
     {
       "t": "Brave",
       "id": 62177,
+      "imdb": "tt1217209",
       "genre": "Adventure",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -593,6 +642,7 @@
     {
       "t": "Wreck-It Ralph",
       "id": 82690,
+      "imdb": "tt1772341",
       "genre": "Family",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -605,6 +655,7 @@
     {
       "t": "The Revenant",
       "id": 281957,
+      "imdb": "tt1663202",
       "genre": "Western",
       "rating": 8,
       "platform": "★ 8.0",
@@ -617,6 +668,7 @@
     {
       "t": "The Terminal",
       "id": 594,
+      "imdb": "tt0362227",
       "genre": "Comedy",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -629,6 +681,7 @@
     {
       "t": "The Imitation Game",
       "id": 205596,
+      "imdb": "tt2084970",
       "genre": "History",
       "rating": 8,
       "platform": "★ 8.0",
@@ -641,6 +694,7 @@
     {
       "t": "Dead Poets Society",
       "id": 207,
+      "imdb": "tt0097165",
       "genre": "Drama",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -653,6 +707,7 @@
     {
       "t": "The Walking Dead",
       "id": 1402,
+      "imdb": "tt1520211",
       "genre": "Action & Adventure",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -665,6 +720,7 @@
     {
       "t": "Good Will Hunting",
       "id": 489,
+      "imdb": "tt0119217",
       "genre": "Drama",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -677,6 +733,7 @@
     {
       "t": "A Beautiful Mind",
       "id": 453,
+      "imdb": "tt0268978",
       "genre": "Drama",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -689,6 +746,7 @@
     {
       "t": "The Pale Blue Eye",
       "id": 800815,
+      "imdb": "tt14138650",
       "genre": "Thriller",
       "rating": 6.6,
       "platform": "★ 6.6",
@@ -701,6 +759,7 @@
     {
       "t": "Black Mass",
       "id": 261023,
+      "imdb": "tt1355683",
       "genre": "Drama",
       "rating": 6.8,
       "platform": "★ 6.8",
@@ -713,6 +772,7 @@
     {
       "t": "American Primeval",
       "id": 215866,
+      "imdb": "tt24069848",
       "genre": "Western",
       "rating": 8,
       "platform": "★ 8.0",
@@ -725,6 +785,7 @@
     {
       "t": "The Girlfriend",
       "id": 253376,
+      "imdb": "tt32267726",
       "genre": "Drama",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -737,6 +798,7 @@
     {
       "t": "Chernobyl",
       "id": 87108,
+      "imdb": "tt7366338",
       "genre": "Drama",
       "rating": 9.3,
       "platform": "★ 9.3",
@@ -749,6 +811,7 @@
     {
       "t": "Better Off Ted",
       "id": 7777,
+      "imdb": "tt1235547",
       "genre": "Comedy",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -761,6 +824,7 @@
     {
       "t": "Frankenstein",
       "id": 1062722,
+      "imdb": "tt1312221",
       "genre": "Drama",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -773,6 +837,7 @@
     {
       "t": "Landman",
       "id": 157741,
+      "imdb": "tt14186672",
       "genre": "Drama",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -785,6 +850,7 @@
     {
       "t": "Legend of the Guardians: The Owls of Ga'Hoole",
       "id": 41216,
+      "imdb": "tt1219342",
       "genre": "Animation",
       "rating": 6.9,
       "platform": "★ 6.9",
@@ -797,6 +863,7 @@
     {
       "t": "The American President",
       "id": 9087,
+      "imdb": "tt0112346",
       "genre": "Drama",
       "rating": 6.9,
       "platform": "★ 6.9",
@@ -809,6 +876,7 @@
     {
       "t": "Batman: The Dark Knight Returns, Part 1",
       "id": 123025,
+      "imdb": "tt2313197",
       "genre": "Science Fiction",
       "rating": 7.9,
       "platform": "★ 7.9",
@@ -821,6 +889,7 @@
     {
       "t": "The Talented Mr. Ripley",
       "id": 1213,
+      "imdb": "tt0134119",
       "genre": "Thriller",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -833,6 +902,7 @@
     {
       "t": "Red Dragon",
       "id": 9533,
+      "imdb": "tt0289765",
       "genre": "Crime",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -845,6 +915,7 @@
     {
       "t": "Batman: The Dark Knight Returns, Part 2",
       "id": 142061,
+      "imdb": "tt2166834",
       "genre": "Science Fiction",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -857,6 +928,7 @@
     {
       "t": "Robin Hood",
       "id": 20662,
+      "imdb": "tt0955308",
       "genre": "Action",
       "rating": 6.6,
       "platform": "★ 6.6",
@@ -869,6 +941,7 @@
     {
       "t": "Mosul",
       "id": 618219,
+      "imdb": "tt9252468",
       "genre": "War",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -881,6 +954,7 @@
     {
       "t": "Where the Crawdads Sing",
       "id": 682507,
+      "imdb": "tt9411972",
       "genre": "Drama",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -893,6 +967,7 @@
     {
       "t": "Allied",
       "id": 369885,
+      "imdb": "tt3640424",
       "genre": "Action",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -905,6 +980,7 @@
     {
       "t": "Gone Girl",
       "id": 210577,
+      "imdb": "tt2267998",
       "genre": "Mystery",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -917,6 +993,7 @@
     {
       "t": "Predestination",
       "id": 206487,
+      "imdb": "tt2397535",
       "genre": "Science Fiction",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -929,6 +1006,7 @@
     {
       "t": "The Night Clerk",
       "id": 526007,
+      "imdb": "tt7979142",
       "genre": "Thriller",
       "rating": 5.6,
       "platform": "★ 5.6",
@@ -941,6 +1019,7 @@
     {
       "t": "Coach Carter",
       "id": 7214,
+      "imdb": "tt0393162",
       "genre": "Drama",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -953,6 +1032,7 @@
     {
       "t": "My Octopus Teacher",
       "id": 682110,
+      "imdb": "tt12888462",
       "genre": "Documentary",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -965,6 +1045,7 @@
     {
       "t": "The Ghost Writer",
       "id": 11439,
+      "imdb": "tt1139328",
       "genre": "Thriller",
       "rating": 7.2,
       "platform": "★ 7.2",
@@ -977,6 +1058,7 @@
     {
       "t": "The Big Short",
       "id": 318846,
+      "imdb": "tt1596363",
       "genre": "Comedy",
       "rating": 7.8,
       "platform": "★ 7.8",
@@ -989,6 +1071,7 @@
     {
       "t": "Crazy, Stupid, Love.",
       "id": 50646,
+      "imdb": "tt1570728",
       "genre": "Comedy",
       "rating": 7.4,
       "platform": "★ 7.4",
@@ -1001,6 +1084,7 @@
     {
       "t": "Heat",
       "id": 949,
+      "imdb": "tt0113277",
       "genre": "Crime",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -1013,6 +1097,7 @@
     {
       "t": "Prisoners",
       "id": 146233,
+      "imdb": "tt1392214",
       "genre": "Drama",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -1025,6 +1110,7 @@
     {
       "t": "Society of the Snow",
       "id": 906126,
+      "imdb": "tt16277242",
       "genre": "Drama",
       "rating": 7.8,
       "platform": "★ 7.8",
@@ -1037,6 +1123,7 @@
     {
       "t": "Veep",
       "id": 2947,
+      "imdb": "tt1759761",
       "genre": "Comedy",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -1049,6 +1136,7 @@
     {
       "t": "Stowaway",
       "id": 559581,
+      "imdb": "tt9203694",
       "genre": "Science Fiction",
       "rating": 5.7,
       "platform": "★ 5.7",
@@ -1061,6 +1149,7 @@
     {
       "t": "Argo",
       "id": 68734,
+      "imdb": "tt1024648",
       "genre": "Drama",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -1073,6 +1162,7 @@
     {
       "t": "The Town",
       "id": 23168,
+      "imdb": "tt0840361",
       "genre": "Crime",
       "rating": 7.5,
       "platform": "★ 7.5",
@@ -1085,6 +1175,7 @@
     {
       "t": "The Accountant",
       "id": 302946,
+      "imdb": "tt2140479",
       "genre": "Crime",
       "rating": 7.3,
       "platform": "★ 7.3",
@@ -1097,6 +1188,7 @@
     {
       "t": "The Iron Giant",
       "id": 10386,
+      "imdb": "tt0129167",
       "genre": "Animation",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -1109,6 +1201,7 @@
     {
       "t": "World War Z",
       "id": 72190,
+      "imdb": "tt0816711",
       "genre": "Action",
       "rating": 7,
       "platform": "★ 7.0",
@@ -1121,6 +1214,7 @@
     {
       "t": "9",
       "id": 12244,
+      "imdb": "tt0472033",
       "genre": "Action",
       "rating": 7,
       "platform": "★ 7.0",
@@ -1133,6 +1227,7 @@
     {
       "t": "The Dry",
       "id": 567797,
+      "imdb": "tt5144174",
       "genre": "Crime",
       "rating": 6.8,
       "platform": "★ 6.8",
@@ -1145,6 +1240,7 @@
     {
       "t": "The Apartment",
       "id": 284,
+      "imdb": "tt0053604",
       "genre": "Comedy",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -1157,6 +1253,7 @@
     {
       "t": "2001: A Space Odyssey",
       "id": 62,
+      "imdb": "tt0062622",
       "genre": "Science Fiction",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -1169,6 +1266,7 @@
     {
       "t": "The Godfather",
       "id": 238,
+      "imdb": "tt0068646",
       "genre": "Drama",
       "rating": 9.2,
       "platform": "★ 9.2",
@@ -1181,6 +1279,7 @@
     {
       "t": "The Godfather Part II",
       "id": 240,
+      "imdb": "tt0071562",
       "genre": "Drama",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1193,6 +1292,7 @@
     {
       "t": "The Godfather Part III",
       "id": 242,
+      "imdb": "tt0099674",
       "genre": "Crime",
       "rating": 7.5,
       "platform": "★ 7.5",
@@ -1205,6 +1305,7 @@
     {
       "t": "Apocalypse Now",
       "id": 28,
+      "imdb": "tt0078788",
       "genre": "Drama",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -1217,6 +1318,7 @@
     {
       "t": "Platoon",
       "id": 792,
+      "imdb": "tt0091763",
       "genre": "Drama",
       "rating": 8,
       "platform": "★ 8.0",
@@ -1229,6 +1331,7 @@
     {
       "t": "Pulp Fiction",
       "id": 680,
+      "imdb": "tt0110912",
       "genre": "Thriller",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1241,6 +1344,7 @@
     {
       "t": "Interstellar",
       "id": 157336,
+      "imdb": "tt0816692",
       "genre": "Adventure",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1253,6 +1357,7 @@
     {
       "t": "Arrival",
       "id": 329865,
+      "imdb": "tt2543164",
       "genre": "Drama",
       "rating": 7.9,
       "platform": "★ 7.9",
@@ -1265,6 +1370,7 @@
     {
       "t": "Sicario",
       "id": 273481,
+      "imdb": "tt3397884",
       "genre": "Action",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -1277,6 +1383,7 @@
     {
       "t": "Sicario: Day of the Soldado",
       "id": 400535,
+      "imdb": "tt5052474",
       "genre": "Action",
       "rating": 7.1,
       "platform": "★ 7.1",
@@ -1289,6 +1396,7 @@
     {
       "t": "Gladiator",
       "id": 98,
+      "imdb": "tt0172495",
       "genre": "Action",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -1301,6 +1409,7 @@
     {
       "t": "Inception",
       "id": 27205,
+      "imdb": "tt1375666",
       "genre": "Action",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1313,6 +1422,7 @@
     {
       "t": "Ex Machina",
       "id": 264660,
+      "imdb": "tt0470752",
       "genre": "Drama",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -1325,6 +1435,7 @@
     {
       "t": "Blade Runner",
       "id": 78,
+      "imdb": "tt0083658",
       "genre": "Science Fiction",
       "rating": 8.1,
       "platform": "★ 8.1",
@@ -1337,6 +1448,7 @@
     {
       "t": "Drive",
       "id": 64690,
+      "imdb": "tt0780504",
       "genre": "Drama",
       "rating": 7.8,
       "platform": "★ 7.8",
@@ -1349,6 +1461,7 @@
     {
       "t": "The Lord of the Rings: The Fellowship of the Ring",
       "id": 120,
+      "imdb": "tt0120737",
       "genre": "Adventure",
       "rating": 8.9,
       "platform": "★ 8.9",
@@ -1361,6 +1474,7 @@
     {
       "t": "The Lord of the Rings: The Return of the King",
       "id": 122,
+      "imdb": "tt0167260",
       "genre": "Adventure",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1373,6 +1487,7 @@
     {
       "t": "The Lord of the Rings: The Two Towers",
       "id": 121,
+      "imdb": "tt0167261",
       "genre": "Adventure",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1385,6 +1500,7 @@
     {
       "t": "Salmon Fishing in the Yemen",
       "id": 81025,
+      "imdb": "tt1441952",
       "genre": "Drama",
       "rating": 6.8,
       "platform": "★ 6.8",
@@ -1397,6 +1513,7 @@
     {
       "t": "Master and Commander: The Far Side of the World",
       "id": 8619,
+      "imdb": "tt0311113",
       "genre": "Adventure",
       "rating": 7.5,
       "platform": "★ 7.5",
@@ -1409,6 +1526,7 @@
     {
       "t": "The Recruit",
       "id": 1647,
+      "imdb": "tt0292506",
       "genre": "Action",
       "rating": 6.6,
       "platform": "★ 6.6",
@@ -1421,6 +1539,7 @@
     {
       "t": "Burlesque",
       "id": 42297,
+      "imdb": "tt1126591",
       "genre": "Drama",
       "rating": 6.4,
       "platform": "★ 6.4",
@@ -1433,6 +1552,7 @@
     {
       "t": "There Will Be Blood",
       "id": 7345,
+      "imdb": "tt0469494",
       "genre": "Drama",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -1445,6 +1565,7 @@
     {
       "t": "Zodiac",
       "id": 1949,
+      "imdb": "tt0443706",
       "genre": "Crime",
       "rating": 7.7,
       "platform": "★ 7.7",
@@ -1457,6 +1578,7 @@
     {
       "t": "The Wolf of Wall Street",
       "id": 106646,
+      "imdb": "tt0993846",
       "genre": "Crime",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -1469,6 +1591,7 @@
     {
       "t": "Fruitvale Station",
       "id": 157354,
+      "imdb": "tt2334649",
       "genre": "Drama",
       "rating": 7.5,
       "platform": "★ 7.5",
@@ -1481,6 +1604,7 @@
     {
       "t": "Her",
       "id": 152601,
+      "imdb": "tt1798709",
       "genre": "Romance",
       "rating": 8,
       "platform": "★ 8.0",
@@ -1493,6 +1617,7 @@
     {
       "t": "The Shawshank Redemption",
       "id": 278,
+      "imdb": "tt0111161",
       "genre": "Drama",
       "rating": 9.3,
       "platform": "★ 9.3",
@@ -1505,6 +1630,7 @@
     {
       "t": "Awakenings",
       "id": 11005,
+      "imdb": "tt0099077",
       "genre": "Drama",
       "rating": 7.8,
       "platform": "★ 7.8",
@@ -1517,6 +1643,7 @@
     {
       "t": "Blood Diamond",
       "id": 1372,
+      "imdb": "tt0450259",
       "genre": "Drama",
       "rating": 8,
       "platform": "★ 8.0",
@@ -1529,6 +1656,7 @@
     {
       "t": "Pride & Prejudice",
       "id": 4348,
+      "imdb": "tt0414387",
       "genre": "Drama",
       "rating": 7.8,
       "platform": "★ 7.8",
@@ -1541,6 +1669,7 @@
     {
       "t": "Event Horizon",
       "id": 8413,
+      "imdb": "tt0119081",
       "genre": "Horror",
       "rating": 6.6,
       "platform": "★ 6.6",
@@ -1553,6 +1682,7 @@
     {
       "t": "Carnival Row",
       "id": 90027,
+      "imdb": "tt0489974",
       "genre": "Crime",
       "rating": 7.6,
       "platform": "★ 7.6",
@@ -1565,6 +1695,7 @@
     {
       "t": "A Knight of the Seven Kingdoms",
       "id": 224372,
+      "imdb": "tt27497448",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -1577,6 +1708,7 @@
     {
       "t": "Breaking Bad",
       "id": 1396,
+      "imdb": "tt0903747",
       "genre": "Drama",
       "rating": 9.5,
       "platform": "★ 9.5",
@@ -1589,6 +1721,7 @@
     {
       "t": "Planet Earth II",
       "id": 68595,
+      "imdb": "tt5491994",
       "genre": "Documentary",
       "rating": 9.4,
       "platform": "★ 9.4",
@@ -1601,6 +1734,7 @@
     {
       "t": "Planet Earth",
       "id": 1044,
+      "imdb": "tt0795176",
       "genre": "Documentary",
       "rating": 9.4,
       "platform": "★ 9.4",
@@ -1613,6 +1747,7 @@
     {
       "t": "Band of Brothers",
       "id": 4613,
+      "imdb": "tt0185906",
       "genre": "Drama",
       "rating": 9.4,
       "platform": "★ 9.4",
@@ -1625,6 +1760,7 @@
     {
       "t": "The Wire",
       "id": 1438,
+      "imdb": "tt0306414",
       "genre": "Crime",
       "rating": 9.3,
       "platform": "★ 9.3",
@@ -1637,6 +1773,7 @@
     {
       "t": "The Sopranos",
       "id": 1398,
+      "imdb": "tt0141842",
       "genre": "Crime",
       "rating": 9.2,
       "platform": "★ 9.2",
@@ -1649,6 +1786,7 @@
     {
       "t": "Blue Planet II",
       "id": 74313,
+      "imdb": "tt6769208",
       "genre": "Documentary",
       "rating": 9.3,
       "platform": "★ 9.3",
@@ -1661,6 +1799,7 @@
     {
       "t": "Our Planet",
       "id": 83880,
+      "imdb": "tt9253866",
       "genre": "Documentary",
       "rating": 9.2,
       "platform": "★ 9.2",
@@ -1673,6 +1812,7 @@
     {
       "t": "Game of Thrones",
       "id": 1399,
+      "imdb": "tt0944947",
       "genre": "Sci-Fi & Fantasy",
       "rating": 9.2,
       "platform": "★ 9.2",
@@ -1685,6 +1825,7 @@
     {
       "t": "The World at War",
       "id": 751,
+      "imdb": "tt0071075",
       "genre": "Documentary",
       "rating": 9.2,
       "platform": "★ 9.2",
@@ -1697,6 +1838,7 @@
     {
       "t": "Attack on Titan",
       "id": 1429,
+      "imdb": "tt2560140",
       "genre": "Animation",
       "rating": 9.1,
       "platform": "★ 9.1",
@@ -1709,6 +1851,7 @@
     {
       "t": "The Last Dance",
       "id": 79525,
+      "imdb": "tt8420184",
       "genre": "Documentary",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1721,6 +1864,7 @@
     {
       "t": "The Vietnam War",
       "id": 46434,
+      "imdb": "tt1877514",
       "genre": "Documentary",
       "rating": 9.1,
       "platform": "★ 9.1",
@@ -1733,6 +1877,7 @@
     {
       "t": "Batman: The Animated Series",
       "id": 2098,
+      "imdb": "tt0103359",
       "genre": "Action & Adventure",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1745,6 +1890,7 @@
     {
       "t": "Better Call Saul",
       "id": 60059,
+      "imdb": "tt3032476",
       "genre": "Crime",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1757,6 +1903,7 @@
     {
       "t": "The Office",
       "id": 2316,
+      "imdb": "tt0386676",
       "genre": "Comedy",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1769,6 +1916,7 @@
     {
       "t": "The Blue Planet",
       "id": 13579,
+      "imdb": "tt0296310",
       "genre": "Documentary",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1781,6 +1929,7 @@
     {
       "t": "Clarkson's Farm",
       "id": 117648,
+      "imdb": "tt10541088",
       "genre": "Reality",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1793,6 +1942,7 @@
     {
       "t": "True Detective",
       "id": 46648,
+      "imdb": "tt2356777",
       "genre": "Drama",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1805,6 +1955,7 @@
     {
       "t": "Apocalypse: The Second World War",
       "id": 33189,
+      "imdb": "tt1508238",
       "genre": "Documentary",
       "rating": 9,
       "platform": "★ 9.0",
@@ -1817,6 +1968,7 @@
     {
       "t": "Fargo",
       "id": 60622,
+      "imdb": "tt2802850",
       "genre": "Crime",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1829,6 +1981,7 @@
     {
       "t": "The West Wing",
       "id": 688,
+      "imdb": "tt0200276",
       "genre": "Drama",
       "rating": 8.9,
       "platform": "★ 8.9",
@@ -1841,6 +1994,7 @@
     {
       "t": "Friends",
       "id": 1668,
+      "imdb": "tt0108778",
       "genre": "Comedy",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1853,6 +2007,7 @@
     {
       "t": "Succession",
       "id": 76331,
+      "imdb": "tt7660850",
       "genre": "Drama",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -1865,6 +2020,7 @@
     {
       "t": "Ted Lasso",
       "id": 97546,
+      "imdb": "tt10986410",
       "genre": "Drama",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1877,6 +2033,7 @@
     {
       "t": "Black Mirror",
       "id": 42009,
+      "imdb": "tt2085059",
       "genre": "Sci-Fi & Fantasy",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1889,6 +2046,7 @@
     {
       "t": "Peaky Blinders",
       "id": 60574,
+      "imdb": "tt2442560",
       "genre": "Drama",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1901,6 +2059,7 @@
     {
       "t": "Dark",
       "id": 70523,
+      "imdb": "tt5753856",
       "genre": "Crime",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1913,6 +2072,7 @@
     {
       "t": "X-Men '97",
       "id": 138502,
+      "imdb": "tt16026746",
       "genre": "Animation",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1925,6 +2085,7 @@
     {
       "t": "The Grand Tour",
       "id": 67557,
+      "imdb": "tt5712554",
       "genre": "Reality",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1937,6 +2098,7 @@
     {
       "t": "INVINCIBLE",
       "id": 95557,
+      "imdb": "tt6741278",
       "genre": "Animation",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1949,6 +2111,7 @@
     {
       "t": "Mad Men",
       "id": 1104,
+      "imdb": "tt0804503",
       "genre": "Drama",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1961,6 +2124,7 @@
     {
       "t": "The Simpsons",
       "id": 456,
+      "imdb": "tt0096697",
       "genre": "Family",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -1973,6 +2137,7 @@
     {
       "t": "House",
       "id": 1408,
+      "imdb": "tt0412142",
       "genre": "Drama",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1985,6 +2150,7 @@
     {
       "t": "Justice League Unlimited",
       "id": 84200,
+      "imdb": "tt6025022",
       "genre": "Animation",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -1997,6 +2163,7 @@
     {
       "t": "Top Gear",
       "id": 45,
+      "imdb": "tt1628033",
       "genre": "Reality",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -2009,6 +2176,7 @@
     {
       "t": "Friday Night Lights",
       "id": 4278,
+      "imdb": "tt0758745",
       "genre": "Drama",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -2021,6 +2189,7 @@
     {
       "t": "Arrested Development",
       "id": 4589,
+      "imdb": "tt0367279",
       "genre": "Comedy",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2033,6 +2202,7 @@
     {
       "t": "Severance",
       "id": 95396,
+      "imdb": "tt11280740",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2045,6 +2215,7 @@
     {
       "t": "Dexter",
       "id": 1405,
+      "imdb": "tt0773262",
       "genre": "Crime",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2057,6 +2228,7 @@
     {
       "t": "The X-Files",
       "id": 4087,
+      "imdb": "tt0106179",
       "genre": "Mystery",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2069,6 +2241,7 @@
     {
       "t": "Parks and Recreation",
       "id": 8592,
+      "imdb": "tt1266020",
       "genre": "Comedy",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2081,6 +2254,7 @@
     {
       "t": "1883",
       "id": 118357,
+      "imdb": "tt13991232",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2093,6 +2267,7 @@
     {
       "t": "The Crown",
       "id": 65494,
+      "imdb": "tt4786824",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2105,6 +2280,7 @@
     {
       "t": "MINDHUNTER",
       "id": 67744,
+      "imdb": "tt5290382",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2117,6 +2293,7 @@
     {
       "t": "House of Cards",
       "id": 1425,
+      "imdb": "tt1856010",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2129,6 +2306,7 @@
     {
       "t": "The Mandalorian",
       "id": 82856,
+      "imdb": "tt8111088",
       "genre": "Sci-Fi & Fantasy",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2141,6 +2319,7 @@
     {
       "t": "Shōgun",
       "id": 126308,
+      "imdb": "tt2788316",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2153,6 +2332,7 @@
     {
       "t": "Greatest Events of World War II in Colour",
       "id": 91724,
+      "imdb": "tt9103932",
       "genre": "Documentary",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2165,6 +2345,7 @@
     {
       "t": "The Penguin",
       "id": 194764,
+      "imdb": "tt15435876",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2177,6 +2358,7 @@
     {
       "t": "Stranger Things",
       "id": 66732,
+      "imdb": "tt4574334",
       "genre": "Action & Adventure",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2189,6 +2371,7 @@
     {
       "t": "Justice League",
       "id": 1618,
+      "imdb": "tt0275137",
       "genre": "Action & Adventure",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2201,6 +2384,7 @@
     {
       "t": "Young Justice",
       "id": 33217,
+      "imdb": "tt1641384",
       "genre": "Animation",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2213,6 +2397,7 @@
     {
       "t": "What We Do in the Shadows",
       "id": 83631,
+      "imdb": "tt7908628",
       "genre": "Comedy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2225,6 +2410,7 @@
     {
       "t": "The IT Crowd",
       "id": 2490,
+      "imdb": "tt0487831",
       "genre": "Comedy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2237,6 +2423,7 @@
     {
       "t": "Samurai Jack",
       "id": 2723,
+      "imdb": "tt0278238",
       "genre": "Sci-Fi & Fantasy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2249,6 +2436,7 @@
     {
       "t": "The Queen's Gambit",
       "id": 87739,
+      "imdb": "tt10048342",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2261,6 +2449,7 @@
     {
       "t": "Derry Girls",
       "id": 76148,
+      "imdb": "tt7120662",
       "genre": "Comedy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2273,6 +2462,7 @@
     {
       "t": "The Boys",
       "id": 76479,
+      "imdb": "tt1190634",
       "genre": "Sci-Fi & Fantasy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2285,6 +2475,7 @@
     {
       "t": "Whose Line Is It Anyway?",
       "id": 61018,
+      "imdb": "tt0163507",
       "genre": "Reality",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2297,6 +2488,7 @@
     {
       "t": "Sons of Anarchy",
       "id": 1409,
+      "imdb": "tt1124373",
       "genre": "Crime",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2309,6 +2501,7 @@
     {
       "t": "Schitt's Creek",
       "id": 61662,
+      "imdb": "tt3526078",
       "genre": "Comedy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2321,6 +2514,7 @@
     {
       "t": "The Office",
       "id": 2996,
+      "imdb": "tt0290978",
       "genre": "Comedy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2333,6 +2527,7 @@
     {
       "t": "Yellowstone",
       "id": 73586,
+      "imdb": "tt4236770",
       "genre": "Western",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2345,6 +2540,7 @@
     {
       "t": "Silicon Valley",
       "id": 60573,
+      "imdb": "tt2575988",
       "genre": "Comedy",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2357,6 +2553,7 @@
     {
       "t": "Entourage",
       "id": 1940,
+      "imdb": "tt0387199",
       "genre": "Comedy",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2369,6 +2566,7 @@
     {
       "t": "The Dark Knight",
       "id": 155,
+      "imdb": "tt0468569",
       "genre": "Action",
       "rating": 9.1,
       "platform": "★ 9.1",
@@ -2381,6 +2579,7 @@
     {
       "t": "12 Angry Men",
       "id": 389,
+      "imdb": "tt0050083",
       "genre": "Drama",
       "rating": 9,
       "platform": "★ 9.0",
@@ -2393,6 +2592,7 @@
     {
       "t": "Schindler's List",
       "id": 424,
+      "imdb": "tt0108052",
       "genre": "Drama",
       "rating": 9,
       "platform": "★ 9.0",
@@ -2405,6 +2605,7 @@
     {
       "t": "The Good, the Bad and the Ugly",
       "id": 429,
+      "imdb": "tt0060196",
       "genre": "Western",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -2417,6 +2618,7 @@
     {
       "t": "Forrest Gump",
       "id": 13,
+      "imdb": "tt0109830",
       "genre": "Comedy",
       "rating": 8.8,
       "platform": "★ 8.8",
@@ -2429,6 +2631,7 @@
     {
       "t": "The Empire Strikes Back",
       "id": 1891,
+      "imdb": "tt0080684",
       "genre": "Adventure",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -2441,6 +2644,7 @@
     {
       "t": "The Matrix",
       "id": 603,
+      "imdb": "tt0133093",
       "genre": "Action",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -2453,6 +2657,7 @@
     {
       "t": "GoodFellas",
       "id": 769,
+      "imdb": "tt0099685",
       "genre": "Drama",
       "rating": 8.7,
       "platform": "★ 8.7",
@@ -2465,6 +2670,7 @@
     {
       "t": "One Flew Over the Cuckoo's Nest",
       "id": 510,
+      "imdb": "tt0073486",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2477,6 +2683,7 @@
     {
       "t": "The Silence of the Lambs",
       "id": 274,
+      "imdb": "tt0102926",
       "genre": "Crime",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2489,6 +2696,7 @@
     {
       "t": "It's a Wonderful Life",
       "id": 1585,
+      "imdb": "tt0038650",
       "genre": "Drama",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2501,6 +2709,7 @@
     {
       "t": "Saving Private Ryan",
       "id": 857,
+      "imdb": "tt0120815",
       "genre": "War",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2513,6 +2722,7 @@
     {
       "t": "The Green Mile",
       "id": 497,
+      "imdb": "tt0120689",
       "genre": "Fantasy",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2525,6 +2735,7 @@
     {
       "t": "Terminator 2: Judgment Day",
       "id": 280,
+      "imdb": "tt0103064",
       "genre": "Action",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2537,6 +2748,7 @@
     {
       "t": "Back to the Future",
       "id": 105,
+      "imdb": "tt0088763",
       "genre": "Adventure",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2549,6 +2761,7 @@
     {
       "t": "Star Wars",
       "id": 11,
+      "imdb": "tt0076759",
       "genre": "Adventure",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2561,6 +2774,7 @@
     {
       "t": "Spirited Away",
       "id": 129,
+      "imdb": "tt0245429",
       "genre": "Animation",
       "rating": 8.6,
       "platform": "★ 8.6",
@@ -2573,6 +2787,7 @@
     {
       "t": "The Pianist",
       "id": 423,
+      "imdb": "tt0253474",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2585,6 +2800,7 @@
     {
       "t": "Psycho",
       "id": 539,
+      "imdb": "tt0054215",
       "genre": "Horror",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2597,6 +2813,7 @@
     {
       "t": "The Lion King",
       "id": 8587,
+      "imdb": "tt0110357",
       "genre": "Animation",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2609,6 +2826,7 @@
     {
       "t": "The Departed",
       "id": 1422,
+      "imdb": "tt0407887",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2621,6 +2839,7 @@
     {
       "t": "Whiplash",
       "id": 244786,
+      "imdb": "tt2582802",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2633,6 +2852,7 @@
     {
       "t": "American History X",
       "id": 73,
+      "imdb": "tt0120586",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2645,6 +2865,7 @@
     {
       "t": "Spider-Man: Across the Spider-Verse",
       "id": 569094,
+      "imdb": "tt9362722",
       "genre": "Animation",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2657,6 +2878,7 @@
     {
       "t": "Léon: The Professional",
       "id": 101,
+      "imdb": "tt0110413",
       "genre": "Crime",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2669,6 +2891,7 @@
     {
       "t": "Casablanca",
       "id": 289,
+      "imdb": "tt0034583",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2681,6 +2904,7 @@
     {
       "t": "Django Unchained",
       "id": 68718,
+      "imdb": "tt1853728",
       "genre": "Drama",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2693,6 +2917,7 @@
     {
       "t": "Alien",
       "id": 348,
+      "imdb": "tt0078748",
       "genre": "Horror",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2705,6 +2930,7 @@
     {
       "t": "WALL·E",
       "id": 10681,
+      "imdb": "tt0910970",
       "genre": "Animation",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2717,6 +2943,7 @@
     {
       "t": "Avengers: Infinity War",
       "id": 299536,
+      "imdb": "tt4154756",
       "genre": "Adventure",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2729,6 +2956,7 @@
     {
       "t": "Raiders of the Lost Ark",
       "id": 85,
+      "imdb": "tt0082971",
       "genre": "Adventure",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2741,6 +2969,7 @@
     {
       "t": "The Odyssey",
       "id": 1368337,
+      "imdb": "tt33764258",
       "genre": "Adventure",
       "rating": 8.5,
       "platform": "★ 8.5",
@@ -2753,6 +2982,7 @@
     {
       "t": "Spider-Man: Into the Spider-Verse",
       "id": 324857,
+      "imdb": "tt4633694",
       "genre": "Animation",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2765,6 +2995,7 @@
     {
       "t": "The Shining",
       "id": 694,
+      "imdb": "tt0081505",
       "genre": "Horror",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2777,6 +3008,7 @@
     {
       "t": "Inglourious Basterds",
       "id": 16869,
+      "imdb": "tt0361748",
       "genre": "Drama",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2789,6 +3021,7 @@
     {
       "t": "Aliens",
       "id": 679,
+      "imdb": "tt0090605",
       "genre": "Action",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2801,6 +3034,7 @@
     {
       "t": "Avengers: Endgame",
       "id": 299534,
+      "imdb": "tt4154796",
       "genre": "Adventure",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2813,6 +3047,7 @@
     {
       "t": "The Dark Knight Rises",
       "id": 49026,
+      "imdb": "tt1345836",
       "genre": "Action",
       "rating": 8.4,
       "platform": "★ 8.4",
@@ -2825,6 +3060,7 @@
     {
       "t": "Toy Story",
       "id": 862,
+      "imdb": "tt0114709",
       "genre": "Family",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2837,6 +3073,7 @@
     {
       "t": "Das Boot",
       "id": 387,
+      "imdb": "tt0082096",
       "genre": "Drama",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2849,6 +3086,7 @@
     {
       "t": "Braveheart",
       "id": 197,
+      "imdb": "tt0112573",
       "genre": "Action",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2861,6 +3099,7 @@
     {
       "t": "American Beauty",
       "id": 14,
+      "imdb": "tt0169547",
       "genre": "Drama",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2873,6 +3112,7 @@
     {
       "t": "Joker",
       "id": 475557,
+      "imdb": "tt7286456",
       "genre": "Crime",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2885,6 +3125,7 @@
     {
       "t": "Toy Story 3",
       "id": 10193,
+      "imdb": "tt0435761",
       "genre": "Animation",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2897,6 +3138,7 @@
     {
       "t": "Return of the Jedi",
       "id": 1892,
+      "imdb": "tt0086190",
       "genre": "Adventure",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2909,6 +3151,7 @@
     {
       "t": "Requiem for a Dream",
       "id": 641,
+      "imdb": "tt0180093",
       "genre": "Crime",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2921,6 +3164,7 @@
     {
       "t": "The Hunt",
       "id": 103663,
+      "imdb": "tt2106476",
       "genre": "Drama",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2933,6 +3177,7 @@
     {
       "t": "Eternal Sunshine of the Spotless Mind",
       "id": 38,
+      "imdb": "tt0338013",
       "genre": "Science Fiction",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2945,6 +3190,7 @@
     {
       "t": "Lawrence of Arabia",
       "id": 947,
+      "imdb": "tt0056172",
       "genre": "Adventure",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2957,6 +3203,7 @@
     {
       "t": "Scarface",
       "id": 111,
+      "imdb": "tt0086250",
       "genre": "Action",
       "rating": 8.3,
       "platform": "★ 8.3",
@@ -2969,6 +3216,7 @@
     {
       "t": "Reservoir Dogs",
       "id": 500,
+      "imdb": "tt0105236",
       "genre": "Crime",
       "rating": 8.2,
       "platform": "★ 8.2",
@@ -2981,6 +3229,7 @@
     {
       "t": "Up",
       "id": 14160,
+      "imdb": "tt1049413",
       "genre": "Animation",
       "rating": 8.3,
       "platform": "★ 8.3",
