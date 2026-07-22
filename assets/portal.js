@@ -703,9 +703,20 @@
         (state.appsRegion === 'All' || a.regions.includes(state.appsRegion)));
     }
 
+    const costBadge = (a) => `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:${a.cost === 'free' ? '#E7F8EF' : '#F7E9FF'};color:${a.cost === 'free' ? '#0B7A44' : '#65009F'}">${a.cost === 'free' ? 'Free' : 'Free tier'}</span>`;
+
     const appCard = (a) => `
-      <div data-app-id="${esc(a.id)}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:18px">
-        <div style="font-size:16px;font-weight:800">${esc(a.name)}</div>
+      <div data-app-id="${esc(a.id)}" ${cardAttrs(a)} class="as-editor-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:16px 17px 18px;display:flex;flex-direction:column;gap:10px;cursor:pointer;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <div style="display:flex;align-items:center;gap:11px">
+          <div style="flex:none;width:42px;height:42px;border-radius:12px;background:${a.bg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800">${esc(a.initial)}</div>
+          <div style="flex:1;min-width:0;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</div>
+          ${costBadge(a)}
+        </div>
+        <div style="font-size:13px;line-height:1.55;color:rgba(11,21,51,.68)">${esc(a.blurb)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${a.content.map((c) => `<span style="font-size:11px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:3px 9px;border-radius:999px">${esc(c)}</span>`).join('')}
+        </div>
+        <div style="margin-top:auto;padding-top:4px;font-size:11.5px;color:rgba(11,21,51,.5)">${esc(a.devices.map(APP_DEVICE_LABEL).join(' · '))}</div>
       </div>`;
 
     function appsSection() {
@@ -916,6 +927,26 @@
           ${items.length
             ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:14px">${items.map(posterGridItem).join('')}</div>`
             : `<div style="font-size:13px;color:rgba(11,21,51,.55)">Nothing in this collection right now — check back after the next update.</div>`}
+        </div>`;
+      } else if (obj.detailKind === 'app') {
+        const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:16px;font-size:14px"><span style="flex:none;color:rgba(11,21,51,.55);font-weight:700">${esc(k)}</span><span style="color:#65009F;text-align:right">${esc(v)}</span></div>`;
+        const steps = obj.devices.map((d) => `
+          <div data-install-device="${esc(d)}" style="display:flex;gap:12px;font-size:13.5px;line-height:1.55">
+            <span style="flex:none;width:104px;font-weight:700;color:rgba(11,21,51,.62)">${esc(APP_DEVICE_LABEL(d))}</span>
+            <span style="flex:1;color:rgba(11,21,51,.75)">${esc((obj.install && obj.install[d]) || APP_INSTALL_DEFAULTS[d] || '')}</span>
+          </div>`).join('');
+        body = `<div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${costBadge(obj)}${obj.content.map((c) => `<span style="font-size:12px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`).join('')}</div>
+          <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.blurb)}</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${row('Watch', obj.content.join(', '))}
+            ${row('Where', obj.availability)}
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:10px">Install on</div>
+            <div style="display:flex;flex-direction:column;gap:10px">${steps}</div>
+          </div>
+          <a href="${esc(obj.url)}" target="_blank" rel="noopener noreferrer" style="display:block;text-align:center;background:#65009F;color:#fff;border-radius:13px;padding:13px 18px;font-weight:700;font-size:13.5px;text-decoration:none">Open ${esc(obj.name)} →</a>
         </div>`;
       } else {
         const chips = [obj.genre, obj.meta, obj.country, obj.platform, obj.type]

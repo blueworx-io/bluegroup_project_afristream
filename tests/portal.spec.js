@@ -724,3 +724,74 @@ test('the active device pill is marked pressed for assistive tech', async ({ pag
   await expect(pills.getByRole('button', { name: 'Tablets' })).toHaveAttribute('aria-pressed', 'true');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
+
+test('app cards show cost, blurb, content and devices', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
+  await expect(card).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const tubi = apps.find((a) => a.id === 'tubi');
+
+  await expect(card).toContainText('Tubi');
+  await expect(card).toContainText(tubi.blurb);
+  await expect(card).toContainText(tubi.cost === 'free' ? 'Free' : 'Free tier');
+  for (const c of tubi.content) await expect(card).toContainText(c);
+});
+
+test('clicking an app card opens a drawer with install steps and an official link', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
+
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer).toBeVisible();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const tubi = apps.find((a) => a.id === 'tubi');
+
+  await expect(drawer).toContainText(tubi.blurb);
+  await expect(drawer).toContainText(tubi.availability);
+  await expect(drawer).toContainText('Install on');
+  await expect(drawer.getByRole('link', { name: /Open / })).toHaveAttribute('href', tubi.url);
+  await expect(drawer.getByRole('link', { name: /Open / })).toHaveAttribute('rel', /noopener/);
+});
+
+test('the app drawer lists a step for every device the app supports', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const tubi = apps.find((a) => a.id === 'tubi');
+  const steps = page.getByTestId('detail-drawer').locator('[data-install-device]');
+  await expect(steps).toHaveCount(tubi.devices.length);
+});
+
+test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
+  const detailCalls = [];
+  page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
+
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+
+  expect(detailCalls).toEqual([]);
+});
+
+test('the app drawer closes on Escape and returns focus to its card', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
+  await card.click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('detail-drawer')).toHaveCount(0);
+  await expect(card).toBeFocused();
+});
+
+test('an app card opens its drawer from the keyboard', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  const card = page.getByTestId('apps-grid').locator('[data-app-id="pluto-tv"]');
+  await card.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('detail-drawer')).toContainText('Pluto TV');
+});
