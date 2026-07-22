@@ -317,7 +317,7 @@
     const state = {
       // 'tips' and 'help' are hidden from the nav but still valid entry points,
       // so a host page that already pins one of them keeps working.
-      section: ['profile', 'setup', 'watch', 'apps', 'editor', 'download', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      section: ['profile', 'setup', 'devices', 'watch', 'apps', 'editor', 'download', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       guideOpen: 0,
       // '' until the user picks a device on the Setup tab; step 2 stays hidden
@@ -390,6 +390,7 @@
       } else {
         body = `<div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:22px">
       <div data-testid="account-scope-notice" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">The following usernames and passwords are to be used in conjunction with your Apps used via AfriStream. They do not provide any access to the Free Streaming Apps provided.</div>
+      <div data-testid="account-connections-notice" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)"><strong>One connection, one screen at a time.</strong> A single connection can be used anywhere, but only on one device at once — do not leave the TV running while you watch on your phone. If you have two or more connections they must be used in the same household, on the same internet connection; the only exception is one on home WiFi and one on mobile data. Connections used across two different networks are removed automatically.</div>
       <div>
         <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Active Username</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -700,7 +701,7 @@
           {
             title: 'Set up your FireStick',
             steps: [
-              'Plug the FireStick into a spare HDMI port on your TV, then plug its power cable into the mains. Using the supplied power adapter matters — a USB port on the TV often will not supply enough power.',
+              'Plug the FireStick into a spare HDMI port on your TV, then plug its power cable into the mains. Use the power adapter that came in the box — a USB port on the TV often will not supply enough power, and the stick will keep restarting.',
               'Turn the TV on and switch it to the HDMI input the FireStick is plugged into. Use the Source or Input button on your TV remote if you are not sure which one.',
               'Follow the on-screen prompts to pair the Fire TV remote and connect to your home WiFi. You will need your WiFi password for this.',
               'Sign in with an Amazon account when asked. If you do not have one, choose the option to create a new account — it is free, and you never have to add a payment card.',
@@ -708,55 +709,55 @@
             ]
           },
           {
-            title: 'Install FireSend',
+            title: 'Turn on Developer Options',
             steps: [
-              'From the FireStick home screen, move up to the top menu and open the Apps section, then choose the search icon.',
-              'Search for FireSend, select it in the results, and choose Get or Download to install it.',
-              'Before FireSend can do anything useful, your FireStick needs Developer Mode switched on. This is a normal Amazon setting, not a modification of your device.',
-              'To turn it on, go to Settings, then My Fire TV, then Developer Options, and switch on Apps from Unknown Sources. If you do not see Developer Options, open Settings → My Fire TV → About and click the Fire TV Stick line seven times — the menu then appears.',
-              'Go back to your home screen and open FireSend.'
+              'From the home screen, go to Settings — the cog icon along the top menu.',
+              'Open My Fire TV, then Developer Options.',
+              'Turn on both ADB Debugging and Apps from Unknown Sources. Both need to be on, not just one.'
             ],
-            note: 'If a warning appears telling you installing unknown apps can be harmful, choose to continue. This is the standard Amazon prompt shown for anything not installed from their own store.'
+            note: 'No Developer Options in the menu? Go to Settings, then My Fire TV, then About, and click the Fire TV Stick line seven times. Developer Options then appears in the My Fire TV menu.'
           },
           {
-            title: 'Get the Downloader app',
+            title: 'Install Firesend and unlock the app list',
             steps: [
-              'With FireSend open, go to the Rooms or Share section in its menu.',
-              'Choose Join Room.',
+              'Press HOME on your Firestick remote to get back to the home screen.',
+              'Go to Search — the magnifying glass at the top left — and type Firesend.',
+              'Select Firesend in the results and choose Download or Get to install it.',
+              'If Fire TV asks whether to allow Firesend to install unknown apps, choose Allow. It cannot do its job otherwise.',
+              'Open Firesend and choose Join Room.',
               { text: 'Enter this room code exactly as shown, then confirm:', code: '10325' },
-              'The room unlocks a list of apps you can install. Scroll down that list until you find the app called Downloader.',
-              'Select Downloader and choose to download it. Wait for the progress bar to reach the end without leaving the screen.',
-              'Follow the prompts through to the end of the install. If you are asked to allow the app to install other apps or to access files, choose Allow — it cannot do its job otherwise.'
-            ]
+              'The room unlocks the list of apps you can install. Scroll down that list, find Downloader, and install it.'
+            ],
+            note: 'A warning about installing unknown apps is normal here — Fire TV shows it for anything not installed from the Amazon store. Choose to continue.'
           },
           {
             title: 'Install the streaming app and sign in',
             steps: [
               'Open the Downloader app from your FireStick home screen.',
-              { text: 'Click into the search or URL box at the top, and enter this code:', code: '6573365' },
-              'Click the search box again, or press Go, to start the download.',
-              'Follow the prompts until the streaming app has downloaded and installed. Do not press Back or leave the screen while it is working.',
-              'When the install has finished, choose Open to launch the streaming app.',
-              'Select the Shockwave profile, then choose Edit.',
-              'Enter the username and password from your Account tab. They are case-sensitive, so copy them exactly — a capital letter in the wrong place is the single most common reason a login fails.',
-              'Save, then select the Shockwave profile again and choose Connect.',
-              'Give it ten to fifteen seconds to load. You should now have access to the streaming app.'
-            ]
+              { text: 'Click into the search or URL box at the top and enter the code for your app. If you were not told which to use, start with IBO Player:', code: '617725' },
+              'Click the search box again, or press GO, to start the download.',
+              'Follow the prompts until the app has downloaded and installed. Do not press Back or leave the screen while it is working.',
+              'If the app asks to allow access to media and files, always choose Allow.',
+              'When the install has finished, choose Open to launch the app.',
+              'Find your profile or playlist, choose Edit, and enter the username and password from your Account tab. They are case-sensitive, so copy them exactly — a capital letter in the wrong place is the single most common reason a login fails.',
+              'Save, select the profile again, and choose Connect. Give it ten to fifteen seconds to load.'
+            ],
+            note: 'App not connecting? Try a different one — the other codes are listed below the steps. IBO Player is the one currently working most reliably on Fire TV and Android.'
           }
         ]
       },
       {
         key: 'android-tv',
-        label: 'Android TV & TV Boxes',
+        label: 'Android TV Box or Stick',
         icon: '🖥️',
-        blurb: 'For Google TV, Nvidia Shield, Chromecast with Google TV and most generic Android TV boxes.',
+        blurb: 'For Google TV, Nvidia Shield, onn, Thomson and other Android TV boxes and sticks. These tend to give less trouble than a Firestick.',
         stages: [
           {
             title: 'Allow the install',
             steps: [
               'From the home screen, open Settings — usually the cog icon in the top corner.',
               'Go to Device Preferences, then Security & Restrictions.',
-              'Turn on Unknown Sources. If your device lists apps individually here, you can leave everything off for now and come back to switch on Downloader once it is installed.'
+              'Turn on Unknown Sources. If your device lists apps individually here, come back and switch on Downloader once it is installed.'
             ],
             note: 'Android TV shows a warning when you do this. It is the standard Google prompt for anything installed from outside the Play Store — choose to continue.'
           },
@@ -771,12 +772,14 @@
           {
             title: 'Install the streaming app and sign in',
             steps: [
-              { text: 'In the Downloader search or URL box, enter this code and press Go:', code: '6573365' },
+              { text: 'In the Downloader search or URL box, enter the code for your app and press GO. If you were not told which to use, start with IBO Player:', code: '617725' },
               'Wait for the download to finish, then choose Install and let it run through to the end.',
+              'If the app asks to allow access to media and files, always choose Allow.',
               'Choose Open when the install completes.',
-              'Select the Shockwave profile, choose Edit, and enter the username and password from your Account tab exactly as shown — they are case-sensitive.',
-              'Save, select the Shockwave profile again, and choose Connect. Allow ten to fifteen seconds for the content to load.'
-            ]
+              'Find your profile or playlist, choose Edit, and enter the username and password from your Account tab exactly as shown — they are case-sensitive.',
+              'Save, select the profile again, and choose Connect. Allow ten to fifteen seconds for the content to load.'
+            ],
+            note: 'App not connecting? Try a different one — the other codes are listed below the steps.'
           }
         ]
       },
@@ -784,21 +787,30 @@
         key: 'android',
         label: 'Android Phone or Tablet',
         icon: '📱',
-        blurb: 'For any Samsung, Google Pixel, Xiaomi or other Android phone and tablet.',
+        blurb: 'For any Samsung, Google Pixel, Xiaomi or other Android phone and tablet. You install straight from the web browser — there is no Downloader app involved and nothing to find in the Play Store.',
         stages: [
           {
-            title: 'Install the app',
+            title: 'Download the app',
             steps: [
-              'Unlock your phone or tablet and open the Google Play Store — the multicoloured triangle icon.',
-              'Tap the search bar at the top and search for the player app by the name you were given when you signed up.',
-              'Tap Install and wait for the download to finish. The button changes to Open when it is done.',
-              'Tap Open. If the app asks for permission to access files or storage, tap Allow.'
+              'Open your web browser — Chrome on most phones, Samsung Internet on a Samsung.',
+              { text: 'Type this address into the address bar at the top and press Go. This is IBO Player, the one currently working most reliably:', code: 'aftv.news/617725' },
+              'The download starts on its own. If the browser asks whether to keep the file, choose Download or Keep.',
+              'When it finishes, tap the downloaded file — from the notification bar, or from Downloads in your browser menu.'
             ]
+          },
+          {
+            title: 'Install it',
+            steps: [
+              'Tap Install when the phone asks.',
+              'Android will most likely block it the first time and offer a Settings button. Tap that, turn on Allow from this source for your browser, then press Back and tap Install again.',
+              'When the install finishes, tap Open. The app is now in your app list like any other.'
+            ],
+            note: 'That block is standard Android behaviour for anything not from the Play Store, not a sign that something has gone wrong.'
           },
           {
             title: 'Sign in',
             steps: [
-              'Look for an option to add a playlist, add a profile or add a user, depending on the app.',
+              'Find the option to add a playlist, profile or user.',
               'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
               'Save, then connect. Give it ten to fifteen seconds to load the content the first time.'
             ],
@@ -810,25 +822,25 @@
         key: 'ios',
         label: 'iPhone or iPad',
         icon: '🍎',
-        blurb: 'For any iPhone or iPad. Apple does not allow sideloading, so everything here comes from the App Store.',
+        blurb: 'For any iPhone or iPad. Apple does not allow sideloading, so the app comes from the App Store and is usually a small one-off purchase.',
         stages: [
           {
-            title: 'Install the app',
+            title: 'Install a player app',
             steps: [
-              'Unlock your iPhone or iPad and open the App Store — the blue icon with a white A.',
-              'Tap Search at the bottom right, then search for the player app by the name you were given when you signed up.',
-              'Tap Get, then confirm with Face ID, Touch ID or your Apple Account password. Some player apps are a small one-off purchase on iOS.',
-              'Wait for it to install, then tap Open.'
+              'Open the App Store — the blue icon with a white A.',
+              'Tap Search at the bottom right and look for IBO Player, IPTV Smarters, Nanomid Player or SmartOne IPTV. Any of the four works.',
+              'Tap the price or Get, then confirm with Face ID, Touch ID or your Apple Account password.',
+              'Open the app once it has installed.'
             ]
           },
           {
-            title: 'Sign in',
+            title: 'Send us your device details',
             steps: [
-              'Look for an option to add a playlist, add a profile or add a user.',
-              'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
-              'Save, then connect. Give it ten to fifteen seconds to load the content the first time.'
+              'Most iOS players show a MAC address and a device key or device ID on the very first screen. Write both down, or take a screenshot.',
+              'Email them to support@afristream.io along with your AfriStream username, and say which app you installed.',
+              'We register the device against your line and reply to confirm. Until that is done the app has nothing to play.'
             ],
-            note: 'Copy and paste the details from the Account tab rather than typing them. A single mistyped character is the most common reason a login is rejected.'
+            note: 'Apple and Smart TV are the two setups that cannot be self-served — they have to be registered at our end. If you also have a TV device, get that working first: phones and tablets can wait.'
           }
         ]
       },
@@ -836,48 +848,65 @@
         key: 'smart-tv',
         label: 'Smart TV (Samsung / LG)',
         icon: '📡',
-        blurb: 'For Samsung Tizen and LG webOS televisions with no stick or box attached.',
+        blurb: 'For Samsung and LG televisions with no stick or box attached. The app is a one-off purchase and has to be registered by us.',
         stages: [
           {
-            title: 'Install the app',
+            title: 'Install a player app',
             steps: [
               "Press the Home or Smart Hub button on your TV remote to bring up your TV's own menu.",
               'Open the app store — Samsung Apps on a Samsung TV, the LG Content Store on an LG.',
-              'Use the search option and look for the player app by the name you were given when you signed up.',
-              'Select Install, and wait for the TV to finish downloading it. This can take a few minutes on an older set.'
+              'Search for IBO Player, Nanomid Player or SmartOne IPTV, and install it. This can take a few minutes on an older set.',
+              'Open the app.'
             ]
           },
           {
-            title: 'Sign in',
+            title: 'Send us your device details',
             steps: [
-              'Open the app. Many TV players show a device ID or MAC address on the very first screen.',
-              'If you are shown one, write it down and email it to support@afristream.io — some apps need it registered before they will connect.',
-              'Otherwise, find the option to add a playlist or profile, and enter the username and password from your Account tab exactly as shown.',
-              'Save, then connect, and allow ten to fifteen seconds for the content to load.'
+              'The first screen shows a MAC address and a device key. Write both down, or photograph the screen.',
+              'Email them to support@afristream.io with your AfriStream username, and say which app and which TV you are using.',
+              'We register the device against your line and reply to confirm. The app will show nothing until that is done.'
             ],
-            note: 'Smart TV apps vary a lot between brands and model years. If yours does not match these steps, email support@afristream.io with your TV make and model and we will send the right ones.'
+            note: 'Would rather not wait? A cheap Android TV box or stick plugged into the same TV can be set up yourself in about twenty minutes — choose Android TV Box or Stick instead.'
           }
         ]
       },
       {
-        key: 'desktop',
-        label: 'Windows or Mac',
-        icon: '💻',
-        blurb: 'For a laptop or desktop computer, watching straight in a web browser.',
+        key: 'roku',
+        label: 'Roku TV or Device',
+        icon: '🟣',
+        blurb: 'For Roku sticks, boxes and Roku-branded televisions. Roku does not allow sideloading, so the app is a one-off purchase from the Roku Channel Store.',
         stages: [
           {
-            title: 'Open the player',
+            title: 'Install a player app',
             steps: [
-              'Open your usual web browser — Chrome, Edge, Safari or Firefox all work.',
-              'Type the player address you were given when you signed up into the address bar at the top, and press Enter.',
-              'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
-              'Save the page as a bookmark so you do not have to type the address again next time.'
-            ],
-            note: 'Nothing is installed on a computer — it all runs in the browser, so there is nothing to update and nothing taking up disk space.'
+              'Press Home on your Roku remote.',
+              'Open Streaming Channels, then Search Channels, and look for IBO Player.',
+              'Select Add Channel and wait for it to install.',
+              'Open the app from your Roku home screen.'
+            ]
+          },
+          {
+            title: 'Send us your device details',
+            steps: [
+              'The first screen shows a MAC address and a device key. Write both down, or photograph the screen.',
+              'Email them to support@afristream.io with your AfriStream username.',
+              'We register the device against your line and reply to confirm.'
+            ]
           }
         ]
       }
     ];
+
+    // Downloader codes, listed under the steps on the devices that use
+    // Downloader. Each is the number typed into Downloader's URL box; the same
+    // number also works as a web address — aftv.news/<code> — which is how the
+    // Android phone route installs without Downloader at all.
+    const DOWNLOADER_CODES = [
+      { code: '617725', app: 'IBO Player', note: 'Most reliable on Fire TV and Android right now — start here' },
+      { code: '9469460', app: 'Smarters', note: 'Try this if IBO Player will not connect' },
+      { code: '6573365', app: 'Alternative player', note: 'Third option, worth a go if neither of the above works' }
+    ];
+    const SETUP_USES_CODES = ['firestick', 'android-tv', 'android'];
 
     function setupSection() {
       const chosen = SETUP_DEVICES.find((d) => d.key === state.setupDevice) || null;
@@ -932,6 +961,23 @@
           ${stage.note ? `<div data-setup-note style="margin-top:16px;background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:13px 16px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(stage.note)}</div>` : ''}
         </div>`).join('')}
     </div>
+    ${SETUP_USES_CODES.includes(chosen.key) ? `
+    <div data-testid="setup-codes" style="margin-top:16px;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+      <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">${chosen.key === 'android' ? 'App addresses' : 'Downloader codes'}</h2>
+      <p style="margin:0 0 15px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58)">${chosen.key === 'android'
+        ? 'If one app will not connect, try the next. Type the address into your browser exactly as shown.'
+        : "If one app will not connect, try the next — your login details stay the same for all of them."}</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${DOWNLOADER_CODES.map((c) => `
+          <div data-setup-code-row style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#FAFAFC;border:1px solid rgba(11,21,51,.07);border-radius:13px;padding:13px 15px">
+            <code style="flex:none;background:#F7E9FF;border:1px solid rgba(101,0,159,.2);border-radius:10px;padding:7px 14px;font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:.08em;color:#65009F">${esc(chosen.key === 'android' ? 'aftv.news/' + c.code : c.code)}</code>
+            <div style="flex:1 1 200px;min-width:0">
+              <div style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(c.app)}</div>
+              <div style="margin-top:2px;font-size:12.5px;line-height:1.5;color:rgba(11,21,51,.58)">${esc(c.note)}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
     <div style="margin-top:18px;background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
       <div style="flex:1 1 300px">
         <div class="as-on-dark" style="font-size:15.5px;font-weight:800;margin-bottom:3px;color:#fff">Need your login details?</div>
@@ -950,6 +996,200 @@
   ${picker}
   ${instructions}
   <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Stuck on any step? Email <a href="mailto:support@afristream.io">support@afristream.io</a> with your device type and the step number — we reply within one business day.</p>
+</section>`;
+    }
+
+    // Approved device list. Deliberately generic — device classes and the specs
+    // to shop for, never named models, so the page does not go stale every time
+    // a manufacturer refreshes a range. `tier` drives the badge and the grouping:
+    //   green  — best experience, set up yourself in about 20 minutes
+    //   purple — works, with something worth knowing first
+    //   amber  — cannot be self-served; we have to register the device
+    const DEVICE_TIERS = [
+      { key: 'best', label: 'Recommended', blurb: 'The easiest to set up and the least trouble afterwards. Install it yourself in about twenty minutes.' },
+      { key: 'works', label: 'Works, with a caveat', blurb: 'Perfectly usable, but read the note before you buy or before you start.' },
+      { key: 'assisted', label: 'We set these up for you', blurb: 'These platforms do not allow apps to be installed from outside their own store, so the app is a one-off purchase and has to be registered against your line at our end.' }
+    ];
+
+    const APPROVED_DEVICES = [
+      {
+        key: 'android-box',
+        tier: 'best',
+        name: 'Android TV Boxes',
+        icon: '🖥️',
+        summary: 'A small box that plugs into your TV over HDMI and runs Android TV or Google TV. The most reliable way to watch, and the one we recommend to anyone buying something new.',
+        look: [
+          'Android TV or Google TV as the operating system — not a plain Android tablet build, which looks similar in listings but runs TV apps badly',
+          '3GB of RAM or more (4GB if you can); 2GB is the bare minimum and will feel slow',
+          '16GB of storage at the very least, 32GB preferred, so app updates have somewhere to go',
+          'An ethernet port — a cable to the router is the single biggest upgrade you can make to picture stability',
+          'WiFi 6, or at minimum dual-band 5GHz WiFi',
+          '4K and HDR if your TV is 4K'
+        ]
+      },
+      {
+        key: 'android-stick',
+        tier: 'best',
+        name: 'Android TV Sticks',
+        icon: '📶',
+        summary: 'The same software as an Android TV box in a stick that hides behind the TV. Ideal for a second or third room where running an ethernet cable is not realistic.',
+        look: [
+          'Android TV or Google TV as the operating system',
+          '2GB of RAM as an absolute floor, 3GB or more preferred',
+          'Dual-band WiFi — a stick has no ethernet port, so its wireless has to be good',
+          'A power supply that plugs into the mains rather than a USB port on the TV'
+        ]
+      },
+      {
+        key: 'android-phone',
+        tier: 'best',
+        name: 'Android Phones',
+        icon: '📱',
+        summary: 'Any reasonably current Android phone works, and it is the quickest setup of the lot — the app installs straight from the web browser with nothing else to configure.',
+        look: [
+          'Android 9 or newer',
+          'Enough free storage for the app and its cache — a few hundred megabytes is plenty',
+          '5GHz WiFi at home, or a mobile data allowance you are happy to spend on video'
+        ]
+      },
+      {
+        key: 'android-tablet',
+        tier: 'best',
+        name: 'Android Tablets',
+        icon: '📲',
+        summary: 'Identical to the phone route, on a bigger screen. Good for watching in bed or in the kitchen without tying up a television.',
+        look: [
+          'Android 9 or newer',
+          'A screen you are happy to watch a film on — 10 inches or more is comfortable',
+          'Dual-band WiFi'
+        ]
+      },
+      {
+        key: 'firestick',
+        tier: 'works',
+        name: 'Amazon Fire TV Sticks',
+        icon: '📺',
+        summary: 'The most common device our customers own, and the fussiest. It works, but it needs Developer Options turned on before anything can be installed, and Amazon has been steadily tightening what it allows onto the platform.',
+        note: 'If you already own one, keep using it — the Setup tab walks the whole thing through. If you are buying something new, an Android TV box or stick is the better buy.',
+        look: [
+          'A current-generation 4K model — the older basic sticks run short on memory and storage and struggle',
+          'At least 2GB of RAM',
+          'Enough free storage to install an app; clear old apps off first if it is nearly full'
+        ]
+      },
+      {
+        key: 'smart-tv',
+        tier: 'assisted',
+        name: 'Smart TVs',
+        icon: '📡',
+        summary: 'Samsung and LG televisions can run a player app with no box or stick attached. Convenient, since there is only one remote, but the app is a paid download and the TV has to be registered with us before it will show anything.',
+        note: 'Expect a wait while we register it. A cheap Android TV stick in the same TV is the faster route if you want to be watching tonight.',
+        look: [
+          'A Samsung or LG set from roughly the last five years',
+          'The MAC address and device key the player app shows on its first screen — you will need to send us both'
+        ]
+      },
+      {
+        key: 'ios',
+        tier: 'assisted',
+        name: 'iPhones & iPads',
+        icon: '🍎',
+        summary: 'Apple does not allow apps from outside the App Store, so the player is a small one-off purchase and, like a Smart TV, has to be registered against your line before it will play.',
+        note: 'If you also have a TV device, get that working first — phones and tablets can wait.',
+        look: [
+          'A recent iOS version',
+          'The MAC address and device key the player app shows on its first screen'
+        ]
+      },
+      {
+        key: 'roku',
+        tier: 'assisted',
+        name: 'Roku Sticks, Boxes & TVs',
+        icon: '🟣',
+        summary: 'Roku is a closed platform in the same way Apple is. The player app comes from the Roku Channel Store as a one-off purchase and needs registering with us.',
+        look: [
+          'Any current Roku stick, box or Roku-branded TV',
+          'The MAC address and device key the player app shows on its first screen'
+        ]
+      }
+    ];
+
+    function devicesSection() {
+      const badge = (tier) => {
+        const c = tier === 'best'
+          ? { bg: '#E7F8EF', fg: '#0B7A44', bd: 'rgba(11,122,68,.2)' }
+          : tier === 'works'
+            ? { bg: '#F7E9FF', fg: '#65009F', bd: 'rgba(101,0,159,.2)' }
+            : { bg: '#FFF7E6', fg: '#8A5A00', bd: 'rgba(180,120,0,.24)' };
+        const label = (DEVICE_TIERS.find((t) => t.key === tier) || {}).label || tier;
+        return `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:${c.bg};color:${c.fg};border:1px solid ${c.bd}">${esc(label)}</span>`;
+      };
+
+      const card = (d) => `
+        <div data-device-id="${esc(d.key)}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span aria-hidden="true" style="flex:none;font-size:23px">${d.icon}</span>
+            <h3 style="margin:0;flex:1 1 160px;min-width:0;font-size:16.5px;font-weight:800;letter-spacing:-0.01em">${esc(d.name)}</h3>
+            ${badge(d.tier)}
+          </div>
+          <p style="margin:0;font-size:13.5px;line-height:1.65;color:rgba(11,21,51,.72)">${esc(d.summary)}</p>
+          ${d.note ? `<div data-device-note style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:12px;padding:12px 14px;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(d.note)}</div>` : ''}
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:9px">What to look for</div>
+            <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px">
+              ${d.look.map((l) => `
+                <li style="display:flex;gap:10px;font-size:13px;line-height:1.55;color:rgba(11,21,51,.7)">
+                  <span aria-hidden="true" style="flex:none;width:5px;height:5px;border-radius:50%;background:#65009F;margin-top:7px"></span>
+                  <span>${esc(l)}</span>
+                </li>`).join('')}
+            </ul>
+          </div>
+        </div>`;
+
+      return `
+<section data-screen-label="Devices">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Approved Devices</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Everything here works with AfriStream. This is written as buying advice rather than a model list, so it stays true as ranges change — take it to any retailer and match the specifications.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:26px">
+    ${DEVICE_TIERS.map((tier) => {
+      const items = APPROVED_DEVICES.filter((d) => d.tier === tier.key);
+      if (!items.length) return '';
+      return `
+      <div data-device-tier="${esc(tier.key)}">
+        <h2 style="margin:0 0 4px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">${esc(tier.label)}</h2>
+        <p style="margin:0 0 14px 2px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(tier.blurb)}</p>
+        <div class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">
+          ${items.map(card).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div style="margin-top:22px;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 12px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Whatever you buy</h2>
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px">
+      ${[
+        'A network cable from the device to your router beats WiFi every time. If you can reach the router, do that and most buffering problems never happen.',
+        'If you are on WiFi, use the 5GHz network rather than the 2.4GHz one, and keep the device in line of sight of the router where you can.',
+        'Leave some free storage on the device. A device that is almost full cannot update its apps, and that is behind a surprising number of faults.',
+        'One connection plays on one screen at a time. Two or more connections have to be used in the same household, on the same internet connection.',
+        'Very old hardware is a false economy — an underpowered box stutters on high-quality streams no matter how good your broadband is.'
+      ].map((t) => `
+        <li style="display:flex;gap:11px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.72)">
+          <span aria-hidden="true" style="flex:none;width:5px;height:5px;border-radius:50%;background:#65009F;margin-top:8px"></span>
+          <span>${esc(t)}</span>
+        </li>`).join('')}
+    </ul>
+  </div>
+  <div style="margin-top:18px;background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
+    <div style="flex:1 1 300px">
+      <div class="as-on-dark" style="font-size:15.5px;font-weight:800;margin-bottom:3px;color:#fff">Got your device?</div>
+      <div class="as-on-dark" style="font-size:13px;line-height:1.55;color:rgba(255,255,255,.72)">The Setup tab walks you through installing the app and signing in, step by step, for each of these.</div>
+    </div>
+    <button class="as-hover-light" data-act="go-setup" style="flex:none;background:#fff;color:#65009F;border:none;border-radius:12px;padding:12px 22px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">Open Setup</button>
+  </div>
+  <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Not sure whether something you already own will work? Email <a href="mailto:support@afristream.io">support@afristream.io</a> with the make and model and we will tell you.</p>
 </section>`;
     }
 
@@ -1189,6 +1429,7 @@
     const NAV = [
       { id: 'profile', label: 'Account' },
       { id: 'setup', label: 'Setup' },
+      { id: 'devices', label: 'Devices' },
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
       { id: 'apps', label: 'Free Streaming' },
@@ -1197,7 +1438,7 @@
       // renders as an anchor and never takes the active underline.
       { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
     ];
-    const SECTIONS = { profile: profileSection, setup: setupSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, tips: tipsSection, help: helpSection };
+    const SECTIONS = { profile: profileSection, setup: setupSection, devices: devicesSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, tips: tipsSection, help: helpSection };
 
     // Render-scoped registry of clickable cards: reg(obj) stashes the item
     // and returns its index so a data-card="<idx>" attribute can look it up
@@ -1422,6 +1663,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'setup-device': setState({ setupDevice: val }); break;
         case 'setup-restart': setState({ setupDevice: '' }); break;
         case 'go-profile': setState({ section: 'profile' }); break;
+        case 'go-setup': setState({ section: 'setup' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;

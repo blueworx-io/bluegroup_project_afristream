@@ -55,7 +55,7 @@ add_action( 'wp_enqueue_scripts', 'afristream_portal_register_assets' );
 /**
  * [afristream_portal default_tab="profile" show_sport="true"]
  *
- * default_tab: profile | setup | watch | apps | editor | download | tips | help
+ * default_tab: profile | setup | devices | watch | apps | editor | download | tips | help
  *
  * 'tips' and 'help' are hidden from the portal nav but remain valid entry points.
  */
@@ -1113,7 +1113,7 @@ function afristream_portal_render_settings_page() {
 			<?php
 			printf(
 				/* translators: %s: shortcode example. */
-				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|setup|watch|apps|editor|download", show_sport="true|false").', 'bluegroup-project-afristream' ),
+				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|setup|devices|watch|apps|editor|download", show_sport="true|false").', 'bluegroup-project-afristream' ),
 				'<code>[afristream_portal]</code>'
 			);
 			?>

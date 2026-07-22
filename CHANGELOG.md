@@ -8,7 +8,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- **A Setup tab**, sitting immediately right of Account. Pick your device and the page walks you through installing the streaming app and signing in, written for someone who has never sideloaded anything. The Fire TV route is the full guide — set up the stick, install FireSend, join room `10325`, pull Downloader, then code `6573365` and the Shockwave profile — with the codes rendered oversized so they can be read from a sofa and typed on a TV remote. Android TV, Android, iOS, Smart TV and desktop each get their own staged walkthrough.
+- **A Setup tab**, sitting immediately right of Account. Pick your device and the page walks you through installing the player app and signing in, written for someone who has never sideloaded anything.
+
+  Fire TV gets the full guide: set up the stick → turn on Developer Options (with the seven-click unlock as a note, since most people will not need it) → install Firesend and join room `10325` to reach Downloader → Downloader code `617725` for IBO Player, then sign in. Android TV boxes take the same Downloader route without Firesend. Android phones and tablets install straight from the browser at `aftv.news/617725` — no Downloader, nothing in the Play Store.
+
+  iPhone, Smart TV and Roku cannot be self-served: those walkthroughs install a paid store app and then tell the customer to send their MAC address and device key to support so we can register the device against their line.
+
+  Codes render oversized and monospaced so they can be read from a sofa and typed on a TV remote. Every Downloader device also lists all three app codes — IBO Player `617725`, Smarters `9469460` and `6573365` — so a customer whose app will not connect can try the next without opening a support ticket.
+
+- **A Devices tab**, right of Setup. Approved hardware grouped into three tiers: Android boxes, sticks, phones and tablets as the recommendation; Fire TV sticks as "works, with a caveat" (they need Developer Options, and Amazon keeps tightening the platform); Smart TVs, iPhones and Roku as the ones we have to register.
+
+  Written as buying advice rather than a model list — RAM, storage, ethernet, WiFi generation, OS — so it stays true as manufacturer ranges change. Closes with the advice that applies whatever you buy: wire it to the router, use 5GHz, leave free storage, one screen per connection.
+
+- **The Account tab now states the connection rules**, next to the credentials rather than buried in a support thread: one connection plays on one screen at a time, and two or more must be used in the same household on the same internet connection, the sole exception being one on home WiFi and one on mobile data.
 
 - **A Download tab**, explaining how to add the portal to an iPhone or Android home screen so it opens like an app. No app store and nothing to update — this adds a home-screen shortcut, since the portal ships no web app manifest.
 
