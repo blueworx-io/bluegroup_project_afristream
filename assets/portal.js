@@ -685,6 +685,24 @@
 </section>`;
     }
 
+    // Names the filters actually narrowing the grid, so the empty state says
+    // why nothing matched rather than just that nothing did.
+    function activeFilterSummary() {
+      const bits = [];
+      if (state.appsDevice !== 'All') bits.push(APP_DEVICE_LABEL(state.appsDevice));
+      if (state.appsContent !== 'All') bits.push(state.appsContent);
+      if (state.appsRegion !== 'All') bits.push(state.appsRegion);
+      return bits.length ? bits.join(' · ') : 'these filters';
+    }
+
+    function filteredApps() {
+      const list = appsData || [];
+      return list.filter((a) =>
+        (state.appsDevice === 'All' || a.devices.includes(state.appsDevice)) &&
+        (state.appsContent === 'All' || a.content.includes(state.appsContent)) &&
+        (state.appsRegion === 'All' || a.regions.includes(state.appsRegion)));
+    }
+
     const appCard = (a) => `
       <div data-app-id="${esc(a.id)}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:18px">
         <div style="font-size:16px;font-weight:800">${esc(a.name)}</div>
@@ -720,10 +738,30 @@
         return shell(notice('apps-error', "The app directory could not be loaded.", true));
       }
 
+      const shown = filteredApps();
+      const pill = (act, key, val, label, active) =>
+        `<button style="${subBtn(active)}" data-act="${act}" data-val="${esc(val)}" aria-pressed="${active}">${esc(label)}</button>`;
+
       return shell(`
-  <div data-testid="apps-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">
-    ${appsData.map(appCard).join('')}
-  </div>`);
+  <div data-testid="apps-device-filters" role="group" aria-label="Filter apps by device" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px">
+    ${pill('apps-device', 'appsDevice', 'All', 'All', state.appsDevice === 'All')}
+    ${APP_DEVICES.map((d) => pill('apps-device', 'appsDevice', d.key, d.label, state.appsDevice === d.key)).join('')}
+  </div>
+  <div style="display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;margin:0 2px 18px">
+    <div data-testid="apps-content-filters" role="group" aria-label="Filter apps by content" style="display:flex;gap:8px;flex-wrap:wrap">
+      ${pill('apps-content', 'appsContent', 'All', 'All', state.appsContent === 'All')}
+      ${APP_CONTENT.map((c) => pill('apps-content', 'appsContent', c, c, state.appsContent === c)).join('')}
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.62)">
+      <span>Region</span>
+      <select data-act="apps-region" style="font-family:inherit;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.72);background:#fff;border:1px solid rgba(11,21,51,.12);border-radius:999px;padding:8px 13px;cursor:pointer">
+        ${['All'].concat(APP_REGIONS).map((r) => `<option value="${esc(r)}"${state.appsRegion === r ? ' selected' : ''}>${esc(r === 'All' ? 'All regions' : r)}</option>`).join('')}
+      </select>
+    </label>
+  </div>
+  ${shown.length
+    ? `<div data-testid="apps-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">${shown.map(appCard).join('')}</div>`
+    : `<div data-testid="apps-empty" style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No free apps match ${esc(activeFilterSummary())}. <button data-act="apps-reset" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>`}`);
     }
 
     function helpSection() {
@@ -984,6 +1022,9 @@ ${state.detail ? detailDrawer(state.detail) : ''}
           if (val === 'apps' && appsState === 'idle') loadApps();
           break;
         case 'apps-retry': loadApps(); break;
+        case 'apps-device': setState({ appsDevice: val }); break;
+        case 'apps-content': setState({ appsContent: val }); break;
+        case 'apps-reset': setState({ appsDevice: 'All', appsContent: 'All', appsRegion: 'All' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
@@ -1014,6 +1055,12 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       if (e.target.getAttribute && e.target.getAttribute('data-act') === 'query') {
         state.query = e.target.value;
         render(true);
+      }
+    });
+
+    root.addEventListener('change', (e) => {
+      if (e.target.getAttribute && e.target.getAttribute('data-act') === 'apps-region') {
+        setState({ appsRegion: e.target.value });
       }
     });
 

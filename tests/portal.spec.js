@@ -663,3 +663,64 @@ test('the Apps tab reports a failed database load instead of rendering an empty 
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
 });
+
+test('device pills narrow the app grid to apps that run on that device', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  const grid = page.getByTestId('apps-grid');
+  await expect(grid).toBeVisible();
+
+  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const expected = apps.filter((a) => a.devices.includes('consoles'));
+  expect(expected.length).toBeGreaterThan(0);
+  await expect(grid.locator('[data-app-id]')).toHaveCount(expected.length);
+  for (const a of expected) await expect(grid.locator(`[data-app-id="${a.id}"]`)).toBeVisible();
+});
+
+test('content and region filters combine with the device filter', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+
+  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Phones' }).click();
+  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
+  await page.getByLabel('Region').selectOption('Worldwide');
+
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const expected = apps.filter((a) =>
+    a.devices.includes('phones') && a.content.includes('Sport') && a.regions.includes('Worldwide'));
+  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(expected.length);
+});
+
+test('an impossible filter combination shows an empty state that resets', async ({ page }) => {
+  // Consoles + Sport + Middle East matches nothing in data/apps.json. That is
+  // asserted against the data first, so if the database ever gains such an app
+  // this fails here loudly instead of silently skipping the checks below.
+  const { apps } = await (await page.request.get('/data/apps.json')).json();
+  const matches = apps.filter((a) =>
+    a.devices.includes('consoles') && a.content.includes('Sport') && a.regions.includes('Middle East'));
+  expect(matches, 'pick a different zero-match combination').toHaveLength(0);
+
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
+  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
+  await page.getByLabel('Region').selectOption('Middle East');
+
+  const empty = page.getByTestId('apps-empty');
+  await expect(empty).toBeVisible();
+  await expect(empty).toContainText('Consoles');
+  await expect(empty).toContainText('Sport');
+  await expect(empty).toContainText('Middle East');
+  await expect(page.getByTestId('apps-grid')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Reset filters' }).click();
+  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(apps.length);
+});
+
+test('the active device pill is marked pressed for assistive tech', async ({ page }) => {
+  await page.getByRole('button', { name: 'Apps', exact: true }).click();
+  const pills = page.getByTestId('apps-device-filters');
+  await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await pills.getByRole('button', { name: 'Tablets' }).click();
+  await expect(pills.getByRole('button', { name: 'Tablets' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'false');
+});
