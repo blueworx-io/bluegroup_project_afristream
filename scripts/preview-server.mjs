@@ -25,8 +25,8 @@ const FIXTURE = {
   updated: 'fixture',
   tmdb: true,
   sport: [
-    { comp: 'Fixture League', code: 'Soccer', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', live: true },
-    { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', live: false },
+    { comp: 'Fixture League', code: 'Soccer', country: 'England', fx: 'Fixture FC vs Test United', time: 'Today · 20:00', ch: 'Fixture Sports', chCountry: 'United Kingdom', live: true },
+    { comp: 'Fixture Open', code: 'Tennis', country: 'Australia', fx: 'A. Player vs B. Player', time: 'Tomorrow · 10:00', ch: 'Fixture Tennis', chCountry: 'Australia', live: false },
   ],
   movies: [
     { t: 'Fixture Movie One', genre: 'Drama', platform: '★ 8.1', meta: '2026', poster: null, type: 'Movies', id: 101 },
@@ -54,10 +54,25 @@ const FIXTURE = {
 // watchlist page itself is behind AWS WAF and can't be scraped server-side).
 // Locally the IDs come from the EDITOR_PICKS_IDS env var; in the plugin they
 // come from the afristream_editor_picks_ids option. Any tt-id (or a pasted
-// IMDb URL containing one) is accepted; order is preserved, capped at 24.
+// IMDb URL containing one) is accepted, optionally followed by the IMDb rating
+// the sync recorded ("tt0099348 8.0"); order is preserved, capped at PICK_CAP.
+// Mirrors afristream_portal_editor_ids() in the plugin — keep the two in step.
+const PICK_CAP = 300;
+
 function parseEditorIds(raw) {
-  const ids = String(raw || '').match(/tt\d+/g) || [];
-  return [...new Set(ids)].slice(0, 60);
+  const out = new Map();
+  for (const line of String(raw || '').split(/[\r\n,]+/)) {
+    const s = line.trim();
+    if (!s || s[0] === '#') continue;
+    const m = s.match(/(tt\d+)(?:\D+(\d+(?:\.\d+)?))?/);
+    if (!m || out.has(m[1])) continue;
+    // Guard against a stray number on the line (a pasted year, say) being read
+    // as a 0–10 score.
+    const rating = m[2] !== undefined && +m[2] >= 0 && +m[2] <= 10 ? +m[2] : null;
+    out.set(m[1], rating);
+    if (out.size >= PICK_CAP) break;
+  }
+  return [...out.entries()].map(([id, rating]) => ({ id, rating }));
 }
 
 // The EDITOR_PICKS_IDS env wins (mirrors the WP admin box); otherwise fall back
@@ -74,9 +89,10 @@ function editorIdsSource() {
 const EDITOR_FIXTURE = {
   source: 'imdb',
   picks: [
-    { t: 'Fixture Pick One', genre: 'Drama', platform: '★ 8.5', meta: '2024', poster: null, type: 'Movies', country: 'South Africa', rank: 1, id: 501 },
-    { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2, id: 502 },
-    { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3, id: 503 },
+    { t: 'Fixture Pick One', genre: 'Drama', platform: '★ 8.5', rating: 8.5, meta: '2024', poster: null, type: 'Movies', country: 'South Africa', rank: 1, id: 501 },
+    { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', rating: 8.1, meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2, id: 502 },
+    { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', rating: 7.6, meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3, id: 503 },
+    { t: 'Fixture Pick Four', genre: 'Documentary', platform: '★ 9.1', rating: 9.1, meta: '2021', poster: null, type: 'Movies', country: 'Kenya', rank: 4, id: 504 },
   ],
 };
 
@@ -100,7 +116,7 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
   const hit = movie || tv;
   if (!hit) {
     return fallbackTitle
-      ? { t: fallbackTitle, genre: 'Film', platform: 'IMDb', meta: '', poster: null, type: 'Movies', country: '', rank, id: 0 }
+      ? { t: fallbackTitle, genre: 'Film', platform: 'IMDb', rating: null, meta: '', poster: null, type: 'Movies', country: '', rank, id: 0 }
       : null;
   }
   const type = movie ? 'Movies' : 'Series';
@@ -111,6 +127,8 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
     t: hit.title || hit.name || fallbackTitle || '',
     id: Number(hit.id) || 0,
     genre: genres[hit.genre_ids?.[0]] || type,
+    // TMDB's score — overridden by the synced IMDb rating when the list has one.
+    rating: rating > 0 ? Math.round(rating * 10) / 10 : null,
     platform: rating > 0 ? `★ ${rating.toFixed(1)}` : 'IMDb',
     meta: type === 'Series' ? (year ? `TV · ${year}` : 'TV') : year,
     poster: hit.poster_path ? `https://image.tmdb.org/t/p/w342${hit.poster_path}` : null,
@@ -130,7 +148,15 @@ async function editorPicksPayload() {
       Object.fromEntries(((await tmdbGet(`/genre/${type}/list`))?.genres ?? []).map((g) => [g.id, g.name]));
     const [movieGenres, tvGenres] = await Promise.all([genreList('movie'), genreList('tv')]);
     const resolved = await Promise.all(
-      ids.map((id, i) => resolvePick(id, '', i + 1, movieGenres, tvGenres))
+      ids.map(async ({ id, rating }, i) => {
+        const pick = await resolvePick(id, '', i + 1, movieGenres, tvGenres);
+        // The IMDb rating from the synced list beats TMDB's own score.
+        if (pick && rating !== null) {
+          pick.rating = rating;
+          pick.platform = `★ ${rating.toFixed(1)}`;
+        }
+        return pick;
+      })
     );
     const picks = resolved.filter(Boolean);
     if (!picks.length) throw new Error('none resolved');
@@ -322,6 +348,7 @@ async function espnSport() {
         if (state === 'post') continue;
         const name = ev?.name || ev?.shortName || '';
         if (!name) continue;
+        const channel = ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || '';
         events.push({
           comp: meta.label,
           code: meta.code,
@@ -329,7 +356,10 @@ async function espnSport() {
           fx: name.replace(' at ', ' vs '),
           iso: ev.date || '',
           time: state === 'in' ? 'LIVE now' : '',
-          ch: ev?.competitions?.[0]?.broadcasts?.[0]?.names?.[0] || meta.label,
+          ch: channel || meta.label,
+          // ESPN's scoreboard only carries US networks, so a named broadcaster
+          // here is always a US one.
+          chCountry: channel ? 'United States' : '',
           live: state === 'in',
         });
         count++;
@@ -341,11 +371,112 @@ async function espnSport() {
   return events.slice(0, 8);
 }
 
+// TheSportsDB sport name => the portal's sporting code. Keep in sync with the
+// plugin's afristream_portal_sportsdb_events().
+const SPORTSDB_SPORTS = {
+  Soccer: 'Soccer',
+  Cricket: 'Cricket',
+  Rugby: 'Rugby',
+  Motorsport: 'Motorsport',
+  Golf: 'Golf',
+  Tennis: 'Tennis',
+  Fighting: 'MMA',
+  Basketball: 'Basketball',
+  'American Football': 'American Football',
+  'Australian Football': 'Aussie Rules',
+};
+
+/**
+ * Sports TV listings from TheSportsDB's free tier — keyless (public key "123",
+ * no registration) and permanently free. It is the only free source that names
+ * broadcasters outside the US, which ESPN's scoreboard never does.
+ *
+ * Free tier returns a single row per `eventstv` query however it is filtered,
+ * with no pagination — hence one query per sport per day, stitched together.
+ */
+async function sportsdbSport() {
+  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const dates = [day(Date.now()), day(Date.now() + DAY)];
+  const events = [];
+
+  await Promise.all(dates.flatMap((date) => Object.entries(SPORTSDB_SPORTS).map(async ([sport, code]) => {
+    try {
+      const res = await fetch(
+        `https://www.thesportsdb.com/api/v1/json/123/eventstv.php?d=${encodeURIComponent(date)}&s=${encodeURIComponent(sport)}`,
+        { signal: AbortSignal.timeout(6000) }
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      for (const row of json?.tvevents ?? []) {
+        if (!row?.strEvent || !row?.strChannel) continue;
+        // Times are UTC; the front-end renders `iso` in the viewer's zone.
+        events.push({
+          comp: row.strSeason ? `${sport} · ${row.strSeason}` : sport,
+          code,
+          country: row.strEventCountry || 'International',
+          fx: row.strEvent,
+          iso: `${row.dateEvent || date}T${row.strTime || '00:00:00'}+00:00`,
+          time: '',
+          ch: row.strChannel,
+          chCountry: row.strCountry || '',
+          live: false,
+        });
+      }
+    } catch { /* sport unavailable — skip */ }
+  })));
+
+  return events;
+}
+
+/**
+ * Normalised key for de-duplicating the same fixture arriving from both feeds
+ * ("Arsenal at Everton" vs "Everton vs Arsenal"). Team order is discarded.
+ */
+function sportKey(event) {
+  return String(event.fx || '')
+    .toLowerCase()
+    .split(/\s+(?:vs?\.?|at|v)\s+/)
+    .map((part) => part.replace(/[^a-z0-9]/g, ''))
+    .filter(Boolean)
+    .sort()
+    .join('|');
+}
+
+/**
+ * Both free feeds merged. ESPN supplies the fixture list and US networks;
+ * TheSportsDB supplies broadcasters for the rest of the world. Where a fixture
+ * appears in both, the row that actually names a broadcaster wins.
+ */
+async function mergedSport() {
+  const [espn, sportsdb] = await Promise.all([espnSport(), sportsdbSport()]);
+  const merged = new Map();
+
+  for (const event of [...espn, ...sportsdb]) {
+    const key = sportKey(event);
+    if (!key) continue;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, event);
+      continue;
+    }
+    const hasChannel = event.ch && event.ch !== event.comp;
+    const hadChannel = existing.ch && existing.ch !== existing.comp;
+    if (hasChannel && !hadChannel) {
+      existing.ch = event.ch;
+      existing.chCountry = event.chCountry || '';
+    }
+  }
+
+  const events = [...merged.values()];
+  events.sort((a, b) => (a.live !== b.live ? (a.live ? -1 : 1) : a.iso.localeCompare(b.iso)));
+  return events.slice(0, 12);
+}
+
 async function watchPayload() {
   if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
   if (watchCache && Date.now() - watchCacheAt < 2 * 60 * 60 * 1000) return watchCache;
 
-  const [catalog, sport] = await Promise.all([tmdbCatalog(), espnSport()]);
+  const [catalog, sport] = await Promise.all([tmdbCatalog(), mergedSport()]);
   if (!catalog && !sport.length) return { source: 'fallback', reason: 'no-live-data' };
 
   watchCache = {

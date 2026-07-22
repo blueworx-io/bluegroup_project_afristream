@@ -4,6 +4,44 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-22
+
+### Added
+
+- **Today's Pick** — the Editor Picks hero is no longer a fixed "Editors' No.1". It now draws one title from the list at random, seeded from the calendar date so everybody sees the same pick all day and a new one turns over at midnight. It respects the active filters, and the ranked list starts directly below it.
+- **Rating filter on Editor Picks** — a second pill group (Any / ★ 7+ / ★ 8+ / ★ 9+) alongside the type filter. Steps only appear when they would actually leave something on screen.
+- **IMDb ratings on the synced watchlist** — `npm run sync-watchlist` now records each title's IMDb rating next to its ID (`tt0099348 8.0`), and the plugin prefers that over TMDB's own score for the card badge, the ordering and the rating filter. Note this is IMDb's public community rating; a shared watchlist doesn't expose the owner's personal ratings to an anonymous viewer.
+- **Worldwide sports TV listings** — sport fixtures are now enriched with real broadcaster data from outside the US. ESPN's public scoreboard, which the portal already used, only ever names US networks, so viewers anywhere else saw the competition label where a channel should be. A second keyless, permanently free feed (TheSportsDB's public API, key `123`, no registration) now supplies channels such as Sky Sports Cricket, SuperSport, FOX Cricket and Sky Sport NZ, alongside the country each channel broadcasts in. Both feeds are merged and de-duplicated on a normalised fixture key, so "Arsenal at Everton" from one feed and "Everton vs Arsenal" from the other collapse into a single listing, and the row that actually names a broadcaster wins. The sport row grows from 8 listings to 12.
+- **Broadcast country on every sport listing** — sport cards show the channel with the country it airs in underneath, and the detail panel gains a "Broadcast in" row.
+
+### Changed
+
+- **Editor Picks shows the whole watchlist** — the read-side cap went from 60 to 300, so a 130-title watchlist now renders in full instead of stopping at 60. Because each pick costs a TMDB lookup, resolution is now memoised per title for a week and the loop runs under a time budget: a cold cache serves what it has and finishes the list on a later request rather than risking PHP's execution limit.
+- **Editor Picks are ordered by rating**, best first, with watchlist position only breaking ties. Rank badges renumber to match.
+- **Editor Picks tags reduced to Movies, Series and Documentaries** — previously every genre in the list got its own pill (two full rows of them). The three types are mutually exclusive, so a documentary is filed under Documentaries and never also under Movies.
+- **What to Watch rows grow when you pick a category** — "All" keeps the short summary rows, but selecting Movies, Series, Documentaries, Kids or New This Week re-backs that row from the full catalog (best-rated first, up to 40) instead of the 10-item trending slice.
+- **Collections now match their own descriptions.** "True Crime Deep Dive" was pulling in every Thriller and every Documentary, so nature docs like *My Octopus Teacher* and *Penguin Town* were filed as true crime; it is now crime and mystery only. "Big Match Build-Up" promised documentaries to watch before kick-off but nothing in the catalog marks a documentary as sport, so it was really just every documentary — it is now honestly named **Documentary Corner**. "Award Season Catch-Up" moved from ★7.5 to ★8.0, which was matching about a third of the catalog.
+
+### Fixed
+
+- **The detail and filter panels can be scrolled again.** Both are `position: fixed`, but a host page only has to put a `transform`, `filter` or `will-change` on any ancestor for that ancestor to become the containing block — at which point `top`/`bottom` stop meaning "the viewport", the panel stretches to its full content height and there is nothing left to scroll. Most visible on a collection with a long poster grid. The panels are now sized in viewport units and scroll in a dedicated body region, so they behave the same however the host page is built.
+- **The watchlist sync no longer stops short.** IMDb renders 25 rows at a time and the scroll loop gave up an appended page early, so a 130-title watchlist synced as 125. It now steps to the lazy-load sentinel rather than jumping past it, clicks a "more" button if IMDb shows one instead, is far more patient about append lag, and warns (and exits non-zero) if the final count is under the list total.
+
+### Removed
+
+- **Live TV Channels** — the row is gone from What to Watch, and the channels no longer appear as entries in search results or the type facet.
+
+### Notes
+
+- TheSportsDB's free tier returns a single row per `eventstv` query with no pagination, so the plugin fans out one query per sport per day (today and tomorrow) and stitches the rows together. The loop shares the existing time budget used by Editor Picks, so a cold cache can never blow PHP's max execution time; results are cached for 2 hours as before. No API key, no account and no paid tier is involved.
+
+## [0.8.0] - 2026-07-12
+
+### Changed
+
+- **Mobile-optimised top bar** — the header navigation is now a dedicated horizontally scrollable tab list. The tabs sit in their own scroll container (hidden scrollbar, touch momentum, per-tab snap) so every section stays reachable on a phone without the page itself scrolling sideways. The secondary "Annual · Active" plan badge, which previously crowded the bar on narrow screens, drops away below 600px and the tabs pick up a little more spacing; the desktop layout (tabs left, badge right) is unchanged.
+- **Smoother horizontal rows on touch** — the poster, sport, channel and collection rows get touch momentum scrolling so they flick naturally on mobile.
+
 ## [0.7.0] - 2026-07-12
 
 ### Added

@@ -21,6 +21,30 @@ test('profile section renders credentials with working copy feedback', async ({ 
   await expect(page.getByText('BabyBlue-TV')).toBeVisible();
 });
 
+test('on mobile the top bar is a horizontally scrollable tab list', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  // The nav tabs live in their own scroll container that overflows on a phone
+  // (so the list scrolls sideways) while the page itself never scrolls across.
+  const tabs = page.locator('.as-tabs');
+  await expect(tabs).toBeVisible();
+  const { tabsOverflow, pageOverflow } = await page.evaluate(() => {
+    const t = document.querySelector('.as-tabs');
+    const de = document.documentElement;
+    return { tabsOverflow: t.scrollWidth - t.clientWidth, pageOverflow: de.scrollWidth - de.clientWidth };
+  });
+  expect(tabsOverflow).toBeGreaterThan(0);
+  expect(pageOverflow).toBe(0);
+
+  // The secondary plan badge is dropped on mobile so the tabs own the bar.
+  await expect(page.locator('.as-plan')).toBeHidden();
+
+  // Every tab is still reachable and still navigates.
+  await page.getByRole('button', { name: 'Troubleshooting' }).click();
+  await expect(page.getByRole('heading', { name: 'AfriStream Troubleshooting Guide' })).toBeVisible();
+});
+
 test('nav switches to What to Watch with poster rows and sport', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   await expect(page.getByRole('heading', { name: 'What to Watch' })).toBeVisible();
@@ -183,6 +207,79 @@ test('collections show real title counts and open a poster grid', async ({ page 
   await expect(drawer.getByText('Jozi Heat')).toBeVisible();
 });
 
+test('a collection only contains titles matching its own category', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  const section = page.locator('[data-screen-label="What to Watch"]');
+  await section.getByRole('button', { name: 'Collections', exact: true }).click();
+
+  // True Crime is crime and mystery — it must not sweep in every thriller or,
+  // as it once did, unrelated documentaries.
+  await section.getByText('True Crime Deep Dive').click();
+  const genres = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="detail-drawer"] [data-act="detail"]')]
+      .map((c) => (c.textContent.match(/(Crime|Mystery|Thriller|Documentary|Docs|Drama|Comedy)/) || [])[0])
+      .filter(Boolean)
+  );
+  expect(genres.length).toBeGreaterThan(0);
+  expect(genres.every((g) => g === 'Crime' || g === 'Mystery')).toBe(true);
+});
+
+test('the Live TV Channels row is gone', async ({ page }) => {
+  await page.getByRole('button', { name: 'What to Watch' }).click();
+  await expect(page.getByRole('heading', { name: 'Live TV Channels' })).toHaveCount(0);
+  // And live channels no longer leak into search results either.
+  await page.getByPlaceholder('Search titles…').fill('Sky News');
+  await expect(page.getByText('Sky News')).toHaveCount(0);
+});
+
+test('picking a category loads more titles than the All summary shows', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  const section = page.locator('[data-screen-label="What to Watch"]');
+  const rowCount = () => page.locator('[data-dragscroll]').first().evaluate((el) => el.children.length);
+
+  await expect(page.getByRole('heading', { name: 'Trending Movies' })).toBeVisible();
+  const summary = await rowCount();
+
+  // "Movies" re-backs the row from the whole catalog, not the trending slice.
+  await section.getByRole('button', { name: 'Movies', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Movies', exact: true })).toBeVisible();
+  expect(await rowCount()).toBeGreaterThan(summary);
+
+  // Going back to All restores the shorter summary row.
+  await section.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Trending Movies' })).toBeVisible();
+  expect(await rowCount()).toBe(summary);
+});
+
+test('the detail panel still scrolls when a host ancestor creates a containing block', async ({ page }) => {
+  // A transform/filter/will-change on any ancestor makes that ancestor the
+  // containing block for position:fixed, which used to stretch the panel to its
+  // full content height and leave nothing to scroll.
+  await page.goto('/preview/fixture.html');
+  await page.setViewportSize({ width: 900, height: 600 });
+  await page.evaluate(() => {
+    document.querySelector('.afristream-portal').parentElement.style.transform = 'translateZ(0)';
+  });
+
+  const section = page.locator('[data-screen-label="What to Watch"]');
+  await section.getByRole('button', { name: 'Collections', exact: true }).click();
+  await section.getByText('True Crime Deep Dive').click();
+  await expect(page.getByTestId('detail-drawer')).toBeVisible();
+
+  const metrics = await page.evaluate(() => {
+    const panel = document.querySelector('[data-testid="detail-drawer"]');
+    const body = panel.querySelector('.as-panel-body');
+    body.scrollTop = 9999;
+    return {
+      panelHeight: Math.round(panel.getBoundingClientRect().height),
+      viewport: window.innerHeight,
+      scrolled: body.scrollTop,
+    };
+  });
+  expect(metrics.panelHeight).toBeLessThanOrEqual(metrics.viewport);
+  expect(metrics.scrolled).toBeGreaterThan(0);
+});
+
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   const row = page.locator('[data-dragscroll]').first();
@@ -249,6 +346,32 @@ test('clicking a sport card opens its detail panel', async ({ page }) => {
   await expect(drawer).toBeVisible();
   await expect(drawer.getByText('Fixture Sports')).toBeVisible();
   await expect(drawer.getByText('Fixture League')).toBeVisible();
+});
+
+test('sport cards name the broadcaster and the country it airs in', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+
+  // TheSportsDB supplies broadcasters outside the US, so each listing carries
+  // the channel plus the country that channel broadcasts in.
+  const card = page.locator('[data-sport-channel]').first();
+  await expect(card).toContainText('Fixture Sports');
+  await expect(card).toContainText('United Kingdom');
+
+  // The detail panel spells the same thing out as its own row.
+  await page.getByText('Fixture FC vs Test United').click();
+  const drawer = page.getByTestId('detail-drawer');
+  await expect(drawer.getByText('Broadcast in')).toBeVisible();
+  await expect(drawer.getByText('United Kingdom')).toBeVisible();
+});
+
+test('watch endpoint sport rows carry channel and broadcast country', async ({ request }) => {
+  const res = await request.get('/api/watch?fixture=1');
+  const json = await res.json();
+  expect(Array.isArray(json.sport)).toBeTruthy();
+  for (const row of json.sport) {
+    expect(row.ch).toBeTruthy();
+    expect(row.chCountry).toBeTruthy();
+  }
 });
 
 test('clicking an editor pick card opens its detail panel', async ({ page }) => {
@@ -342,33 +465,82 @@ test('editor picks tab renders a premium hero and ranked grid from fixture', asy
   await expect(page.getByText('Listings and artwork from')).toBeVisible();
 });
 
-test('editor picks filters by a tag and hides the hero while filtering', async ({ page }) => {
+test('editor picks offers only the three content types, not a genre dump', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   await page.getByRole('button', { name: 'Editor Picks' }).click();
   const section = page.locator('[data-screen-label="Editor Picks"]');
+  const typeRow = section.getByRole('group', { name: 'Filter by type' });
 
-  // Default view: the No.1 hero plus every pick.
-  await expect(section.getByText(/Editors.*No\.1/)).toBeVisible();
-  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
-
-  // A single tags row (type + genre) — no search box, no Filters button.
-  await expect(section.getByRole('button', { name: 'All', exact: true })).toBeVisible();
-  await expect(section.getByRole('button', { name: 'Movies', exact: true })).toBeVisible();
-  await expect(section.getByRole('button', { name: 'Series', exact: true })).toBeVisible();
+  await expect(typeRow.getByRole('button')).toHaveText(['All', 'Movies', 'Series', 'Documentaries']);
+  // No search box and no Filters button on this tab.
   await expect(section.getByRole('textbox')).toHaveCount(0);
   await expect(section.getByRole('button', { name: 'Filters', exact: true })).toHaveCount(0);
 
-  // Filter to Series: hero collapses, only the one series pick remains.
-  await section.getByRole('button', { name: 'Series', exact: true }).click();
-  await expect(section.getByText(/Editors.*No\.1/)).toHaveCount(0);
-  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
-  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
-  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+  // A documentary is filed under Documentaries, never also under Movies.
+  await typeRow.getByRole('button', { name: 'Movies', exact: true }).click();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Four')).toHaveCount(0);
 
-  // Clicking "All" restores the hero and every pick.
-  await section.getByRole('button', { name: 'All', exact: true }).click();
-  await expect(section.getByText(/Editors.*No\.1/)).toBeVisible();
+  await typeRow.getByRole('button', { name: 'Documentaries', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Four')).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
+});
+
+test('editor picks filters by minimum rating', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  const ratingRow = section.getByRole('group', { name: 'Filter by IMDb rating' });
+
+  await expect(ratingRow.getByRole('button')).toHaveText(['Any', '★ 7+', '★ 8+', '★ 9+']);
+
+  // 9+ leaves only the 9.1 pick; the 7.6 and 8.1 picks drop out.
+  await ratingRow.getByRole('button', { name: '★ 9+' }).click();
+  await expect(page.getByText('Fixture Pick Four')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+  await expect(page.getByText('Fixture Pick Two')).toHaveCount(0);
+
+  await ratingRow.getByRole('button', { name: 'Any' }).click();
   await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+});
+
+test('editor picks are ordered best-rated first', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  await expect(section.locator('[data-testid="editor-grid"]')).toBeVisible();
+
+  // The hero is lifted out of the grid, so read the ratings off what's left and
+  // assert they only ever descend.
+  const ratings = await page.evaluate(() => {
+    const cards = document.querySelectorAll('[data-testid="editor-grid"] > *');
+    return [...cards].map((c) => {
+      const m = c.textContent.match(/★\s*([\d.]+)/);
+      return m ? Number(m[1]) : null;
+    });
+  });
+  const known = ratings.filter((r) => r !== null);
+  expect([...known]).toEqual([...known].sort((a, b) => b - a));
+});
+
+test("editor picks lead with Today's Pick, which stays put for the day", async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  await expect(section.getByText(/Today's Pick/i)).toBeVisible();
+
+  const title = () => section.locator('[data-testid="editor-grid"]')
+    .evaluate(() => document.querySelector('[data-screen-label="Editor Picks"] [style*="min-height:280px"]').innerText);
+  const first = await title();
+
+  // Re-rendering (navigating away and back) must not reshuffle it.
+  await page.getByRole('button', { name: 'What to Watch' }).click();
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  expect(await title()).toBe(first);
+
+  // And the hero is not duplicated in the grid below it.
+  const heroTitle = first.split('\n').filter(Boolean)[1];
+  await expect(section.locator('[data-testid="editor-grid"]').getByText(heroTitle, { exact: true })).toHaveCount(0);
 });
 
 test('editor picks tab shows the built-in list when the endpoint is offline', async ({ page }) => {

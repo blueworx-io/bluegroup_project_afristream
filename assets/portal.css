@@ -95,3 +95,64 @@
   .afristream-portal .as-editor-card { transition: none; }
   .afristream-portal .as-editor-card:hover { transform: none; }
 }
+
+/* The top-bar tabs are a horizontal scrollable list: hide the scrollbar for a
+   clean edge, keep momentum on touch, and let each tab snap into view. */
+.afristream-portal .as-tabs {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+}
+.afristream-portal .as-tabs::-webkit-scrollbar { display: none; }
+.afristream-portal .as-tabs > button { scroll-snap-align: start; }
+
+/* Momentum scrolling for the horizontal poster/sport/channel/collection rows. */
+.afristream-portal [data-dragscroll] { -webkit-overflow-scrolling: touch; }
+
+/* Slide-over panels (filters, card/collection detail) and their scrim.
+
+   These are position:fixed, but a host page only has to put a transform,
+   filter or will-change on any ancestor for that ancestor to become the
+   containing block — at which point top/bottom stop meaning "the viewport",
+   the panel grows to its full content height and there is nothing left to
+   scroll. Sizing in viewport units instead keeps the panel viewport-tall
+   whatever the containing block turns out to be, and the scrolling lives in
+   .as-panel-body so the header and footer stay put. */
+.afristream-portal .as-scrim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+}
+.afristream-portal .as-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+.afristream-portal .as-panel-body {
+  flex: 1 1 auto;
+  /* Without this a flex item refuses to shrink below its content, which is the
+     other common way a panel like this silently stops scrolling. */
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* Don't hand the scroll back to the page when the panel hits its end. */
+  overscroll-behavior: contain;
+}
+
+/* Mobile: hand the whole top bar to the tab list. The plan badge is secondary
+   status — it would otherwise eat the width the tabs need to read as a list —
+   so it drops away below 600px and the tabs get a touch more breathing room. */
+@media (max-width: 600px) {
+  .afristream-portal .as-plan { display: none !important; }
+  .afristream-portal .as-tabs { gap: 22px !important; }
+}
