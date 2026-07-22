@@ -4,6 +4,53 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-07-22
+
+### Fixed
+
+- **The watchlist sync only ever read the first page.** IMDb renders at most 250 rows per page and puts the rest behind `?page=N`; the scrape scrolled that first page to exhaustion and stopped, so a 302-title watchlist came back as 250 no matter how patiently it scrolled. It now walks the pages until the reported total is covered.
+
+  The total is also read properly at last. IMDb renders it as a two-item inline list — "1 – 250" then "302 titles" — whose combined `textContent` reads "1 - 250302 titles"; the items are now read separately instead of regexing the run-together string, which is where the nonsense six-figure total came from.
+
+  Editor Picks now carries all **302** titles (301 resolved; `tt0096548` has no TMDB entry).
+
+## [0.15.0] - 2026-07-22
+
+### Added
+
+- **The watchlist is now an accumulating local copy.** `npm run sync-watchlist` merges each scrape into `data/editor-picks-ids.txt` instead of replacing it: new titles are appended, ratings are refreshed, and nothing is ever dropped. IMDb only renders 250 rows of a public watchlist, so a scrape is a window onto the list rather than all of it — merging lets the list grow past that ceiling as titles are added, and makes a failed or partial scrape a no-op instead of data loss. Removing a title is now a deliberate edit to the file.
+
+  A scrape that returns nothing, or only a handful of rows, can no longer shrink the list at all.
+
+- **Resolved titles are cached between bakes.** Each baked pick records the IMDb ID it came from, so `npm run bake-picks` re-uses everything it resolved last time and only calls TMDB for titles it has not seen. Adding a few films to a 250-title list is now a 2-second build step rather than 250 round-trips. `npm run bake-picks -- --refresh` forces the full re-resolve when artwork and TMDB metadata should genuinely be redone.
+
+## [0.14.0] - 2026-07-22
+
+### Changed
+
+- **Editor Picks are now resolved through TMDB at build time**, not on the live site. `npm run sync-watchlist` scrapes the IMDb watchlist as before, then hands the IDs to a new `npm run bake-picks` step that resolves each one and writes `data/editor-picks.json` into the plugin — the same pattern `apps.json` and `sports-listings.json` already use. Serving Editor Picks is now a file read (~30ms for 130 titles) instead of one TMDB round-trip per title, so the page is complete on first paint with no filling-in and no polling.
+
+  The runtime resolver, the partial/poll handling and the resolve lock all stay, because the WP admin override box can hold hand-entered IDs that have no baked copy. `bake-picks` can also be re-run on its own to refresh artwork and ratings without re-scraping IMDb.
+
+### Fixed
+
+- **The watchlist sync silently truncated the list.** The scroll loop trusted IMDb's count label to decide when it had everything, and that label is not dependable — it has read as "1 – 25 of 130 titles" (taking the leading `1` as the total ends the loop on its first pass) and as a nonsense six-figure number. The label is now advisory only: the loop scrolls until the row count genuinely stops growing, and the sync refuses to overwrite the ID list with a shorter scrape at all, so a partial render can no longer destroy IDs that only a working scrape can recover.
+
+  Fixing it recovered **120 titles the previous scrape had been silently dropping** — Editor Picks goes from 130 to 249 resolved titles (the current list is a strict superset of the old one; one title has no TMDB entry).
+
+## [0.13.0] - 2026-07-22
+
+### Changed
+
+- **Renamed the plugin to "BlueGroup | AfriStream Portal"**, and the plugin slug from `afristream-portal` to `bluegroup-project-afristream` to match the repo. The main file, the plugin folder inside the zip, the text domain, the registered style/script handles, the settings page slug and the deployment artifact (`bluegroup-project-afristream.zip`) all follow.
+
+  The `[afristream_portal]` shortcode, the `afristream/v1` REST namespace, the `afristream_*` option names and the `.afristream-portal` CSS class are deliberately unchanged — pages using the shortcode keep working and saved settings carry across. Because WordPress keys plugins on the folder name, this installs alongside the old one rather than over it: deactivate and delete **AfriStream Customer Portal** after activating the new plugin.
+
+### Fixed
+
+- **Editor Picks stopped short of the full watchlist.** Resolving titles through TMDB is time-budgeted so a cold cache can't blow PHP's execution limit, and a truncated run was flagged `partial` — but the front end asked once and the truncated payload was cached and re-served, so a 130-title watchlist showed as roughly 60 and stayed there. The front end now keeps polling while the server reports `partial`, each pass resuming from the warm per-title cache, and a resolve lock stops concurrent visitors repeating the same work. The settings hint no longer claims a 60-title limit; the real cap is 300.
+- **The portal could still push a phone's page wider than the screen.** The full-width fix only reached the portal's immediate parent, so a dashboard shell that nests shortcode output several containers deep (SureCart's customer dashboard) left every wrapper above it stacking its own gutter on top of `width:100%` — the document overflowed and the browser zoomed the whole page out. The reset now walks up to three levels of containing ancestors (never `html` or `body`) and clears `min-width` so a wrapper that happens to be a flex or grid item can actually shrink.
+
 ## [0.12.0] - 2026-07-22
 
 ### Added

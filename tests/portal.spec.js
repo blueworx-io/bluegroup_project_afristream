@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mergeEntries, parseEntries } from '../scripts/picks-list.mjs';
 
 // Smoke tests for the AfriStream Customer Portal front-end. They run against
 // baseURL — the local preview harness until a staging URL exists (see
@@ -987,6 +988,147 @@ test('the Apps tab loads on its own when the portal boots straight into it', asy
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
   await expect(grid.locator('[data-app-id]')).toHaveCount(apps.length);
+});
+
+test('the portal stays inside the viewport when a theme nests it several levels deep', async ({ page }) => {
+  // The full-width rule has to reach past the portal's immediate parent. Dashboard
+  // shells (SureCart's customer dashboard, say) wrap shortcode output in several
+  // containers, each with its own gutter. Fixing only the direct parent leaves
+  // every wrapper above it adding padding on top of width:100% — which is what
+  // pushes the document past the screen and makes a phone zoom the whole page out.
+  // The flex wrapper covers the other half of it: a flex item defaults to
+  // min-width:auto and refuses to shrink below its content.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setContent(
+    '<link rel="stylesheet" href="/assets/portal.css">' +
+    '<div style="box-sizing:content-box;width:100%;padding:0 20px">' +
+      '<div style="box-sizing:content-box;width:100%;padding:0 16px;display:flex">' +
+        '<div class="dashboard-right" style="box-sizing:content-box;width:100%;padding:0 12px">' +
+          '<div class="afristream-portal" data-afristream-portal data-default-tab="profile" data-show-sport="true"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<script src="/assets/portal.js"></script>'
+  );
+
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+
+  const overflow = await page.evaluate(() => {
+    const de = document.documentElement;
+    return de.scrollWidth - de.clientWidth;
+  });
+  expect(overflow, 'a nested theme wrapper widens the page past the viewport').toBe(0);
+});
+
+test('Editor Picks keeps filling in while the server reports a partial list', async ({ page }) => {
+  // Resolving the watchlist through TMDB is time-budgeted server-side, so a cold
+  // cache answers with only part of the list and flags it `partial`. The front end
+  // has to keep asking — otherwise the visitor is stranded on the short version,
+  // which is what made a 130-title watchlist show as 60.
+  const pick = (i) => ({
+    t: `Pick ${i + 1}`, id: 100 + i, genre: 'Drama', rating: 8, rank: i + 1,
+    type: 'Movies', poster: null, meta: '2024', platform: '★ 8.0', country: '',
+  });
+  let calls = 0;
+  await page.route('**/api/editor-picks*', async (route) => {
+    calls += 1;
+    const partial = calls === 1;
+    await route.fulfill({
+      json: {
+        source: 'imdb',
+        partial,
+        picks: Array.from({ length: partial ? 3 : 7 }, (_, i) => pick(i)),
+      },
+    });
+  });
+
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+
+  // Today's Pick is lifted out of the list, so the grid carries the remainder.
+  const cards = page.getByTestId('editor-grid').locator('.as-editor-card');
+  await expect(cards).toHaveCount(2);
+  await expect(cards).toHaveCount(6, { timeout: 20000 });
+  expect(calls).toBeGreaterThan(1);
+});
+
+test('the baked Editor Picks list is complete, well-formed and in the plugin payload', async ({ request }) => {
+  // data/editor-picks.json is the watchlist already resolved through TMDB at
+  // build time — the whole point being that serving it costs a file read rather
+  // than one round-trip per title. It ships inside the plugin, so a malformed or
+  // truncated bake is a deploy problem, not a runtime one.
+  const ids = await (await request.get('/data/editor-picks-ids.txt')).text();
+  const idCount = (ids.match(/tt\d+/g) || []).length;
+  expect(idCount).toBeGreaterThan(0);
+
+  const res = await request.get('/data/editor-picks.json');
+  expect(res.ok()).toBeTruthy();
+  const json = await res.json();
+
+  expect(json.source).toBe('imdb');
+  expect(Array.isArray(json.picks)).toBeTruthy();
+  // Every ID should resolve; allow a small margin for a title TMDB genuinely
+  // does not carry, but not for a run that quietly stopped part-way.
+  expect(json.picks.length).toBeGreaterThanOrEqual(Math.floor(idCount * 0.9));
+
+  for (const p of json.picks) {
+    expect(typeof p.t).toBe('string');
+    expect(p.t.length).toBeGreaterThan(0);
+    expect(typeof p.id).toBe('number');
+    expect(['Movies', 'Series']).toContain(p.type);
+    if (p.rating !== null) {
+      expect(p.rating).toBeGreaterThan(0);
+      expect(p.rating).toBeLessThanOrEqual(10);
+    }
+  }
+  // Ranks are gap-free and in order — the front end renders them as badges.
+  expect(json.picks.map((p) => p.rank)).toEqual(json.picks.map((_, i) => i + 1));
+  // A baked payload is complete by definition, so it must never ask the front
+  // end to poll for more.
+  expect(json.partial).toBeUndefined();
+});
+
+test('the watchlist sync only ever adds titles', () => {
+  // IMDb shows at most 250 rows of a public watchlist, so a scrape is a window
+  // onto the list. Replacing the file with that window is what silently dropped
+  // 120 titles; merging has to keep everything outside it.
+  const existing = parseEntries('tt0000001 8.0\ntt0000002 7.5\ntt0000003');
+
+  // A scrape that sees only part of the list drops nothing.
+  const partial = mergeEntries(existing, [{ id: 'tt0000002', rating: '7.5' }]);
+  expect(partial.entries.map((e) => e.id)).toEqual(['tt0000001', 'tt0000002', 'tt0000003']);
+  expect(partial.added).toBe(0);
+
+  // An empty scrape is a no-op, not an erasure.
+  expect(mergeEntries(existing, []).entries).toHaveLength(3);
+
+  // New titles are appended, and existing order is preserved.
+  const grown = mergeEntries(existing, [{ id: 'tt0000009', rating: '9.1' }]);
+  expect(grown.entries.map((e) => e.id)).toEqual(['tt0000001', 'tt0000002', 'tt0000003', 'tt0000009']);
+  expect(grown.added).toBe(1);
+  expect(grown.entries[3].rating).toBe(9.1);
+
+  // A changed rating is taken; a missing one never wipes the rating we hold,
+  // because IMDb hides the score on some rows and that is not a change.
+  const rerated = mergeEntries(existing, [
+    { id: 'tt0000001', rating: '8.4' },
+    { id: 'tt0000002', rating: null },
+  ]);
+  expect(rerated.entries[0].rating).toBe(8.4);
+  expect(rerated.entries[1].rating).toBe(7.5);
+  expect(rerated.updated).toBe(1);
+});
+
+test('every baked pick carries the IMDb id its resolve cache is keyed on', async ({ request }) => {
+  // Without this a re-bake cannot tell which titles it has already resolved and
+  // re-fetches the whole list from TMDB to add a handful of new films.
+  const json = await (await request.get('/data/editor-picks.json')).json();
+  for (const p of json.picks) {
+    expect(p.imdb, `pick "${p.t}" has no imdb id`).toMatch(/^tt\d+$/);
+  }
+  // And the ids are unique, or the cache would collapse entries together.
+  const ids = json.picks.map((p) => p.imdb);
+  expect(new Set(ids).size).toBe(ids.length);
 });
 
 test('the Apps tab shows the unavailable notice when no apps URL is configured', async ({ page }) => {

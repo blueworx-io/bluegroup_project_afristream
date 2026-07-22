@@ -1,16 +1,17 @@
-// Stages the deployable plugin folder at dist/afristream-portal/ — exactly
-// what gets zipped into afristream-portal.zip (the deployment artifact).
-// Only runtime files are included; repo tooling (tests, preview, CI) is not.
+// Stages the deployable plugin folder at dist/bluegroup-project-afristream/ —
+// exactly what gets zipped into bluegroup-project-afristream.zip (the deployment
+// artifact). Only runtime files are included; repo tooling (tests, preview, CI)
+// is not.
 
 import { cpSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
 const ROOT = process.cwd();
-const SLUG = 'afristream-portal';
+const SLUG = 'bluegroup-project-afristream';
 const OUT = join(ROOT, 'dist', SLUG);
 
-const INCLUDE = ['afristream-portal.php', 'assets', 'includes', 'data'];
+const INCLUDE = ['bluegroup-project-afristream.php', 'assets', 'includes', 'data'];
 
 rmSync(join(ROOT, 'dist'), { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });

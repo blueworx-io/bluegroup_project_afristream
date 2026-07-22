@@ -141,8 +141,26 @@ async function resolvePick(imdbId, fallbackTitle, rank, movieGenres, tvGenres) {
   };
 }
 
+// Mirrors afristream_portal_baked_picks(): the watchlist resolved through TMDB at
+// build time and shipped as data/editor-picks.json, so serving it is a file read.
+// Only the default list is baked — an EDITOR_PICKS_IDS override (the WP admin box)
+// has no baked copy and still goes through the live resolver.
+let bakedPicks;
+function bakedPicksPayload() {
+  if (bakedPicks !== undefined) return bakedPicks;
+  bakedPicks = null;
+  if (process.env.EDITOR_PICKS_IDS) return bakedPicks;
+  try {
+    const json = JSON.parse(readFileSync(join(ROOT, 'data', 'editor-picks.json'), 'utf8'));
+    if (json?.picks?.length) bakedPicks = json;
+  } catch { /* not built yet — fall through to the live resolver */ }
+  return bakedPicks;
+}
+
 async function editorPicksPayload() {
   if (process.env.WATCH_OFFLINE === '1') return { source: 'fallback', reason: 'offline' };
+  const baked = bakedPicksPayload();
+  if (baked) return baked;
   if (editorCache && Date.now() - editorCacheAt < 12 * 60 * 60 * 1000) return editorCache;
   const ids = parseEditorIds(editorIdsSource());
   if (!ids.length) return editorCache || { source: 'fallback', reason: 'no-ids' };
