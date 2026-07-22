@@ -20,9 +20,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **Tips & Tricks and Troubleshooting are hidden from the nav.** Both sections, their content and the `[troubleshooting_guide]` shortcode are untouched and still reachable through `default_tab="tips"` / `"help"`, so bringing them back is a two-line change.
 
-- **Free Streaming is down to eight apps, capped at four per category.** Live TV and Documentaries are retired as categories, leaving Movies, Series and Sport with four apps each: Tubi, Plex, Kanopy and ARTE.tv for films, plus BBC iPlayer for series, and DAZN, Red Bull TV and the Olympics app for sport. There is deliberately no per-device cap — nearly every app runs on all five device classes, so capping by device would force the whole directory down to four entries.
+- **Free Streaming is down to eight apps, capped at four per category.** Live TV and Documentaries are retired as categories, leaving Movies, Series and Sport with four apps each: Tubi, Plex, Kanopy and ARTE.tv for films, plus BBC iPlayer for series, and DAZN, Red Bull TV and the Olympics app for sport.
 
-- **The region filter is gone from Free Streaming**, along with the `regions` array on every entry. Regional scope is now stated once, in the `availability` line inside the app drawer, instead of being both a filter and a sentence.
+- **Category is now the only filter on Free Streaming.** The device pills and the region dropdown are both gone, and the `regions` array comes off every entry. Devices are still listed on each card and stepped through in the app drawer — they just no longer narrow the grid, since choosing a device is what the Setup tab is for. Regional scope is stated once, in the `availability` line inside the drawer, instead of being both a filter and a sentence.
 
 ### Fixed
 

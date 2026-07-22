@@ -331,7 +331,6 @@
       country: 'All Countries',
       decade: 'All Decades',
       sort: 'Recommended',
-      appsDevice: 'All',
       appsContent: 'All',
       editorTag: 'All',
       editorRating: 0,
@@ -1049,17 +1048,15 @@
     // Names the filters actually narrowing the grid, so the empty state says
     // why nothing matched rather than just that nothing did.
     function activeFilterSummary() {
-      const bits = [];
-      if (state.appsDevice !== 'All') bits.push(APP_DEVICE_LABEL(state.appsDevice));
-      if (state.appsContent !== 'All') bits.push(state.appsContent);
-      return bits.length ? bits.join(' · ') : 'these filters';
+      return state.appsContent === 'All' ? 'these filters' : state.appsContent;
     }
 
+    // Content category is the only filter. Devices are still listed on each card
+    // and stepped through in the drawer, but they no longer narrow the grid —
+    // picking a device is the Setup tab's job, not this one's.
     function filteredApps() {
       const list = appsData || [];
-      return list.filter((a) =>
-        (state.appsDevice === 'All' || a.devices.includes(state.appsDevice)) &&
-        (state.appsContent === 'All' || a.content.includes(state.appsContent)));
+      return list.filter((a) => state.appsContent === 'All' || a.content.includes(state.appsContent));
     }
 
     const costBadge = (a) => `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:${a.cost === 'free' ? '#E7F8EF' : '#F7E9FF'};color:${a.cost === 'free' ? '#0B7A44' : '#65009F'}">${a.cost === 'free' ? 'Free' : 'Free tier'}</span>`;
@@ -1083,7 +1080,7 @@
 <section data-screen-label="Free Streaming">
   <div style="margin:2px 2px 18px">
     <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Streaming</h1>
-    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free films, series and sport you can watch alongside AfriStream — pick your device to see what runs on it.</p>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free films, series and sport you can watch alongside AfriStream. Open any one to see which devices it runs on and how to install it.</p>
   </div>
   ${inner}
   <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Availability and free tiers change without notice. AfriStream is not affiliated with any of the services listed here.</p>
@@ -1113,10 +1110,6 @@
         `<button style="${subBtn(active)}" data-act="${act}" data-val="${esc(val)}" aria-pressed="${active}">${esc(label)}</button>`;
 
       return shell(`
-  <div data-testid="apps-device-filters" role="group" aria-label="Filter apps by device" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px">
-    ${pill('apps-device', 'All', 'All', state.appsDevice === 'All')}
-    ${APP_DEVICES.map((d) => pill('apps-device', d.key, d.label, state.appsDevice === d.key)).join('')}
-  </div>
   <div style="display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;margin:0 2px 18px">
     <div data-testid="apps-content-filters" role="group" aria-label="Filter apps by content" style="display:flex;gap:8px;flex-wrap:wrap">
       ${pill('apps-content', 'All', 'All', state.appsContent === 'All')}
@@ -1424,9 +1417,8 @@ ${state.detail ? detailDrawer(state.detail) : ''}
           if (val === 'apps' && appsState === 'idle') loadApps();
           break;
         case 'apps-retry': loadApps(); break;
-        case 'apps-device': setState({ appsDevice: val }); break;
         case 'apps-content': setState({ appsContent: val }); break;
-        case 'apps-reset': setState({ appsDevice: 'All', appsContent: 'All' }); break;
+        case 'apps-reset': setState({ appsContent: 'All' }); break;
         case 'setup-device': setState({ setupDevice: val }); break;
         case 'setup-restart': setState({ setupDevice: '' }); break;
         case 'go-profile': setState({ section: 'profile' }); break;

@@ -122,14 +122,24 @@ Renamed from "Free Apps" in the nav, the `<h1>`, and the section label.
 to `['Movies','Series','Sport']`. Live TV and Documentaries are gone as filters
 and as tags. `APP_CONTENT_HUE` is reduced to match.
 
-### Region filter removed
+### Region and device filters removed
 
-The region control, `state.appsRegion`, the `apps-region` handler, the region
-clause in `filteredApps()`, the region term in `activeFilterSummary()`, the
-`APP_REGIONS` vocabulary and the `regions` key on every entry in
-`data/apps.json` all come out. The human-readable `availability` string stays —
-it is still shown in the detail drawer, which is now the only place regional
-scope is communicated.
+Content category is the only filter left on the tab.
+
+The region control, `state.appsRegion`, the `apps-region` handler and its
+`change` listener, the `APP_REGIONS` vocabulary and the `regions` key on every
+entry in `data/apps.json` all come out. The human-readable `availability` string
+stays — it is still shown in the detail drawer, which is now the only place
+regional scope is communicated.
+
+The device pills, `state.appsDevice` and the `apps-device` handler come out
+too. `APP_DEVICES`, `APP_DEVICE_LABEL` and `APP_INSTALL_DEFAULTS` all stay:
+devices are still listed in each card's footer and stepped through in the app
+drawer's "Install on" block. They just no longer narrow the grid — choosing a
+device is what the Setup tab is for, and duplicating that choice here only
+split the same job across two tabs.
+
+`filteredApps()` and `activeFilterSummary()` reduce to the content clause alone.
 
 ### Directory trimmed to 8 apps
 
@@ -153,14 +163,14 @@ explicit instruction. Blurbs that sold a service on its live-channel lineup
 (Plex) are reworded to describe the on-demand catalogue instead, since Live TV
 is no longer something the directory surfaces.
 
-A consequence worth noting: with only eight apps left, every device × category
-pair has at least one app behind it, so the "no apps match these filters" empty
-state is no longer reachable from the shipped data. Its test drives a stubbed
-directory instead.
+A consequence worth noting: every category has four apps behind it, so the "no
+apps match these filters" empty state is no longer reachable from the shipped
+data. Its test drives a stubbed directory instead.
 
-There is deliberately **no cap per device type**. Nearly every app runs on all
-five device classes, so a 4-per-device cap would force the whole directory down
-to four apps. The device filter therefore still returns up to 8 results.
+There is no cap per device type, because there is no longer a device filter to
+cap. Nearly every app runs on all five device classes, which is what made the
+device filter close to useless here and a 4-per-device cap impossible without
+gutting the directory.
 
 ## Editor Picks rating filter
 
@@ -208,8 +218,9 @@ Playwright, against the local preview harness:
   both codes and the developer-mode note; changing device swaps the steps; the
   sign-in button lands on Account.
 - Download: both platform panels render and the page points at Setup.
-- Free Streaming: heading renamed, no region control, content filters are
-  exactly All/Movies/Series/Sport.
+- Free Streaming: heading renamed, neither the region nor the device control is
+  present, content filters are exactly All/Movies/Series/Sport, and the category
+  filter narrows the grid to that category.
 - Apps schema test updated — no `regions` key, content values within the new
   vocabulary, at most 4 per category.
 - Editor Picks: each band is isolated in turn against a five-pick fixture

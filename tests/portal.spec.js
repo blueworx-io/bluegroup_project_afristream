@@ -947,36 +947,27 @@ test('the Apps tab reports a failed database load instead of rendering an empty 
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
 });
 
-test('device pills narrow the app grid to apps that run on that device', async ({ page }) => {
+test('the content filter narrows the app grid to that category', async ({ page }) => {
   await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
 
-  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
+  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
-  const expected = apps.filter((a) => a.devices.includes('consoles'));
+  const expected = apps.filter((a) => a.content.includes('Sport'));
   expect(expected.length).toBeGreaterThan(0);
   await expect(grid.locator('[data-app-id]')).toHaveCount(expected.length);
   for (const a of expected) await expect(grid.locator(`[data-app-id="${a.id}"]`)).toBeVisible();
 });
 
-test('the content filter combines with the device filter', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
-
-  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Phones' }).click();
-  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
-
-  const { apps } = await (await page.request.get('/data/apps.json')).json();
-  const expected = apps.filter((a) => a.devices.includes('phones') && a.content.includes('Sport'));
-  expect(expected.length).toBeGreaterThan(0);
-  await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(expected.length);
-});
-
-test('the region control is gone', async ({ page }) => {
+test('the region and device controls are both gone', async ({ page }) => {
+  // Category is the only filter left. Devices are still shown on each card and
+  // stepped through in the drawer — picking one is the Setup tab's job.
   await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
   await expect(page.getByTestId('apps-grid')).toBeVisible();
   await expect(page.getByLabel('Region')).toHaveCount(0);
+  await expect(page.getByTestId('apps-device-filters')).toHaveCount(0);
 });
 
 test('the content filters offer only Movies, Series and Sport', async ({ page }) => {
@@ -985,17 +976,16 @@ test('the content filters offer only Movies, Series and Sport', async ({ page })
     .toHaveText(['All', 'Movies', 'Series', 'Sport']);
 });
 
-test('an impossible filter combination shows an empty state that resets', async ({ page }) => {
-  // Every device x category pair in the shipped directory now has at least one
-  // app behind it, so the empty state is only reachable against a stub. This
-  // one runs on phones only, leaving Consoles + Sport with nothing.
+test('a category with nothing behind it shows an empty state that resets', async ({ page }) => {
+  // Every shipped category has four apps, so the empty state is only reachable
+  // against a stub. This one carries Sport alone, leaving Movies with nothing.
   const stub = {
     updated: '2026-07-22',
     apps: [{
       id: 'stub-sport',
       name: 'Stub Sport',
       cost: 'free',
-      blurb: 'A stub entry that exists only to leave one filter pair empty.',
+      blurb: 'A stub entry that exists only to leave one category empty.',
       content: ['Sport'],
       devices: ['phones'],
       availability: 'Nowhere - this is a test fixture',
@@ -1007,25 +997,23 @@ test('an impossible filter combination shows an empty state that resets', async 
   await page.goto('/');
 
   await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
-  await page.getByTestId('apps-device-filters').getByRole('button', { name: 'Consoles' }).click();
-  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Sport', exact: true }).click();
+  await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Movies', exact: true }).click();
 
   const empty = page.getByTestId('apps-empty');
   await expect(empty).toBeVisible();
-  await expect(empty).toContainText('Consoles');
-  await expect(empty).toContainText('Sport');
+  await expect(empty).toContainText('Movies');
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Reset filters' }).click();
   await expect(page.getByTestId('apps-grid').locator('[data-app-id]')).toHaveCount(stub.apps.length);
 });
 
-test('the active device pill is marked pressed for assistive tech', async ({ page }) => {
+test('the active content pill is marked pressed for assistive tech', async ({ page }) => {
   await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
-  const pills = page.getByTestId('apps-device-filters');
+  const pills = page.getByTestId('apps-content-filters');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await pills.getByRole('button', { name: 'Tablets' }).click();
-  await expect(pills.getByRole('button', { name: 'Tablets' })).toHaveAttribute('aria-pressed', 'true');
+  await pills.getByRole('button', { name: 'Series', exact: true }).click();
+  await expect(pills.getByRole('button', { name: 'Series', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
 
