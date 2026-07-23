@@ -22,6 +22,32 @@
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+  // Commission runs for the life of the subscription, so a month's income is
+  // every cohort whose renewal lands in it — not just that month's new sign-ups.
+  // Minor units throughout (pence, cents) so twelve months of arithmetic cannot
+  // drift by a penny. Returns totals plus the month-by-month series the chart
+  // draws.
+  const projectEarnings = (commissionMinor, perMonth, intervalMonths, months) => {
+    const step = Math.max(1, intervalMonths);
+    const monthly = [];
+    for (let m = 0; m < months; m++) {
+      let payers = 0;
+      for (let cohort = 0; cohort <= m; cohort++) {
+        if ((m - cohort) % step === 0) payers += perMonth;
+      }
+      monthly.push(payers * commissionMinor);
+    }
+    return {
+      monthly,
+      first: monthly[0] || 0,
+      last: monthly[months - 1] || 0,
+      total: monthly.reduce((a, b) => a + b, 0)
+    };
+  };
+
+  // A yearly plan renews every twelve months; interval_count multiplies both.
+  const planIntervalMonths = (plan) => Math.max(1, ('year' === plan.interval ? 12 : 1) * (Number(plan.interval_count) || 1));
+
   const yr = (meta) => {
     const m = String(meta).match(/((?:19|20)\d\d)/);
     return m ? +m[1] : 0;
@@ -407,6 +433,15 @@
       return `${lead} every payment, for as long as they stay subscribed.`;
     }
 
+    // What one payment on a given sale value earns this affiliate. A percentage
+    // structure wins over a fixed amount when SureCart somehow returns both.
+    const commissionPerPayment = (amountMinor) => {
+      const c = (affiliate && affiliate.commission) || {};
+      if (c.percent) return Math.round((amountMinor * c.percent) / 100);
+      if (c.amount) return Math.round(c.amount);
+      return 0;
+    };
+
     // ------------------------------------------------------------ sections
 
     function profileSection() {
@@ -475,6 +510,38 @@
       const portalUrl = aff.portal_url || 'https://afristream.surecart.com/affiliates/';
       const referral = aff.referral_url || '';
 
+      const plans = Array.isArray(aff.plans) ? aff.plans : [];
+      const plan = plans.find((p) => p.id === state.affPlan) || plans[0] || null;
+      const currency = plan ? plan.currency : (aff.currency || 'usd');
+      // Clamped for the maths only — the input keeps rendering exactly what was
+      // typed, or clearing the box to type "10" would snap it back to 1.
+      const perMonth = Math.max(1, Math.min(100, Number(state.affPerMonth) || 1));
+      // No live prices to pick from — the affiliate types what a sale is worth.
+      const saleMinor = plan ? plan.amount : Math.max(0, Math.round((Number(state.affValue) || 0) * 100));
+      const intervalMonths = plan ? planIntervalMonths(plan) : 1;
+      const perPayment = commissionPerPayment(saleMinor);
+      const proj = projectEarnings(perPayment, perMonth, intervalMonths, 12);
+      const peak = Math.max.apply(null, proj.monthly.concat([1]));
+
+      const inputStyle = 'width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:13px;padding:12px 14px;font-family:inherit;font-size:14px;color:inherit';
+      const figure = (id, label, value) => `
+        <div style="background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:14px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(11,21,51,.5)">${esc(label)}</div>
+          <div data-testid="${id}" style="margin-top:5px;font-size:21px;font-weight:800;letter-spacing:-0.02em;color:#65009F">${esc(value)}</div>
+        </div>`;
+
+      const picker = plans.length
+        ? `<label style="display:block">
+            <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">Plan they sign up to</span>
+            <select data-testid="aff-plan" data-act="aff-plan" style="${inputStyle}">
+              ${plans.map((p) => `<option value="${esc(p.id)}"${p.id === (plan ? plan.id : '') ? ' selected' : ''}>${esc(p.name)} · ${esc(money(p.amount, p.currency))} / ${esc('year' === p.interval ? 'year' : 'month')}</option>`).join('')}
+            </select>
+          </label>`
+        : `<label style="display:block">
+            <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">What one subscription is worth</span>
+            <input data-testid="aff-value-input" data-act="aff-value" type="number" min="0" step="1" value="${esc(state.affValue)}" style="${inputStyle}">
+          </label>`;
+
       return `
   <div data-testid="affiliate-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
     <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
@@ -488,6 +555,33 @@
         <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-referral">${state.copied === 'referral' ? 'Copied!' : 'Copy link'}</button>
       </div>
     </div>` : ''}
+  </div>
+
+  <div data-testid="affiliate-calculator" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">What you could earn</h2>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Because commission is paid on every payment, each person you sign up keeps paying you while the next one starts. That is what stacks up over a year.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px">
+      ${picker}
+      <label style="display:block">
+        <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">People you sign up each month</span>
+        <input data-testid="aff-per-month" data-act="aff-per-month" type="number" min="1" max="100" step="1" value="${esc(state.affPerMonth)}" style="${inputStyle}">
+      </label>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+      ${figure('aff-per-payment', 'Each payment', money(perPayment, currency))}
+      ${figure('aff-month-1', 'Month 1', money(proj.first, currency))}
+      ${figure('aff-month-12', 'Month 12', money(proj.last, currency))}
+      ${figure('aff-year-total', 'First year', money(proj.total, currency))}
+    </div>
+
+    <div data-testid="aff-chart" aria-hidden="true" style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:20px">
+      ${proj.monthly.map((v, i) => `<div data-bar title="Month ${i + 1}" style="flex:1;height:${Math.max(3, Math.round((v / peak) * 100))}%;background:linear-gradient(180deg,#CD2DF5,#65009F);border-radius:6px 6px 3px 3px"></div>`).join('')}
+    </div>
+    <div aria-hidden="true" style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:rgba(11,21,51,.45)"><span>Month 1</span><span>Month 12</span></div>
+
+    <p style="margin:16px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These figures assume the people you sign up stay subscribed — commission keeps coming for as long as they do, and stops if they cancel.</p>
   </div>`;
     }
 
@@ -1752,7 +1846,11 @@
       let caret = 0;
       let hadFocus = false;
       const active = document.activeElement;
-      if (preserveFocus && active && active.getAttribute && active.getAttribute('data-act') === 'query') {
+      const activeAct = preserveFocus && active && active.getAttribute ? active.getAttribute('data-act') : null;
+      // Inputs that re-render on every keystroke have to get their focus and
+      // caret back, or typing a two-digit number is impossible.
+      const focusAct = ['query', 'aff-per-month', 'aff-value'].includes(activeAct) ? activeAct : null;
+      if (focusAct) {
         hadFocus = true;
         caret = active.selectionStart;
       }
@@ -1781,10 +1879,10 @@ ${state.detail ? detailDrawer(state.detail) : ''}
 </div>`;
 
       if (hadFocus) {
-        const input = root.querySelector('[data-act="query"]');
+        const input = root.querySelector(`[data-act="${focusAct}"]`);
         if (input) {
           input.focus();
-          try { input.setSelectionRange(caret, caret); } catch (e) { /* type=search quirk — ignore */ }
+          try { input.setSelectionRange(caret, caret); } catch (e) { /* number/search inputs reject this — ignore */ }
         }
       }
 
@@ -1875,9 +1973,22 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     });
 
     root.addEventListener('input', (e) => {
-      if (e.target.getAttribute && e.target.getAttribute('data-act') === 'query') {
+      const act = e.target.getAttribute && e.target.getAttribute('data-act');
+      if ('query' === act) {
         state.query = e.target.value;
         render(true);
+      } else if ('aff-per-month' === act) {
+        state.affPerMonth = e.target.value;
+        render(true);
+      } else if ('aff-value' === act) {
+        state.affValue = e.target.value;
+        render(true);
+      }
+    });
+
+    root.addEventListener('change', (e) => {
+      if (e.target.getAttribute && 'aff-plan' === e.target.getAttribute('data-act')) {
+        setState({ affPlan: e.target.value });
       }
     });
 
