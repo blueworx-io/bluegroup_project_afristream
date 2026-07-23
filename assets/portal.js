@@ -1020,8 +1020,10 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
       ${WHY_A_DEVICE.map((w, i) => `
         <div style="display:flex;flex-direction:column;gap:7px">
-          <span aria-hidden="true" style="width:26px;height:26px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800">${i + 1}</span>
-          <div style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(w.title)}</div>
+          <div style="display:flex;align-items:center;gap:9px">
+            <span aria-hidden="true" style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800">${i + 1}</span>
+            <div style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(w.title)}</div>
+          </div>
           <div style="font-size:13px;line-height:1.6;color:rgba(11,21,51,.68)">${esc(w.body)}</div>
         </div>`).join('')}
     </div>
