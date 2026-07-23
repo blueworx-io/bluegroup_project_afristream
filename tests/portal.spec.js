@@ -603,6 +603,61 @@ test('editor picks offers only the three content types, not a genre dump', async
   await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
 });
 
+// Fixture genres are Drama, Thriller, Comedy, Documentary and Drama. None of
+// them is an Action, Adventure or Animation title outright, so this also proves
+// the fallback mapping: the two Dramas answer to Thriller and the Documentary,
+// which has no shelf of its own, lands on Adventure.
+test('editor picks offers sub-categories alphabetically, with every pick on one', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  const categoryRow = section.getByRole('group', { name: 'Filter by category' });
+
+  await expect(categoryRow.getByRole('button')).toHaveText(['All', 'Adventure', 'Comedy', 'Thriller']);
+
+  // Thriller holds the real thriller and both dramas.
+  await categoryRow.getByRole('button', { name: 'Thriller', exact: true }).click();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Five')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+  await expect(page.getByText('Fixture Pick Four')).toHaveCount(0);
+
+  await categoryRow.getByRole('button', { name: 'Comedy', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
+
+  // The documentary has no shelf of its own and falls back rather than vanishing.
+  await categoryRow.getByRole('button', { name: 'Adventure', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Four')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+
+  await categoryRow.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+});
+
+test('the category and type filters narrow each other', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  const typeRow = section.getByRole('group', { name: 'Filter by type' });
+  const categoryRow = section.getByRole('group', { name: 'Filter by category' });
+
+  // Documentaries holds one pick, mapped to Adventure — so that is the only
+  // shelf the row may offer once the type is narrowed to it.
+  await typeRow.getByRole('button', { name: 'Documentaries', exact: true }).click();
+  await expect(categoryRow.getByRole('button')).toHaveText(['All', 'Adventure']);
+
+  // Series holds the Thriller and one Drama, both on the Thriller shelf.
+  await typeRow.getByRole('button', { name: 'Series', exact: true }).click();
+  await expect(categoryRow.getByRole('button')).toHaveText(['All', 'Thriller']);
+  await categoryRow.getByRole('button', { name: 'Thriller', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Five')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+});
+
 // Bands are exclusive, not thresholds: picking 8 must not drag the 9.1 pick in
 // with it. Fixture ratings are 6.4, 7.6, 8.1, 8.5 and 9.1 — one per band, with
 // two in the 8s so a band can hold more than one.
@@ -1569,9 +1624,53 @@ test('an affiliate gets the tab, their referral link and their rate', async ({ p
   await expect(page.getByTestId('affiliate-referral')).toHaveText('https://afristream.io/?ref=FIXTURE1');
   await expect(page.getByTestId('affiliate-rate')).toHaveText('You earn 30% of every payment, for as long as they stay subscribed.');
   await expect(page.getByTestId('affiliate-portal-link')).toHaveAttribute('href', 'https://afristream.surecart.com/affiliates/');
+  await expect(page.getByTestId('affiliate-portal-link')).toHaveText('Open Dashboard ↗');
 
-  await page.getByRole('button', { name: 'Copy link' }).click();
+  // First of the three copy buttons on the card — the referral link's own.
+  await page.getByRole('button', { name: 'Copy link' }).first().click();
   await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible();
+});
+
+test('the heading and the dashboard button share a line', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto('/preview/affiliate.html');
+
+  const heading = await page.getByRole('heading', { name: 'Your affiliate dashboard' }).boundingBox();
+  const button = await page.getByTestId('affiliate-portal-link').boundingBox();
+  // Side by side: the button starts to the right of the heading, not under it.
+  expect(button.x).toBeGreaterThan(heading.x + heading.width);
+  expect(button.y).toBeLessThan(heading.y + heading.height + button.height);
+});
+
+test('on a narrow screen the dashboard button drops under the text', async ({ page }) => {
+  await page.setViewportSize({ width: 380, height: 900 });
+  await page.goto('/preview/affiliate.html');
+
+  const rate = await page.getByTestId('affiliate-rate').boundingBox();
+  const button = await page.getByTestId('affiliate-portal-link').boundingBox();
+  expect(button.y).toBeGreaterThanOrEqual(rate.y + rate.height);
+});
+
+test('the buy links sit under the referral link carrying the referral code', async ({ page }) => {
+  await page.goto('/preview/affiliate.html');
+
+  const subscription = 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=e204f70c-35dc-498c-b2b4-e850e6d84ac8&line_items%5B0%5D%5Bquantity%5D=1&ref=FIXTURE1';
+  const setup = 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=8b2a7b7a-cf23-4f96-97f6-47acfe925412&line_items%5B0%5D%5Bquantity%5D=1&ref=FIXTURE1';
+
+  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveText(subscription);
+  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveText(setup);
+
+  const referral = await page.getByTestId('affiliate-referral').boundingBox();
+  const buys = await page.getByTestId('affiliate-buy-links').boundingBox();
+  expect(buys.y).toBeGreaterThan(referral.y);
+
+  // Three copy buttons on the card: referral, then the two buy links. Copying
+  // a buy link turns that one — and only that one — into "Copied!".
+  const copyButtons = page.getByRole('button', { name: 'Copy link' });
+  await expect(copyButtons).toHaveCount(3);
+  await copyButtons.nth(1).click();
+  await expect(page.getByRole('button', { name: 'Copied!' })).toHaveCount(1);
+  await expect(copyButtons).toHaveCount(2);
 });
 // Subscriptions are annual. £120 a year at 30% is £36 a renewal. Sign up five
 // people a year and every one of them renews: year 1 is five payments (£180),

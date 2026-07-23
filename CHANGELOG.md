@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-07-23
+
+### Added
+
+- **Buy links on the affiliate card.** The two AfriStream checkout links — Subscription, and Subscription & Setup — sit under the referral link with the affiliate's referral code already appended, so a sale made through one is credited to them. The code is read off their own referral link rather than hardcoded, so if SureCart renames the tracking parameter the buy links follow it instead of quietly attributing to nobody.
+
+- **Sub-categories on Editor Picks.** A Category row offers Action, Adventure, Animation, Comedy, Romance and Thriller, alphabetically, alongside the existing type and rating filters. Every pick answers to exactly one of them: TMDB returns a far wider genre list than six, so crime, mystery, horror and drama fold into Thriller, the speculative genres and family into Adventure, war and westerns into Action, and anything with no near neighbour — documentaries, history, music — falls back to Adventure rather than dropping out of the filter. Cards still show their real genre.
+
+### Changed
+
+- The affiliate card's heading, rate line and dashboard button share one line, and the button now reads **Open Dashboard**. Below roughly 380px the button drops under the text rather than squeezing the rate sentence.
+
 ## [0.18.1] - 2026-07-23
 
 ### Fixed

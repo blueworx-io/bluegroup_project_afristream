@@ -61,6 +61,25 @@
   // commission compounds into over a decade of renewals.
   const AFF_YEARS = 10;
 
+  // The two things an affiliate actually sends people to buy. The price ids are
+  // SureCart's and the bracket escaping is deliberate — these are pasted from
+  // the store's own buy links and must survive verbatim.
+  const AFF_BUY_LINKS = [
+    { key: 'subscription', label: 'AfriStream Subscription', url: 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=e204f70c-35dc-498c-b2b4-e850e6d84ac8&line_items%5B0%5D%5Bquantity%5D=1' },
+    { key: 'subscription-setup', label: 'AfriStream Subscription & Setup', url: 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=8b2a7b7a-cf23-4f96-97f6-47acfe925412&line_items%5B0%5D%5Bquantity%5D=1' },
+  ];
+
+  // A buy link earns nothing unless it carries the affiliate's code, so the
+  // referral URL's own query is lifted off and appended. Read from the URL
+  // rather than hardcoded as "ref=" because the parameter is SureCart's to
+  // name — if the store renames it, the referral link changes with it and
+  // these follow, instead of quietly attributing to nobody.
+  const withReferral = (url, referralUrl) => {
+    const query = String(referralUrl || '').split('#')[0].split('?')[1] || '';
+    if (!query) return url;
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + query;
+  };
+
   // "£45 / month" for a plain monthly or annual price; a multi-month interval
   // (a quarterly price, say) is a lie as "/ month", so it gets spelled out —
   // "every 3 months" — instead.
@@ -177,6 +196,46 @@
   // 8.0–8.9 and nothing higher. The top step stays open-ended so a perfect 10
   // is not stranded outside every band.
   const EDITOR_RATING_STEPS = [6, 7, 8, 9];
+  // Sub-categories, offered alphabetically. Deliberately a small, coarse set:
+  // six shelves people actually browse by, not the twenty-odd genres TMDB
+  // returns.
+  const EDITOR_CATEGORIES = ['Action', 'Adventure', 'Animation', 'Comedy', 'Romance', 'Thriller'];
+  // Every pick lands on exactly one shelf, so nothing falls out of the filter.
+  // TMDB's genre list is wider than the six, and a title only carries its first
+  // genre here, so the rest are folded into their nearest neighbour: crime and
+  // horror sit with Thriller, the speculative genres with Adventure, war and
+  // westerns with Action. Drama is the awkward one — it is the largest genre
+  // and none of the six is a drama shelf, so it goes to Thriller, the closest
+  // in tone. The card itself keeps showing the real genre; this mapping only
+  // decides which pill a title answers to.
+  const EDITOR_CATEGORY_MAP = {
+    'Action': 'Action',
+    'Action & Adventure': 'Action',
+    'War': 'Action',
+    'War & Politics': 'Action',
+    'Western': 'Action',
+    'Adventure': 'Adventure',
+    'Fantasy': 'Adventure',
+    'Science Fiction': 'Adventure',
+    'Sci-Fi & Fantasy': 'Adventure',
+    'Family': 'Adventure',
+    'Animation': 'Animation',
+    'Kids': 'Animation',
+    'Comedy': 'Comedy',
+    'Reality': 'Comedy',
+    'Romance': 'Romance',
+    'Soap': 'Romance',
+    'Thriller': 'Thriller',
+    'Crime': 'Thriller',
+    'Mystery': 'Thriller',
+    'Horror': 'Thriller',
+    'Drama': 'Thriller',
+  };
+  // Anything unmapped — documentaries, history, music, and the bare "Film" /
+  // "Movies" placeholders a failed TMDB lookup leaves behind — goes to
+  // Adventure rather than being dropped from every shelf.
+  const EDITOR_CATEGORY_DEFAULT = 'Adventure';
+  const editorCategoryOf = (p) => EDITOR_CATEGORY_MAP[String((p && p.genre) || '').trim()] || EDITOR_CATEGORY_DEFAULT;
   const EDITOR_RATING_TOP = Math.max(...EDITOR_RATING_STEPS);
   const inRatingBand = (rating, floor) => {
     const r = Number(rating);
@@ -403,6 +462,7 @@
       sort: 'Recommended',
       appsContent: 'All',
       editorTag: 'All',
+      editorCategory: 'All',
       editorRating: 0,
       filtersOpen: false,
       detail: null
@@ -573,10 +633,18 @@
 </section>`;
     }
 
+    // Built in one place so the rendered link and the one the copy button puts
+    // on the clipboard can never drift apart.
+    function affiliateBuyLinks() {
+      const referral = (affiliate && affiliate.referral_url) || '';
+      return AFF_BUY_LINKS.map((b) => ({ key: b.key, label: b.label, url: withReferral(b.url, referral) }));
+    }
+
     function affiliateSection() {
       const aff = affiliate || {};
       const portalUrl = aff.portal_url || 'https://afristream.surecart.com/affiliates/';
       const referral = aff.referral_url || '';
+      const buyLinks = affiliateBuyLinks();
       const commission = aff.commission || {};
       // Neither a percentage nor a fixed amount — the affiliate is on the
       // store default and no default rate has been set (percent and amount
@@ -728,9 +796,17 @@
 
       return `
   <div data-testid="affiliate-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
-    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
-    <p data-testid="affiliate-rate" style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(rateSentence())}</p>
-    <a data-testid="affiliate-portal-link" class="as-hover-primary" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#65009F;color:#fff;border-radius:13px;padding:13px 24px;font-weight:700;font-size:13.5px;text-decoration:none;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)">Open your affiliate dashboard ↗</a>
+    ${/* Heading and button sit on one line on a roomy screen. Once the text
+          block cannot hold 280px the button wraps underneath rather than
+          squeezing it — the rate sentence is the part that must stay
+          readable. */''}
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 20px">
+      <div style="flex:1 1 280px;min-width:0">
+        <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
+        <p data-testid="affiliate-rate" style="margin:0;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(rateSentence())}</p>
+      </div>
+      <a data-testid="affiliate-portal-link" class="as-hover-primary" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer" style="flex:0 0 auto;display:inline-block;background:#65009F;color:#fff;border-radius:13px;padding:13px 24px;font-weight:700;font-size:13.5px;text-decoration:none;white-space:nowrap;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)">Open Dashboard ↗</a>
+    </div>
     ${referral ? `
     <div style="margin-top:20px">
       <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Your referral link</div>
@@ -738,6 +814,21 @@
         <div data-testid="affiliate-referral" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:14.5px;overflow-wrap:anywhere">${esc(referral)}</div>
         <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-referral">${state.copied === 'referral' ? 'Copied!' : 'Copy link'}</button>
       </div>
+    </div>
+    ${/* Straight-to-checkout links, referral code already attached. Same row
+          shape as the referral link above, so they wrap the copy button under
+          the URL on a narrow screen instead of crushing it. */''}
+    <div data-testid="affiliate-buy-links" style="margin-top:20px">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:4px">Your buy links</div>
+      <p style="margin:0 0 12px;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These take someone straight to checkout with your referral code already on them, so the sale is credited to you.</p>
+      ${buyLinks.map((b, i) => `
+      <div style="margin-top:${i ? '12px' : '0'}">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:6px;color:rgba(11,21,51,.72)">${esc(b.label)}</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div data-testid="affiliate-buy-${esc(b.key)}" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;overflow-wrap:anywhere">${esc(b.url)}</div>
+          <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-buy" data-val="${i}">${state.copied === 'buy-' + b.key ? 'Copied!' : 'Copy link'}</button>
+        </div>
+      </div>`).join('')}
     </div>` : ''}
   </div>
 
@@ -922,6 +1013,7 @@
     function editorSection() {
       const picks = data.editorPicks || [];
       const tag = state.editorTag || 'All';
+      const category = state.editorCategory || 'All';
       // The floor of the selected one-point band, or 0 for "Any".
       const ratingBand = Number(state.editorRating) || 0;
 
@@ -934,15 +1026,23 @@
       const present = new Set(picks.map(typeOf).filter(Boolean));
       const tagOpts = ['All', ...EDITOR_TYPES.filter((t) => present.has(t))];
 
+      // Sub-categories, narrowed by the chosen type so the shelves on offer are
+      // the ones that type actually has. Stays in EDITOR_CATEGORIES order,
+      // which is alphabetical.
+      const matchesCategory = (p) => category === 'All' || editorCategoryOf(p) === category;
+      const categoryOpts = ['All', ...EDITOR_CATEGORIES.filter(
+        (c) => picks.some((p) => matchesTag(p) && editorCategoryOf(p) === c)
+      )];
+
       // Rating bands are offered only where they'd leave something on screen,
       // so the row never shows a pill that can only produce an empty grid.
       const ratingOpts = [0, ...EDITOR_RATING_STEPS.filter(
-        (r) => picks.some((p) => matchesTag(p) && inRatingBand(p.rating, r))
+        (r) => picks.some((p) => matchesTag(p) && matchesCategory(p) && inRatingBand(p.rating, r))
       )];
 
       // Best first. Watchlist position only breaks ties, so an unrated pick
       // (rating null) sinks to the bottom rather than jumping the queue.
-      let list = picks.filter((p) => matchesTag(p) && inRatingBand(p.rating, ratingBand));
+      let list = picks.filter((p) => matchesTag(p) && matchesCategory(p) && inRatingBand(p.rating, ratingBand));
       list = [...list].sort((a, b) => {
         const diff = (Number(b.rating) || 0) - (Number(a.rating) || 0);
         return diff || (a.rank || 0) - (b.rank || 0);
@@ -972,6 +1072,13 @@
     ${tagOpts.length > 1 ? `
     <div role="group" aria-label="Filter by type" style="display:flex;gap:8px;flex-wrap:wrap">
       ${tagOpts.map((o) => `<button style="${subBtn(String(tag) === String(o))}" data-act="editor-filter" data-key="editorTag" data-val="${esc(o)}" aria-pressed="${String(tag) === String(o)}">${esc(o)}</button>`).join('')}
+    </div>` : ''}
+    ${categoryOpts.length > 1 ? `
+    ${/* Labelled, because otherwise its "All" pill sits next to the type row's
+          "All" with nothing to tell the two apart. */''}
+    <div role="group" aria-label="Filter by category" data-testid="editor-categories" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(11,21,51,.45)">Category</span>
+      ${categoryOpts.map((o) => `<button style="${subBtn(String(category) === String(o))}" data-act="editor-filter" data-key="editorCategory" data-val="${esc(o)}" aria-pressed="${String(category) === String(o)}">${esc(o)}</button>`).join('')}
     </div>` : ''}
     ${ratingOpts.length > 1 ? `
     <div role="group" aria-label="Filter by IMDb rating" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -2114,13 +2221,18 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
         case 'copy-referral': copy((affiliate && affiliate.referral_url) || '', 'referral'); break;
+        case 'copy-buy': {
+          const link = affiliateBuyLinks()[+val];
+          if (link) copy(link.url, 'buy-' + link.key);
+          break;
+        }
         case 'quicknav': setState({ subWatch: val }); break;
         case 'open-filters': setState({ filtersOpen: true }); break;
         case 'close-filters': setState({ filtersOpen: false }); break;
         case 'clear-filters': setState({ query: '', type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' }); break;
         case 'filter': setState({ [el.getAttribute('data-key')]: val }); break;
         case 'editor-filter': setState({ [el.getAttribute('data-key')]: val }); break;
-        case 'clear-editor-filters': setState({ editorTag: 'All', editorRating: 0 }); break;
+        case 'clear-editor-filters': setState({ editorTag: 'All', editorCategory: 'All', editorRating: 0 }); break;
         case 'toggle-guide': {
           const i = +val;
           setState({ guideOpen: state.guideOpen === i ? -1 : i });
