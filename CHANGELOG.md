@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-07-23
+
+### Added
+
+- **An Affiliates tab**, shown only to people SureCart confirms are active affiliates. It carries a link straight to their SureCart affiliate dashboard, their referral URL with a copy button, and their commission rate written as a sentence — including whether it keeps paying on renewals, which is the part a bare percentage never says.
+
+  Below that, a profit calculator. Pick the plan a referral signs up to (pulled live from the store's own recurring prices, so it always matches what you charge), say how many people you sign up a month, and it projects each payment, month one, month twelve and the first year, with a chart of the staircase recurring commission builds. Annual plans are modelled on their real renewal month rather than smeared across twelve. Custom per-affiliate rates come through from SureCart automatically; a **Default affiliate commission (%)** setting stands in for the store default, which SureCart does not expose to plugins.
+
+### Changed
+
+- The public **Affiliates** link has been removed from the portal nav. It advertised the programme to every subscriber; the tab that replaces it appears only for affiliates, and only after SureCart says so.
+
 ## [0.16.1] - 2026-07-23
 
 ### Changed
