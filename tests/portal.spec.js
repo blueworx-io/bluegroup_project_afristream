@@ -1701,3 +1701,20 @@ test('typing a headcount keeps the caret where it was', async ({ page }) => {
   // The caret sits after what was typed, not in front of it.
   expect(await box.evaluate((el) => el.selectionStart)).toBe(3);
 });
+
+// A headcount above the old 1,000 ceiling used to give the same answer as
+// 1,000 did. 5,000 a year at £36 a renewal is £180,000 in year 1, ten times
+// that in year 10, and 36 × 5,000 × 55 = £9,900,000 across the decade.
+test('a large headcount is not silently capped', async ({ page }) => {
+  await page.goto('/preview/affiliate.html');
+  await page.getByTestId('aff-currency').selectOption('gbp');
+
+  await page.getByTestId('aff-per-year').fill('5000');
+  await expect(page.getByTestId('aff-year-1')).toHaveText('£180,000.00');
+  await expect(page.getByTestId('aff-year-10')).toHaveText('£1,800,000.00');
+  await expect(page.getByTestId('aff-total')).toHaveText('£9,900,000.00');
+
+  // Twice the sign-ups, twice the money — not the same figure again.
+  await page.getByTestId('aff-per-year').fill('10000');
+  await expect(page.getByTestId('aff-total')).toHaveText('£19,800,000.00');
+});

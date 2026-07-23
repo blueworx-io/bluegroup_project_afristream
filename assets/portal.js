@@ -593,7 +593,10 @@
       const currency = plan ? plan.currency : (aff.currency || '');
       // Clamped for the maths only — the input keeps rendering exactly what was
       // typed, or clearing the box to type "10" would snap it back to 1.
-      const perYear = Math.max(1, Math.min(1000, Number(state.affPerYear) || 1));
+      // Floored at one, with no ceiling: an upper clamp meant every number past
+      // it silently produced the same answer, which reads as the calculator
+      // being broken rather than as a limit.
+      const perYear = Math.max(1, Number(state.affPerYear) || 1);
       // No live prices to pick from — the affiliate types what a year is worth.
       const saleMinor = plan ? plan.amount : Math.max(0, Math.round((Number(state.affValue) || 0) * 100));
       const perPayment = commissionPerPayment(saleMinor);

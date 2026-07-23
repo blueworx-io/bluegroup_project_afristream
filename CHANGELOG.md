@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [0.18.1] - 2026-07-23
 
+### Fixed
+
+- **The calculator no longer caps the headcount at a thousand people a year.** Anything above it produced the same answer as a thousand, which reads as the calculator being broken rather than as a limit. The figure is only floored at one now.
+
 ### Changed
 
 - The affiliate calculator opens in **Rands**, which is where most affiliates are, falling back to the store's own currency if the rate feed cannot offer them. The switcher still moves it to Dollars, Pounds or Euros.
