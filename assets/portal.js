@@ -1003,6 +1003,12 @@
 
     const SETUP_STEPS = ['Your device', 'Which one', 'Install it', 'Your app'];
 
+    // Numbers the headings on the page so they read against the progress rail.
+    // Without these, steps 3 and 4 sharing a screen looked like step 4 was
+    // somewhere you could never reach.
+    const stepEyebrow = (n) =>
+      `<div style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#65009F">Step ${n} of ${SETUP_STEPS.length}</div>`;
+
     function setupSection() {
       const family = familyOf(state.setupFamily);
       const sub = subOf(family, state.setupSub);
@@ -1024,14 +1030,18 @@
 
       // Progress rail. Completed steps are buttons that jump back to themselves.
       const rail = `
-  <ol data-testid="setup-rail" style="display:flex;gap:8px;flex-wrap:wrap;list-style:none;margin:0 2px 20px;padding:0">
+  <ol class="as-setup-rail" data-testid="setup-rail" data-dragscroll style="display:flex;gap:8px;list-style:none">
     ${SETUP_STEPS.map((label, i) => {
       const n = i + 1;
+      // Steps 3 and 4 are one screen — the install steps say "the app you pick
+      // in step 4 below", so they have to be readable together. The rail marks
+      // both as current once a device is chosen; showing 4 as unreached made it
+      // look like a step you could never get to.
+      const now = n === at || (at === 3 && n === 4);
       const done = n < at;
-      const now = n === at;
       const chip = `<span style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;font-family:inherit;border:1px solid ${now ? 'rgba(101,0,159,.28)' : 'rgba(11,21,51,.12)'};background:${now ? '#F7E9FF' : '#fff'};color:${now || done ? '#65009F' : 'rgba(11,21,51,.45)'}">
         <span aria-hidden="true" style="width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:${now || done ? '#65009F' : 'rgba(11,21,51,.1)'};color:${now || done ? '#fff' : 'rgba(11,21,51,.5)'}">${done ? '✓' : n}</span>${esc(label)}</span>`;
-      return `<li>${done
+      return `<li style="flex:none"${now ? ' data-rail-current="1"' : ''}>${done
         ? `<button data-act="${n === 1 ? 'setup-restart' : 'setup-back-sub'}" aria-label="Back to ${esc(label)}" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit">${chip}</button>`
         : chip}</li>`;
     }).join('')}
@@ -1042,6 +1052,7 @@
         return setupShell(rail + `
   ${whyDevicePanel()}
   <div data-testid="setup-step" data-setup-step="1">
+    <div style="margin-left:2px">${stepEyebrow(1)}</div>
     <h2 style="margin:0 0 4px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">What are you watching on?</h2>
     <p style="margin:0 0 14px 2px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58)">Pick the kind of device you have — or the kind you are thinking of buying. We cover what to look for on the next step.</p>
     <div data-testid="setup-device-picker" role="group" aria-label="Choose your device" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin:0 2px">
@@ -1056,6 +1067,7 @@
         return setupShell(rail + `
   ${chosenRow(family, null)}
   <div data-testid="setup-step" data-setup-step="2">
+    <div style="margin-left:2px">${stepEyebrow(2)}</div>
     <h2 style="margin:0 0 4px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Which one do you have?</h2>
     <p style="margin:0 0 14px 2px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(family.summary)}</p>
     <div data-testid="setup-sub-picker" role="group" aria-label="Choose your model" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin:0 2px 20px">
@@ -1078,6 +1090,7 @@
   ${chosenRow(family, sub)}
   ${sub.warn ? `<div data-testid="setup-buy-warning" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:15px;padding:15px 17px;margin:0 2px 20px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(sub.warn)}</div>` : ''}
   <div data-testid="setup-step" data-setup-step="3" style="margin:0 2px">
+    ${stepEyebrow(3)}
     <h2 style="margin:0 0 4px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">How to install it</h2>
     <p style="margin:0 0 15px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(fillTokens(method.lead, sub))}</p>
     <div data-testid="setup-steps" style="display:flex;flex-direction:column;gap:16px">
@@ -1098,7 +1111,8 @@
         </div>`).join('')}
     </div>
   </div>
-  <div data-testid="setup-step" data-setup-step="4" style="margin:26px 2px 0">
+  <div data-testid="setup-step" data-setup-step="4" style="margin:30px 2px 0;padding-top:26px;border-top:1px solid rgba(11,21,51,.1)">
+    ${stepEyebrow(4)}
     <h2 style="margin:0 0 4px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Which app to install</h2>
     <p style="margin:0 0 15px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(fillTokens(method.apps.lead, sub))}</p>
     <div data-testid="setup-codes" style="display:flex;flex-direction:column;gap:10px">
@@ -1438,6 +1452,78 @@
     const overviewCache = new Map();
     const pendingSynopsis = new Set();
 
+    // Horizontal scroll position of the top bar, which on a phone is the
+    // difference between seeing where you are and seeing a strip that always
+    // starts at "Account".
+    //
+    // render() rebuilds innerHTML, so the strip comes back at scrollLeft 0
+    // every time. Two different things have to happen:
+    //
+    //   - an ordinary re-render (typing in search, opening a drawer) restores
+    //     exactly where the strip was, so a position the user dragged to by
+    //     hand survives and it looks as though nothing moved;
+    //   - changing section animates the newly active tab to the centre.
+    //
+    // Centring is clamped to the scroll range at both ends, so the first and
+    // last tabs sit against their own edge rather than being pulled into the
+    // middle with empty space beside them. Only the tabs with room on both
+    // sides actually land centred.
+    let lastNavSection = null;
+
+    // Scroll offset that centres `el` inside `box`, clamped to the scroll range
+    // so the first and last items sit against their own edge instead of being
+    // pulled into the middle with empty space beside them. Measured off
+    // getBoundingClientRect rather than offsetLeft, because the sticky header is
+    // a positioned ancestor and so the items' offsetParent is not the strip.
+    function centredScrollLeft(box, el) {
+      const max = box.scrollWidth - box.clientWidth;
+      if (max <= 0) return 0;
+      const boxRect = box.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const elLeft = elRect.left - boxRect.left + box.scrollLeft;
+      return Math.max(0, Math.min(elLeft - (box.clientWidth - elRect.width) / 2, max));
+    }
+
+    function placeNavScroll(prevLeft, sectionChanged) {
+      const strip = root.querySelector('.as-tabs');
+      if (!strip) return;
+      const max = strip.scrollWidth - strip.clientWidth;
+      // Only advertise dragging when there is somewhere to drag to.
+      strip.classList.toggle('as-draggable', max > 0);
+      if (max <= 0) return;
+
+      strip.scrollLeft = Math.min(prevLeft, max);
+      if (!sectionChanged) return;
+
+      const active = strip.querySelector('[data-act="nav"][data-val="' + state.section + '"]');
+      if (!active) return;
+
+      // Assigned directly rather than through scrollTo({behavior:'smooth'}).
+      // Smooth scrolling is silently a no-op in enough environments — headless
+      // Chromium among them — that relying on it means the tab sometimes never
+      // moves at all. The strip is rebuilt on every render anyway, so there is
+      // no continuity for an animation to preserve.
+      strip.scrollLeft = centredScrollLeft(strip, active);
+    }
+
+    // The Setup rail sticks below the header, so its offset has to track the
+    // header's real height — which changes between mobile and desktop, since the
+    // plan badge is hidden on narrow screens.
+    function syncHeaderHeight() {
+      const header = root.querySelector('header');
+      if (header) root.style.setProperty('--as-header-h', Math.round(header.getBoundingClientRect().height) + 'px');
+    }
+
+    // Keep the step you are on visible in the sticky rail without wrapping it
+    // onto a second line, which on a phone would eat the screen.
+    function placeRailScroll() {
+      const rail = root.querySelector('.as-setup-rail');
+      if (!rail) return;
+      rail.classList.toggle('as-draggable', rail.scrollWidth - rail.clientWidth > 0);
+      const current = rail.querySelector('[data-rail-current="1"]');
+      if (current) rail.scrollLeft = centredScrollLeft(rail, current);
+    }
+
     function fillSynopsis() {
       if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
       const box = root.querySelector('[data-detail-synopsis]');
@@ -1561,11 +1647,15 @@
         caret = active.selectionStart;
       }
 
+      // Read the tab strip's scroll offset before the rebuild wipes it.
+      const prevStrip = root.querySelector('.as-tabs');
+      const prevNavScroll = prevStrip ? prevStrip.scrollLeft : 0;
+
       root.innerHTML = `
 <div style="min-height:100vh;display:flex;flex-direction:column">
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
-    <div class="as-tabs" style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
+    <div class="as-tabs" data-dragscroll style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
       ${NAV.map((n) => (n.href
         // noopener/noreferrer because target=_blank otherwise hands the opened
         // page a window.opener handle back to this one. No data-act, so the
@@ -1598,6 +1688,11 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         const closeBtn = root.querySelector('[data-testid="detail-drawer"] [aria-label="Close details"]');
         if (closeBtn) closeBtn.focus();
       }
+
+      syncHeaderHeight();
+      placeNavScroll(prevNavScroll, lastNavSection !== state.section);
+      placeRailScroll();
+      lastNavSection = state.section;
 
       // Scroll-lock the page while a modal panel is open; restore the original
       // body overflow on close (so we don't clobber a host value). Both panels
@@ -1744,6 +1839,16 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     }, true);
 
     render();
+
+    // The top bar loses its plan badge below the mobile breakpoint, so its
+    // height — and therefore the sticky rail's offset — changes with the
+    // viewport, not just with a render.
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('resize', () => {
+        syncHeaderHeight();
+        placeRailScroll();
+      });
+    }
 
     if (state.section === 'apps') loadApps();
 

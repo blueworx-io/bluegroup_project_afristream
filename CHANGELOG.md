@@ -30,6 +30,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- **The top bar keeps the active tab centred.** On a phone the tab strip always
+  started at "Account", so the tab you were actually on was often off-screen. It
+  now scrolls the active tab to the middle, clamped at both ends — the first tab
+  stays against the left edge and the last against the right, rather than being
+  dragged into the centre with dead space beside them. Scroll snapping is gone,
+  since a proximity snap tugged the tab back off centre the moment the scroll
+  settled.
+
+- **The top bar can be dragged with a mouse.** It reuses the same pointer
+  handler as the poster rows, so it gets the 5px threshold and click
+  suppression for free — dragging across a tab scrolls the bar instead of
+  navigating. The grab cursor only appears when there is somewhere to drag to.
+
+- **The Setup progress rail sticks below the top bar** as you scroll a long
+  walkthrough, with even space above and below, so you keep track of which of
+  the four steps you are on. It scrolls sideways as one row rather than
+  wrapping, which on a phone would have taken a third of the screen.
+
 - **"Profile" is now "Account" and "Free Apps" is now "Free Streaming".** The internal section id stays `profile`, so any page already pinned with `default_tab="profile"` keeps working.
 
 - **Tips & Tricks and Troubleshooting are hidden from the nav.** Both sections, their content and the `[troubleshooting_guide]` shortcode are untouched and still reachable through `default_tab="tips"` / `"help"`, so bringing them back is a two-line change.
@@ -39,6 +57,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Category is now the only filter on Free Streaming.** The device pills and the region dropdown are both gone, and the `regions` array comes off every entry. Devices are still listed on each card and stepped through in the app drawer — they just no longer narrow the grid, since choosing a device is what the Setup tab is for. Regional scope is stated once, in the `availability` line inside the drawer, instead of being both a filter and a sentence.
 
 ### Fixed
+
+- **Setup looked as though step 4 could never be reached.** Steps 3 and 4 share
+  a screen — the install steps refer to "the app you pick in step 4 below" — but
+  the progress rail only ever marked step 3 as current, so step 4 read as a
+  place you could not get to. Both are now marked current together, and each
+  section on the page carries a "Step N of 4" label so the page and the rail
+  agree.
 
 - **Editor Picks rating filters were thresholds pretending to be bands.** Choosing "★ 7+" returned everything at 7 and above, so the 8s and 9s came with it and narrowing the filter barely narrowed the grid. Each band is now exclusive — ★ 8–8.9 returns only the 8s — with ★ 9+ left open-ended so a perfect 10 is not stranded outside every band, and a new ★ 6–6.9 band at the bottom. Bands with nothing behind them are still not offered.
 

@@ -46,6 +46,67 @@ test('on mobile the top bar is a horizontally scrollable tab list', async ({ pag
   await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
 });
 
+test('the active tab scrolls to the centre of the bar, clamped at both ends', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  const measure = async (id) => page.evaluate((tab) => {
+    const strip = document.querySelector('.as-tabs');
+    const a = strip.querySelector('[data-act="nav"][data-val="' + tab + '"]');
+    const sb = strip.getBoundingClientRect(), r = a.getBoundingClientRect();
+    const max = strip.scrollWidth - strip.clientWidth;
+    return {
+      offCentre: Math.round((r.left + r.width / 2) - (sb.left + sb.width / 2)),
+      left: Math.round(strip.scrollLeft),
+      max: Math.round(max),
+    };
+  }, id);
+
+  // A tab with room on both sides lands dead centre.
+  for (const id of ['watch', 'editor', 'apps']) {
+    await page.locator(`.as-tabs [data-act="nav"][data-val="${id}"]`).click();
+    const m = await measure(id);
+    expect(Math.abs(m.offCentre), `${id} should be centred`).toBeLessThanOrEqual(1);
+  }
+
+  // The first tab stays against the left edge rather than being dragged in.
+  await page.locator('.as-tabs [data-act="nav"][data-val="profile"]').click();
+  const first = await measure('profile');
+  expect(first.left).toBe(0);
+  expect(first.offCentre).toBeLessThan(0);
+
+  // ...and the last against the right edge, so there is never dead space
+  // beside it. This is the "but not so that the last item scrolls to the
+  // centre" half of the behaviour.
+  await page.locator('.as-tabs [data-act="nav"][data-val="download"]').click();
+  const last = await measure('download');
+  expect(last.left).toBe(last.max);
+  expect(last.offCentre).toBeGreaterThan(0);
+});
+
+test('the tab bar can be dragged with a mouse without navigating', async ({ page }) => {
+  // Narrow enough that the bar overflows on desktop too.
+  await page.setViewportSize({ width: 760, height: 800 });
+  await page.goto('/');
+
+  const strip = page.locator('.as-tabs');
+  await expect(strip).toHaveClass(/as-draggable/);
+  expect(await strip.evaluate((el) => getComputedStyle(el).cursor)).toBe('grab');
+
+  const box = await strip.boundingBox();
+  const y = box.y + box.height / 2;
+  const startX = box.x + box.width - 40;
+
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  for (let dx = 20; dx <= 120; dx += 20) await page.mouse.move(startX - dx, y);
+  await page.mouse.up();
+
+  expect(await strip.evaluate((el) => Math.round(el.scrollLeft))).toBeGreaterThan(50);
+  // Dragging across a tab must not trigger it.
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+});
+
 test('nav switches to What to Watch with poster rows and sport', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
   await expect(page.getByRole('heading', { name: 'What to Watch' })).toBeVisible();
@@ -243,7 +304,7 @@ test('the Live TV Channels row is gone', async ({ page }) => {
 test('picking a category loads more titles than the All summary shows', async ({ page }) => {
   await page.goto('/preview/fixture.html');
   const section = page.locator('[data-screen-label="What to Watch"]');
-  const rowCount = () => page.locator('[data-dragscroll]').first().evaluate((el) => el.children.length);
+  const rowCount = () => page.locator('main [data-dragscroll]').first().evaluate((el) => el.children.length);
 
   await expect(page.getByRole('heading', { name: 'Trending Movies' })).toBeVisible();
   const summary = await rowCount();
@@ -290,7 +351,7 @@ test('the detail panel still scrolls when a host ancestor creates a containing b
 
 test('poster rows drag-scroll with the mouse', async ({ page }) => {
   await page.getByRole('button', { name: 'What to Watch' }).click();
-  const row = page.locator('[data-dragscroll]').first();
+  const row = page.locator('main [data-dragscroll]').first();
   await expect(row).toBeVisible();
   const box = await row.boundingBox();
   const startLeft = await row.evaluate((el) => el.scrollLeft);
@@ -965,6 +1026,50 @@ test('Setup explains why a device is needed, and only at step 1', async ({ page 
   // Once you are in the flow the rationale is just clutter.
   await page.getByRole('button', { name: /Android Devices/ }).click();
   await expect(page.getByTestId('why-a-device')).toHaveCount(0);
+});
+
+test('the progress rail marks steps 3 and 4 as current together', async ({ page }) => {
+  // They share a screen — the install steps say "the app you pick in step 4
+  // below" — and showing 4 as unreached made it look like a step you could
+  // never get to.
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android Devices/ }).click();
+  await page.getByRole('button', { name: /Android Phone/ }).click();
+
+  const current = page.getByTestId('setup-rail').locator('[data-rail-current="1"]');
+  await expect(current).toHaveCount(2);
+  await expect(current.first()).toContainText('Install it');
+  await expect(current.last()).toContainText('Your app');
+
+  // And both sections are on the page, numbered so they read against the rail.
+  await expect(page.locator('[data-setup-step="3"]')).toContainText('Step 3 of 4');
+  await expect(page.locator('[data-setup-step="4"]')).toContainText('Step 4 of 4');
+});
+
+test('the progress rail sticks below the top bar while the steps scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await openSetup(page);
+  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
+  await page.getByRole('button', { name: /Amazon Fire TV Stick/ }).click();
+
+  await page.evaluate(() => window.scrollTo(0, 1400));
+  const geom = await page.evaluate(() => {
+    const rail = document.querySelector('.as-setup-rail');
+    const header = document.querySelector('.afristream-portal header');
+    const cs = getComputedStyle(rail);
+    return {
+      gapUnderHeader: Math.round(rail.getBoundingClientRect().top - header.getBoundingClientRect().bottom),
+      paddingTop: cs.paddingTop,
+      paddingBottom: cs.paddingBottom,
+      opaque: cs.backgroundColor,
+    };
+  });
+
+  expect(geom.gapUnderHeader).toBeLessThanOrEqual(1);
+  // Even space above and below, and opaque so the steps do not show through.
+  expect(geom.paddingTop).toBe(geom.paddingBottom);
+  expect(geom.opaque).not.toBe('rgba(0, 0, 0, 0)');
 });
 
 test('the setup flow links back to the Account tab for the login details', async ({ page }) => {

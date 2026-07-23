@@ -127,16 +127,48 @@
 }
 
 /* The top-bar tabs are a horizontal scrollable list: hide the scrollbar for a
-   clean edge, keep momentum on touch, and let each tab snap into view. */
+   clean edge and keep momentum on touch.
+
+   No scroll snapping. The active tab is centred programmatically after every
+   render, and snap points fight that — a proximity snap tugs the tab back off
+   centre the moment the scroll settles. Free scrolling also suits dragging,
+   which is how the strip is moved with a mouse. */
 .afristream-portal .as-tabs {
   scrollbar-width: none;
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
+  /* Let the browser own horizontal panning on touch; the pointer drag handler
+     stands down (via pointercancel) as soon as it takes over. */
+  touch-action: pan-x;
 }
 .afristream-portal .as-tabs::-webkit-scrollbar { display: none; }
-.afristream-portal .as-tabs > button,
-.afristream-portal .as-tabs > a { scroll-snap-align: start; }
+/* Grab cursor only while there is somewhere to drag to — the class is toggled
+   per render from the measured scroll width. */
+.afristream-portal .as-tabs.as-draggable { cursor: grab; }
+
+/* Setup progress rail. Sticks directly below the top bar — --as-header-h is
+   measured per render, because the bar is shorter on mobile once the plan badge
+   is hidden — so the customer can see which of the four steps they are on while
+   reading a long walkthrough.
+
+   Equal padding above and below, and an opaque background matching the portal
+   so the steps scrolling underneath do not show through. It scrolls sideways
+   rather than wrapping: a wrapped rail would take a third of a phone screen,
+   and it is meant to be a glanceable strip, not a panel. */
+.afristream-portal .as-setup-rail {
+  position: sticky;
+  top: var(--as-header-h, 0px);
+  z-index: 30;
+  margin: 0 0 12px;
+  padding: 12px 2px;
+  background: #F2F3F7;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  touch-action: pan-x;
+}
+.afristream-portal .as-setup-rail::-webkit-scrollbar { display: none; }
+.afristream-portal .as-setup-rail.as-draggable { cursor: grab; }
 
 /* Momentum scrolling for the horizontal poster/sport/channel/collection rows. */
 .afristream-portal [data-dragscroll] { -webkit-overflow-scrolling: touch; }
