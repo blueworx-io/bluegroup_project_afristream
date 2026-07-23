@@ -1573,37 +1573,35 @@ test('an affiliate gets the tab, their referral link and their rate', async ({ p
   await page.getByRole('button', { name: 'Copy link' }).click();
   await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible();
 });
-
-// £15/month at 30% is £4.50 a payment. Five new customers a month, each paying
-// every month for good: month 1 is 5 payments, month 12 is 60, and the year is
-// 4.50 × 5 × (1+2+…+12) = £1,755.
-test('the calculator projects a year of stacking recurring commission', async ({ page }) => {
+// Subscriptions are annual. £120 a year at 30% is £36 a renewal. Sign up five
+// people a year and every one of them renews: year 1 is five payments (£180),
+// year 10 is those five plus nine more years' worth still paying — 50
+// payments, £1,800 — and the decade together is 36 × 5 × (1+2+…+10) = £9,900.
+test('the calculator projects ten years of stacking recurring commission', async ({ page }) => {
   await page.goto('/preview/affiliate.html');
 
   await expect(page.getByTestId('affiliate-calculator')).toBeVisible();
-  await expect(page.getByTestId('aff-per-payment')).toHaveText('£4.50');
-  await expect(page.getByTestId('aff-month-1')).toHaveText('£22.50');
-  await expect(page.getByTestId('aff-month-12')).toHaveText('£270.00');
-  await expect(page.getByTestId('aff-year-total')).toHaveText('£1,755.00');
-  await expect(page.getByTestId('aff-chart').locator('[data-bar]')).toHaveCount(12);
+  await expect(page.getByTestId('aff-per-payment')).toHaveText('£36.00');
+  await expect(page.getByTestId('aff-year-1')).toHaveText('£180.00');
+  await expect(page.getByTestId('aff-year-10')).toHaveText('£1,800.00');
+  await expect(page.getByTestId('aff-total')).toHaveText('£9,900.00');
+  await expect(page.getByTestId('aff-chart').locator('[data-point]')).toHaveCount(10);
 });
 
-test('changing the plan and the referral count moves every figure', async ({ page }) => {
+test('only annual plans are offered, and the headcount moves every figure', async ({ page }) => {
   await page.goto('/preview/affiliate.html');
 
-  // Ten a month on the same plan doubles everything.
-  await page.getByTestId('aff-per-month').fill('10');
-  await expect(page.getByTestId('aff-month-12')).toHaveText('£540.00');
-  await expect(page.getByTestId('aff-year-total')).toHaveText('£3,510.00');
+  // The fixture store sells a monthly plan too; an annual projection cannot
+  // honestly model it, so it is not in the picker.
+  const plan = page.getByTestId('aff-plan');
+  await expect(plan.locator('option')).toHaveCount(1);
+  await expect(plan).toHaveValue('price_year');
 
-  // The annual plan pays £36 a head once a year, so every month is the same
-  // £180 and the year is £2,160 — flat, not a staircase.
-  await page.getByTestId('aff-plan').selectOption('price_year');
-  await page.getByTestId('aff-per-month').fill('5');
-  await expect(page.getByTestId('aff-per-payment')).toHaveText('£36.00');
-  await expect(page.getByTestId('aff-month-1')).toHaveText('£180.00');
-  await expect(page.getByTestId('aff-month-12')).toHaveText('£180.00');
-  await expect(page.getByTestId('aff-year-total')).toHaveText('£2,160.00');
+  // Ten a year instead of five doubles every figure.
+  await page.getByTestId('aff-per-year').fill('10');
+  await expect(page.getByTestId('aff-year-1')).toHaveText('£360.00');
+  await expect(page.getByTestId('aff-year-10')).toHaveText('£3,600.00');
+  await expect(page.getByTestId('aff-total')).toHaveText('£19,800.00');
 });
 
 test('with no plans to pick from the calculator falls back to a sale value', async ({ page }) => {
@@ -1612,32 +1610,32 @@ test('with no plans to pick from the calculator falls back to a sale value', asy
   await expect(page.getByTestId('aff-plan')).toHaveCount(0);
   await expect(page.getByTestId('aff-value-input')).toBeVisible();
 
+  // £15 a year at 30% is £4.50 a renewal: £22.50 in year 1, and 50 payments —
+  // £225.00 — by year 10.
   await page.getByTestId('aff-value-input').fill('15');
   await expect(page.getByTestId('aff-per-payment')).toHaveText('£4.50');
-  await expect(page.getByTestId('aff-month-12')).toHaveText('£270.00');
+  await expect(page.getByTestId('aff-year-1')).toHaveText('£22.50');
+  await expect(page.getByTestId('aff-year-10')).toHaveText('£225.00');
 });
 
-// A one-off structure pays once, in the signup month, and never again. Five
-// new customers a month at £15 × 30% is still £4.50 a payment, but every
-// month is just that month's own five customers paying once — £22.50 flat,
-// not a staircase — and the year is twelve identical months: 12 × £22.50 =
-// £270.00, not the £1,755 the recurring fixture produces from the same plan
-// and headcount.
-test('a one-off commission structure projects a flat line, not a staircase', async ({ page }) => {
+// A one-off structure pays once and never again, so five sign-ups a year at
+// £36 is £180 every year — flat, ten identical years totalling £1,800, not the
+// £9,900 the recurring fixture produces from the same plan and headcount.
+test('a one-off commission structure projects a flat line, not a climb', async ({ page }) => {
   await page.goto('/preview/affiliate.html?fixture=onceoff');
 
   await expect(page.getByTestId('affiliate-rate')).toHaveText('You earn 30% of the first payment each customer makes.');
-  await expect(page.getByTestId('aff-per-payment')).toHaveText('£4.50');
-  await expect(page.getByTestId('aff-month-1')).toHaveText('£22.50');
-  await expect(page.getByTestId('aff-month-12')).toHaveText('£22.50');
-  await expect(page.getByTestId('aff-year-total')).toHaveText('£270.00');
+  await expect(page.getByTestId('aff-per-payment')).toHaveText('£36.00');
+  await expect(page.getByTestId('aff-year-1')).toHaveText('£180.00');
+  await expect(page.getByTestId('aff-year-10')).toHaveText('£180.00');
+  await expect(page.getByTestId('aff-total')).toHaveText('£1,800.00');
 
-  // Flat means literally the same height on every bar, not just the same
-  // start and end figure with a bulge in between.
-  const bars = page.getByTestId('aff-chart').locator('[data-bar]');
-  await expect(bars).toHaveCount(12);
-  const heights = await bars.evaluateAll((els) => els.map((el) => el.style.height));
-  expect(new Set(heights).size).toBe(1);
+  // Flat means every point at literally the same height, not just matching
+  // ends with a bulge in between.
+  const dots = page.getByTestId('aff-chart').locator('[data-point] circle');
+  await expect(dots).toHaveCount(10);
+  const ys = await dots.evaluateAll((els) => els.map((el) => el.getAttribute('cy')));
+  expect(new Set(ys).size).toBe(1);
 });
 
 test('with no known rate the calculator is degraded, not wrong', async ({ page }) => {
@@ -1648,18 +1646,18 @@ test('with no known rate the calculator is degraded, not wrong', async ({ page }
 
   // ...and the calculator does not invent numbers to go with it.
   await expect(page.getByTestId('aff-per-payment')).toHaveCount(0);
-  await expect(page.getByTestId('aff-month-1')).toHaveCount(0);
-  await expect(page.getByTestId('aff-month-12')).toHaveCount(0);
-  await expect(page.getByTestId('aff-year-total')).toHaveCount(0);
+  await expect(page.getByTestId('aff-year-1')).toHaveCount(0);
+  await expect(page.getByTestId('aff-year-10')).toHaveCount(0);
+  await expect(page.getByTestId('aff-total')).toHaveCount(0);
   await expect(page.getByTestId('aff-chart')).toHaveCount(0);
 
   await expect(page.getByTestId('aff-rate-unknown')).toBeVisible();
   await expect(page.getByTestId('aff-rate-unknown')).toContainText('SureCart');
 });
 
-// £4.50 a payment and £270 in month 12, read in Rands at the fixture's rate of
-// 24 to the pound: R108.00 and R6,480.00. The plan price beside the picker
-// stays in pounds, because that is what the customer is actually charged.
+// £36 a renewal and £1,800 in year 10, read in Rands at the fixture's rate of
+// 24 to the pound: R864.00 and R43,200.00. The plan price beside the picker stays
+// in pounds, because that is what the customer is actually charged.
 test('earnings can be read in another currency, converted from the store one', async ({ page }) => {
   await page.goto('/preview/affiliate.html');
 
@@ -1671,8 +1669,27 @@ test('earnings can be read in another currency, converted from the store one', a
   await expect(page.getByTestId('aff-converted')).toHaveCount(0);
 
   await currency.selectOption('zar');
-  await expect(page.getByTestId('aff-per-payment')).toContainText('108.00');
-  await expect(page.getByTestId('aff-month-12')).toContainText('6,480.00');
+  await expect(page.getByTestId('aff-per-payment')).toContainText('864.00');
+  await expect(page.getByTestId('aff-year-10')).toContainText('43,200.00');
   await expect(page.getByTestId('aff-converted')).toContainText('SureCart still pays you in GBP');
-  await expect(page.getByTestId('aff-plan')).toContainText('£15.00');
+  await expect(page.getByTestId('aff-plan')).toContainText('£120.00');
+});
+
+// Typing "100" one key at a time used to come out "001": the panel re-renders
+// on every keystroke, and a type="number" input cannot have its caret put back
+// afterwards, so it silently returned to the start.
+test('typing a headcount keeps the caret where it was', async ({ page }) => {
+  await page.goto('/preview/affiliate.html');
+
+  const box = page.getByTestId('aff-per-year');
+  await box.click();
+  await page.keyboard.press('Control+a');
+  await page.keyboard.type('100', { delay: 30 });
+
+  await expect(box).toHaveValue('100');
+  // 100 sign-ups a year at £36 a renewal: £3,600 in year 1.
+  await expect(page.getByTestId('aff-year-1')).toHaveText('£3,600.00');
+
+  // The caret sits after what was typed, not in front of it.
+  expect(await box.evaluate((el) => el.selectionStart)).toBe(3);
 });
