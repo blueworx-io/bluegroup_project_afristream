@@ -628,7 +628,14 @@ const server = createServer(async (req, res) => {
         ? AFFILIATE_FIXTURE
         : mode === 'noplans'
           ? { ...AFFILIATE_FIXTURE, plans: [] }
-          : { affiliate: false };
+          : mode === 'onceoff'
+            // A one-off structure: 30% of the first payment only, never again.
+            ? { ...AFFILIATE_FIXTURE, commission: { amount: null, percent: 30, recurring: false, recurring_days: null } }
+            : mode === 'norate'
+              // On the store default, with no default rate configured — the
+              // out-of-the-box state the degraded calculator has to cover.
+              ? { ...AFFILIATE_FIXTURE, commission: { amount: null, percent: null, recurring: true, recurring_days: null } }
+              : { affiliate: false };
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify(payload));
       return;

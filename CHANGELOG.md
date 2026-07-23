@@ -16,6 +16,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - The public **Affiliates** link has been removed from the portal nav. It advertised the programme to every subscriber; the tab that replaces it appears only for affiliates, and only after SureCart says so.
 
+### Fixed
+
+- The calculator now honours a one-off or time-limited commission structure instead of always projecting as if commission runs forever, and shows a plain message pointing at SureCart — rather than a wall of £0.00 — when no rate is known yet.
+
 ## [0.16.1] - 2026-07-23
 
 ### Changed

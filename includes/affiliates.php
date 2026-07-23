@@ -88,11 +88,29 @@ function afristream_affiliate_lookup() {
 	if ( '' === $email || strtolower( $email ) !== strtolower( $user->user_email ) ) {
 		return null;
 	}
-	if ( false === afristream_affiliate_prop( $affiliation, 'active', true ) ) {
+	if ( afristream_affiliate_is_false( afristream_affiliate_prop( $affiliation, 'active', true ) ) ) {
 		return null;
 	}
 
 	return $affiliation;
+}
+
+/**
+ * Whether a value from the SureCart API should be read as false.
+ *
+ * `false === $value` misses everything except the literal boolean — a JSON
+ * `0` decodes to an int, and some endpoints report booleans as the strings
+ * "false"/"0"/"no". Any of those has to be treated as inactive, not just the
+ * exact type PHP happens to hand back.
+ *
+ * @param mixed $value Value to test.
+ * @return bool
+ */
+function afristream_affiliate_is_false( $value ) {
+	if ( is_string( $value ) ) {
+		return in_array( strtolower( trim( $value ) ), array( '', '0', 'false', 'no' ), true );
+	}
+	return ! $value;
 }
 
 /**
@@ -141,16 +159,27 @@ function afristream_affiliate_commission( $affiliation ) {
  * @return array{plans:array<int,array>,currency:string}
  */
 function afristream_affiliate_prices() {
+	// No hardcoded currency fallback here — inventing "usd" for a GBP store is
+	// worse than saying nothing. afristream_affiliate_payload() falls back to
+	// the affiliation's own currency, and the front end formats without a
+	// symbol if neither is known.
 	$empty = array(
 		'plans'    => array(),
-		'currency' => 'usd',
+		'currency' => '',
 	);
 
 	if ( ! class_exists( '\SureCart\Models\Price' ) ) {
 		return $empty;
 	}
 
-	$prices = \SureCart\Models\Price::where( array( 'archived' => false ) )
+	$prices = \SureCart\Models\Price::where(
+		array(
+			'archived' => false,
+			// The default page size can silently drop plans for a store with a
+			// large catalogue; ask for all of them in one page.
+			'per_page' => 100,
+		)
+	)
 		->with( array( 'product' ) )
 		->get();
 
@@ -183,7 +212,7 @@ function afristream_affiliate_prices() {
 
 		$plans[] = array(
 			'amount'         => $amount,
-			'currency'       => (string) afristream_affiliate_prop( $price, 'currency', 'usd' ),
+			'currency'       => (string) afristream_affiliate_prop( $price, 'currency', '' ),
 			'id'             => (string) afristream_affiliate_prop( $price, 'id', '' ),
 			'interval'       => $interval,
 			'interval_count' => max( 1, (int) afristream_affiliate_prop( $price, 'recurring_interval_count', 1 ) ),
@@ -202,7 +231,7 @@ function afristream_affiliate_prices() {
 
 	return array(
 		'plans'    => $plans,
-		'currency' => '' !== $currency ? $currency : 'usd',
+		'currency' => $currency,
 	);
 }
 
@@ -232,12 +261,20 @@ function afristream_affiliate_payload() {
 		return $no;
 	}
 
-	$prices  = afristream_affiliate_prices();
+	$prices = afristream_affiliate_prices();
+	// The price list is the best source for the store's currency, but when
+	// SureCart's Price lookup errors or the class is missing, the affiliation
+	// itself sometimes carries its own currency — worth trying before leaving
+	// the front end to format with no symbol at all.
+	$currency = '' !== $prices['currency']
+		? $prices['currency']
+		: (string) afristream_affiliate_prop( $affiliation, 'currency', '' );
+
 	$payload = array(
 		'affiliate'    => true,
 		'code'         => (string) afristream_affiliate_prop( $affiliation, 'code', '' ),
 		'commission'   => afristream_affiliate_commission( $affiliation ),
-		'currency'     => $prices['currency'],
+		'currency'     => $currency,
 		'plans'        => $prices['plans'],
 		'portal_url'   => (string) afristream_affiliate_prop( $affiliation, 'portal_url', '' ),
 		'referral_url' => (string) afristream_affiliate_prop( $affiliation, 'referral_url', '' ),

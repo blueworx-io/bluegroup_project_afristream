@@ -27,13 +27,28 @@
   // Minor units throughout (pence, cents) so twelve months of arithmetic cannot
   // drift by a penny. Returns totals plus the month-by-month series the chart
   // draws.
-  const projectEarnings = (commissionMinor, perMonth, intervalMonths, months) => {
+  //
+  // `recurring` and `recurringDays` default to the forever-recurring case, so
+  // every existing caller keeps its exact behaviour. When `recurring` is
+  // false a cohort pays once, in its own signup month, and never again —
+  // commission on the first payment only, regardless of the plan's interval.
+  // When `recurringDays` is set, a cohort's payments stop once it has made
+  // Math.floor(recurringDays / 30) of them.
+  const projectEarnings = (commissionMinor, perMonth, intervalMonths, months, recurring = true, recurringDays = null) => {
     const step = Math.max(1, intervalMonths);
+    const maxPayments = recurring && recurringDays ? Math.max(0, Math.floor(recurringDays / 30)) : null;
     const monthly = [];
     for (let m = 0; m < months; m++) {
       let payers = 0;
       for (let cohort = 0; cohort <= m; cohort++) {
-        if ((m - cohort) % step === 0) payers += perMonth;
+        if (!recurring) {
+          if (cohort === m) payers += perMonth;
+          continue;
+        }
+        const diff = m - cohort;
+        if (diff % step !== 0) continue;
+        if (null !== maxPayments && diff / step >= maxPayments) continue;
+        payers += perMonth;
       }
       monthly.push(payers * commissionMinor);
     }
@@ -47,6 +62,15 @@
 
   // A yearly plan renews every twelve months; interval_count multiplies both.
   const planIntervalMonths = (plan) => Math.max(1, ('year' === plan.interval ? 12 : 1) * (Number(plan.interval_count) || 1));
+
+  // "£45 / month" for a plain monthly or annual price; a multi-month interval
+  // (a quarterly price, say) is a lie as "/ month", so it gets spelled out —
+  // "every 3 months" — instead.
+  const planIntervalLabel = (plan) => {
+    const count = Math.max(1, Number(plan.interval_count) || 1);
+    const unit = 'year' === plan.interval ? 'year' : 'month';
+    return count > 1 ? `every ${count} ${unit}s` : `/ ${unit}`;
+  };
 
   const yr = (meta) => {
     const m = String(meta).match(/((?:19|20)\d\d)/);
@@ -405,14 +429,30 @@
     }
 
     // Minor units in, formatted money out. AfriStream sells globally, so the
-    // currency comes from the plan rather than being assumed.
+    // currency comes from the plan rather than being assumed — and when none
+    // is known at all, the number is formatted plain rather than inventing a
+    // currency symbol nobody asked for.
+    //
+    // Not every currency stores minor units the same way: JPY and KRW have no
+    // decimal places, so their "minor unit" is the same as the major one and
+    // dividing by 100 would render the value at 1/100th of its true size. The
+    // formatter's own resolvedOptions() is the source of truth for how many
+    // decimal places a currency uses, so the divisor is derived from it
+    // rather than assumed.
     const money = (minor, currency) => {
-      const value = (Number(minor) || 0) / 100;
+      const cur = currency ? String(currency).toUpperCase() : '';
+      const opts = cur
+        ? { style: 'currency', currency: cur }
+        : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+      let formatter;
       try {
-        return new Intl.NumberFormat(undefined, { style: 'currency', currency: String(currency || 'usd').toUpperCase() }).format(value);
+        formatter = new Intl.NumberFormat(undefined, opts);
       } catch (e) {
-        return value.toFixed(2);
+        return ((Number(minor) || 0) / 100).toFixed(2);
       }
+      const digits = formatter.resolvedOptions().minimumFractionDigits;
+      const value = (Number(minor) || 0) / Math.pow(10, digits);
+      return formatter.format(value);
     };
 
     // 30 rather than 30.0, 12.5 kept as 12.5.
@@ -422,7 +462,7 @@
     // affiliate the part that matters — that it keeps paying.
     function rateSentence() {
       const c = (affiliate && affiliate.commission) || {};
-      const cur = (affiliate && affiliate.currency) || 'usd';
+      const cur = (affiliate && affiliate.currency) || '';
       let lead;
       if (c.percent) lead = `You earn ${trimNum(c.percent)}% of`;
       else if (c.amount) lead = `You earn ${money(c.amount, cur)} on`;
@@ -509,10 +549,17 @@
       const aff = affiliate || {};
       const portalUrl = aff.portal_url || 'https://afristream.surecart.com/affiliates/';
       const referral = aff.referral_url || '';
+      const commission = aff.commission || {};
+      // Neither a percentage nor a fixed amount — the affiliate is on the
+      // store default and no default rate has been set (percent and amount
+      // are both null). The rate card already sends them to SureCart to see
+      // it; the calculator has nothing to multiply, so it says so rather than
+      // rendering a wall of £0.00.
+      const rateKnown = null != commission.percent || null != commission.amount;
 
       const plans = Array.isArray(aff.plans) ? aff.plans : [];
       const plan = plans.find((p) => p.id === state.affPlan) || plans[0] || null;
-      const currency = plan ? plan.currency : (aff.currency || 'usd');
+      const currency = plan ? plan.currency : (aff.currency || '');
       // Clamped for the maths only — the input keeps rendering exactly what was
       // typed, or clearing the box to type "10" would snap it back to 1.
       const perMonth = Math.max(1, Math.min(100, Number(state.affPerMonth) || 1));
@@ -520,7 +567,7 @@
       const saleMinor = plan ? plan.amount : Math.max(0, Math.round((Number(state.affValue) || 0) * 100));
       const intervalMonths = plan ? planIntervalMonths(plan) : 1;
       const perPayment = commissionPerPayment(saleMinor);
-      const proj = projectEarnings(perPayment, perMonth, intervalMonths, 12);
+      const proj = projectEarnings(perPayment, perMonth, intervalMonths, 12, false !== commission.recurring, commission.recurring_days || null);
       const peak = Math.max.apply(null, proj.monthly.concat([1]));
 
       const inputStyle = 'width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:13px;padding:12px 14px;font-family:inherit;font-size:14px;color:inherit';
@@ -534,7 +581,7 @@
         ? `<label style="display:block">
             <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">Plan they sign up to</span>
             <select data-testid="aff-plan" data-act="aff-plan" style="${inputStyle}">
-              ${plans.map((p) => `<option value="${esc(p.id)}"${p.id === (plan ? plan.id : '') ? ' selected' : ''}>${esc(p.name)} · ${esc(money(p.amount, p.currency))} / ${esc('year' === p.interval ? 'year' : 'month')}</option>`).join('')}
+              ${plans.map((p) => `<option value="${esc(p.id)}"${p.id === (plan ? plan.id : '') ? ' selected' : ''}>${esc(p.name)} · ${esc(money(p.amount, p.currency))} ${esc(planIntervalLabel(p))}</option>`).join('')}
             </select>
           </label>`
         : `<label style="display:block">
@@ -542,25 +589,11 @@
             <input data-testid="aff-value-input" data-act="aff-value" type="number" min="0" step="1" value="${esc(state.affValue)}" style="${inputStyle}">
           </label>`;
 
-      return `
-  <div data-testid="affiliate-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
-    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
-    <p data-testid="affiliate-rate" style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(rateSentence())}</p>
-    <a data-testid="affiliate-portal-link" class="as-hover-primary" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#65009F;color:#fff;border-radius:13px;padding:13px 24px;font-weight:700;font-size:13.5px;text-decoration:none;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)">Open your dashboard in SureCart ↗</a>
-    ${referral ? `
-    <div style="margin-top:20px">
-      <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Your referral link</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <div data-testid="affiliate-referral" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:14.5px;overflow-wrap:anywhere">${esc(referral)}</div>
-        <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-referral">${state.copied === 'referral' ? 'Copied!' : 'Copy link'}</button>
-      </div>
-    </div>` : ''}
-  </div>
-
-  <div data-testid="affiliate-calculator" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
-    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">What you could earn</h2>
-    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Because commission is paid on every payment, each person you sign up keeps paying you while the next one starts. That is what stacks up over a year.</p>
-
+      // Degraded mode: no rate to multiply anything by, so the inputs and the
+      // four figures give way to a single line pointing at where the rate
+      // actually lives.
+      const calculatorBody = rateKnown
+        ? `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px">
       ${picker}
       <label style="display:block">
@@ -581,7 +614,29 @@
     </div>
     <div aria-hidden="true" style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:rgba(11,21,51,.45)"><span>Month 1</span><span>Month 12</span></div>
 
-    <p style="margin:16px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These figures assume the people you sign up stay subscribed — commission keeps coming for as long as they do, and stops if they cancel.</p>
+    <p style="margin:16px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These figures assume the people you sign up stay subscribed — commission keeps coming for as long as they do, and stops if they cancel.</p>`
+        : `
+    <p data-testid="aff-rate-unknown" style="margin:0;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.6)">Your commission rate is not set yet, so there is nothing to project. Open your SureCart dashboard above to see your rate, then come back and this calculator will work it out for you.</p>`;
+
+      return `
+  <div data-testid="affiliate-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
+    <p data-testid="affiliate-rate" style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(rateSentence())}</p>
+    <a data-testid="affiliate-portal-link" class="as-hover-primary" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#65009F;color:#fff;border-radius:13px;padding:13px 24px;font-weight:700;font-size:13.5px;text-decoration:none;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)">Open your dashboard in SureCart ↗</a>
+    ${referral ? `
+    <div style="margin-top:20px">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Your referral link</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div data-testid="affiliate-referral" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:14.5px;overflow-wrap:anywhere">${esc(referral)}</div>
+        <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-referral">${state.copied === 'referral' ? 'Copied!' : 'Copy link'}</button>
+      </div>
+    </div>` : ''}
+  </div>
+
+  <div data-testid="affiliate-calculator" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">What you could earn</h2>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Because commission is paid on every payment, each person you sign up keeps paying you while the next one starts. That is what stacks up over a year.</p>
+    ${calculatorBody}
   </div>`;
     }
 
@@ -1847,9 +1902,11 @@
       let hadFocus = false;
       const active = document.activeElement;
       const activeAct = preserveFocus && active && active.getAttribute ? active.getAttribute('data-act') : null;
-      // Inputs that re-render on every keystroke have to get their focus and
-      // caret back, or typing a two-digit number is impossible.
-      const focusAct = ['query', 'aff-per-month', 'aff-value'].includes(activeAct) ? activeAct : null;
+      // Inputs (and the plan picker) that re-render on every change have to
+      // get their focus back, or a keyboard user changing the plan drops
+      // straight to <body>. Text/number inputs also want their caret back,
+      // or typing a two-digit number is impossible.
+      const focusAct = ['query', 'aff-per-month', 'aff-value', 'aff-plan'].includes(activeAct) ? activeAct : null;
       if (focusAct) {
         hadFocus = true;
         caret = active.selectionStart;
@@ -1988,7 +2045,11 @@ ${state.detail ? detailDrawer(state.detail) : ''}
 
     root.addEventListener('change', (e) => {
       if (e.target.getAttribute && 'aff-plan' === e.target.getAttribute('data-act')) {
-        setState({ affPlan: e.target.value });
+        // A direct mutate-and-render(true), like the other affiliate inputs
+        // above, rather than setState()'s plain render() — the select needs
+        // its focus restored after the rebuild, same as they do.
+        state.affPlan = e.target.value;
+        render(true);
       }
     });
 

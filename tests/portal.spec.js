@@ -1616,3 +1616,43 @@ test('with no plans to pick from the calculator falls back to a sale value', asy
   await expect(page.getByTestId('aff-per-payment')).toHaveText('£4.50');
   await expect(page.getByTestId('aff-month-12')).toHaveText('£270.00');
 });
+
+// A one-off structure pays once, in the signup month, and never again. Five
+// new customers a month at £15 × 30% is still £4.50 a payment, but every
+// month is just that month's own five customers paying once — £22.50 flat,
+// not a staircase — and the year is twelve identical months: 12 × £22.50 =
+// £270.00, not the £1,755 the recurring fixture produces from the same plan
+// and headcount.
+test('a one-off commission structure projects a flat line, not a staircase', async ({ page }) => {
+  await page.goto('/preview/affiliate.html?fixture=onceoff');
+
+  await expect(page.getByTestId('affiliate-rate')).toHaveText('You earn 30% of the first payment each customer makes.');
+  await expect(page.getByTestId('aff-per-payment')).toHaveText('£4.50');
+  await expect(page.getByTestId('aff-month-1')).toHaveText('£22.50');
+  await expect(page.getByTestId('aff-month-12')).toHaveText('£22.50');
+  await expect(page.getByTestId('aff-year-total')).toHaveText('£270.00');
+
+  // Flat means literally the same height on every bar, not just the same
+  // start and end figure with a bulge in between.
+  const bars = page.getByTestId('aff-chart').locator('[data-bar]');
+  await expect(bars).toHaveCount(12);
+  const heights = await bars.evaluateAll((els) => els.map((el) => el.style.height));
+  expect(new Set(heights).size).toBe(1);
+});
+
+test('with no known rate the calculator is degraded, not wrong', async ({ page }) => {
+  await page.goto('/preview/affiliate.html?fixture=norate');
+
+  // The card is honest about the rate being unknown...
+  await expect(page.getByTestId('affiliate-rate')).toHaveText('Your commission rate is set in SureCart — open your dashboard to see it.');
+
+  // ...and the calculator does not invent numbers to go with it.
+  await expect(page.getByTestId('aff-per-payment')).toHaveCount(0);
+  await expect(page.getByTestId('aff-month-1')).toHaveCount(0);
+  await expect(page.getByTestId('aff-month-12')).toHaveCount(0);
+  await expect(page.getByTestId('aff-year-total')).toHaveCount(0);
+  await expect(page.getByTestId('aff-chart')).toHaveCount(0);
+
+  await expect(page.getByTestId('aff-rate-unknown')).toBeVisible();
+  await expect(page.getByTestId('aff-rate-unknown')).toContainText('SureCart');
+});
