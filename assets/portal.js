@@ -22,46 +22,44 @@
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-  // Commission runs for the life of the subscription, so a month's income is
-  // every cohort whose renewal lands in it — not just that month's new sign-ups.
-  // Minor units throughout (pence, cents) so twelve months of arithmetic cannot
-  // drift by a penny. Returns totals plus the month-by-month series the chart
-  // draws.
+  // Subscriptions are annual, and commission is paid on every renewal, so a
+  // year's income is every cohort still subscribed — not just that year's new
+  // sign-ups. Sign up the same number of people five years running and the
+  // fifth year pays five times the first.
   //
-  // `recurring` and `recurringDays` default to the forever-recurring case, so
-  // every existing caller keeps its exact behaviour. When `recurring` is
-  // false a cohort pays once, in its own signup month, and never again —
-  // commission on the first payment only, regardless of the plan's interval.
-  // When `recurringDays` is set, a cohort's payments stop once it has made
-  // Math.floor(recurringDays / 30) of them.
-  const projectEarnings = (commissionMinor, perMonth, intervalMonths, months, recurring = true, recurringDays = null) => {
-    const step = Math.max(1, intervalMonths);
-    const maxPayments = recurring && recurringDays ? Math.max(0, Math.floor(recurringDays / 30)) : null;
-    const monthly = [];
-    for (let m = 0; m < months; m++) {
+  // Minor units throughout (pence, cents) so five years of arithmetic cannot
+  // drift by a penny. Returns the year-by-year series the graph draws, plus
+  // the totals beside it.
+  //
+  // `recurring` false means commission on the first payment only, so a cohort
+  // pays in its own year and never again. `recurringDays` caps how many
+  // renewals a cohort is paid for, in whole years.
+  const projectEarnings = (commissionMinor, perYear, years, recurring = true, recurringDays = null) => {
+    const maxPayments = recurring && recurringDays ? Math.max(0, Math.floor(recurringDays / 365)) : null;
+    const yearly = [];
+    for (let y = 0; y < years; y++) {
       let payers = 0;
-      for (let cohort = 0; cohort <= m; cohort++) {
+      for (let cohort = 0; cohort <= y; cohort++) {
         if (!recurring) {
-          if (cohort === m) payers += perMonth;
+          if (cohort === y) payers += perYear;
           continue;
         }
-        const diff = m - cohort;
-        if (diff % step !== 0) continue;
-        if (null !== maxPayments && diff / step >= maxPayments) continue;
-        payers += perMonth;
+        if (null !== maxPayments && y - cohort >= maxPayments) continue;
+        payers += perYear;
       }
-      monthly.push(payers * commissionMinor);
+      yearly.push(payers * commissionMinor);
     }
     return {
-      monthly,
-      first: monthly[0] || 0,
-      last: monthly[months - 1] || 0,
-      total: monthly.reduce((a, b) => a + b, 0)
+      yearly,
+      first: yearly[0] || 0,
+      last: yearly[years - 1] || 0,
+      total: yearly.reduce((a, b) => a + b, 0)
     };
   };
 
-  // A yearly plan renews every twelve months; interval_count multiplies both.
-  const planIntervalMonths = (plan) => Math.max(1, ('year' === plan.interval ? 12 : 1) * (Number(plan.interval_count) || 1));
+  // How many years the projection runs for. Long enough to show what recurring
+  // commission compounds into over a decade of renewals.
+  const AFF_YEARS = 10;
 
   // "£45 / month" for a plain monthly or annual price; a multi-month interval
   // (a quarterly price, say) is a lie as "/ month", so it gets spelled out —
@@ -392,7 +390,7 @@
       setupFamily: '',
       setupSub: '',
       affPlan: '',
-      affPerMonth: 5,
+      affPerYear: 5,
       affValue: 15,
       affCurrency: '',
       accIdx: 0,
@@ -464,6 +462,25 @@
       const digits = formatter.resolvedOptions().minimumFractionDigits;
       const value = (Number(minor) || 0) / Math.pow(10, digits);
       return formatter.format(value);
+    };
+
+    // The same money, shortened — "£9.9K" rather than "£9,900.00". Ten labels
+    // sitting along a line have no room for the full thing, and the exact
+    // figures are in the tiles above it anyway.
+    const moneyShort = (minor, currency) => {
+      const cur = currency ? String(currency).toUpperCase() : '';
+      try {
+        const opts = { notation: 'compact', maximumFractionDigits: 1 };
+        if (cur) {
+          opts.style = 'currency';
+          opts.currency = cur;
+        }
+        const formatter = new Intl.NumberFormat(undefined, opts);
+        const digits = cur ? new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).resolvedOptions().minimumFractionDigits : 2;
+        return formatter.format((Number(minor) || 0) / Math.pow(10, digits));
+      } catch (e) {
+        return money(minor, currency);
+      }
     };
 
     // 30 rather than 30.0, 12.5 kept as 12.5.
@@ -568,18 +585,20 @@
       // rendering a wall of £0.00.
       const rateKnown = null != commission.percent || null != commission.amount;
 
-      const plans = Array.isArray(aff.plans) ? aff.plans : [];
+      // Subscriptions are sold by the year, so an annual price is the only one
+      // the projection can honestly model. Anything else in the store stays out
+      // of the picker rather than being quietly counted as a year.
+      const plans = (Array.isArray(aff.plans) ? aff.plans : []).filter((p) => 'year' === p.interval);
       const plan = plans.find((p) => p.id === state.affPlan) || plans[0] || null;
       const currency = plan ? plan.currency : (aff.currency || '');
       // Clamped for the maths only — the input keeps rendering exactly what was
       // typed, or clearing the box to type "10" would snap it back to 1.
-      const perMonth = Math.max(1, Math.min(100, Number(state.affPerMonth) || 1));
-      // No live prices to pick from — the affiliate types what a sale is worth.
+      const perYear = Math.max(1, Math.min(1000, Number(state.affPerYear) || 1));
+      // No live prices to pick from — the affiliate types what a year is worth.
       const saleMinor = plan ? plan.amount : Math.max(0, Math.round((Number(state.affValue) || 0) * 100));
-      const intervalMonths = plan ? planIntervalMonths(plan) : 1;
       const perPayment = commissionPerPayment(saleMinor);
-      const proj = projectEarnings(perPayment, perMonth, intervalMonths, 12, false !== commission.recurring, commission.recurring_days || null);
-      const peak = Math.max.apply(null, proj.monthly.concat([1]));
+      const proj = projectEarnings(perPayment, perYear, AFF_YEARS, false !== commission.recurring, commission.recurring_days || null);
+      const peak = Math.max.apply(null, proj.yearly.concat([1]));
 
       // Earnings can be read in another currency, converted from the store's
       // own at the day's published rates. Only the currencies the rate feed
@@ -609,9 +628,56 @@
             </select>
           </label>`
         : `<label style="display:block">
-            <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">What one subscription is worth</span>
-            <input data-testid="aff-value-input" data-act="aff-value" type="number" min="0" step="1" value="${esc(state.affValue)}" style="${inputStyle}">
+            <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">What one year's subscription is worth</span>
+            ${/* type="text" for the same reason as the headcount above: a
+                 number input cannot have its caret put back after a re-render. */''}
+            <input data-testid="aff-value-input" data-act="aff-value" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.affValue)}" style="${inputStyle}">
           </label>`;
+
+      // Five years of income as a line rather than five bars: the shape is the
+      // point — each year's sign-ups sitting on top of the ones still paying
+      // from the years before — and a climbing line says that where five
+      // separate bars only invite you to compare their heights.
+      //
+      // Drawn as SVG on a fixed viewBox, scaled to the panel width, so it needs
+      // no measurement, no library and no second render pass.
+      // The viewBox is sized to roughly the panel's real width, so the SVG
+      // scales to about 1:1 and its labels come out the size they say they are
+      // rather than magnified along with the drawing.
+      const gW = 940;
+      const gH = 290;
+      const gLeft = 46;
+      const gRight = 46;
+      const gTop = 44;
+      const gBottom = 46;
+      const gFloor = gH - gBottom;
+      const points = proj.yearly.map((v, i) => ({
+        v,
+        x: gLeft + (i * (gW - gLeft - gRight)) / Math.max(1, AFF_YEARS - 1),
+        y: gTop + (1 - v / peak) * (gFloor - gTop)
+      }));
+      const linePath = points.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+      const areaPath = `${linePath} L${points[points.length - 1].x.toFixed(1)} ${gFloor} L${points[0].x.toFixed(1)} ${gFloor} Z`;
+      const graph = `
+    <svg data-testid="aff-chart" viewBox="0 0 ${gW} ${gH}" role="img" aria-label="Commission year by year over five years" style="width:100%;height:auto;margin-top:22px;overflow:visible">
+      <defs>
+        <linearGradient id="as-aff-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#CD2DF5" stop-opacity=".28"></stop>
+          <stop offset="100%" stop-color="#CD2DF5" stop-opacity="0"></stop>
+        </linearGradient>
+      </defs>
+      <line x1="${gLeft - 16}" y1="${gFloor}" x2="${gW - gRight + 16}" y2="${gFloor}" stroke="rgba(11,21,51,.12)" stroke-width="1"></line>
+      <path d="${areaPath}" fill="url(#as-aff-fill)"></path>
+      <path d="${linePath}" fill="none" stroke="#65009F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+      ${points.map((p, i) => `
+      <g data-point>
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="#fff" stroke="#65009F" stroke-width="2.5"></circle>
+        <title>Year ${i + 1}: ${esc(money(inShown(p.v), shown))}</title>
+        <text x="${p.x.toFixed(1)}" y="${(p.y - 15).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="#65009F">${esc(moneyShort(inShown(p.v), shown))}</text>
+        <text x="${p.x.toFixed(1)}" y="${gFloor + 26}" text-anchor="middle" font-size="12" fill="rgba(11,21,51,.45)">${i + 1}</text>
+      </g>`).join('')}
+      <text x="${(gW / 2).toFixed(1)}" y="${gH - 6}" text-anchor="middle" font-size="12" fill="rgba(11,21,51,.45)">Year</text>
+    </svg>`;
 
       // Degraded mode: no rate to multiply anything by, so the inputs and the
       // four figures give way to a single line pointing at where the rate
@@ -621,8 +687,14 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px">
       ${picker}
       <label style="display:block">
-        <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">People you sign up each month</span>
-        <input data-testid="aff-per-month" data-act="aff-per-month" type="number" min="1" max="100" step="1" value="${esc(state.affPerMonth)}" style="${inputStyle}">
+        <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">People you sign up each year</span>
+        ${/* Deliberately type="text" with a numeric inputmode rather than
+             type="number": the panel re-renders on every keystroke, and the
+             selection API a number input refuses to implement is exactly what
+             puts the caret back where it was. With type="number" the caret
+             silently returned to the start and "100" came out "001". Phones
+             still get the number pad from inputmode. */''}
+        <input data-testid="aff-per-year" data-act="aff-per-year" type="text" inputmode="numeric" autocomplete="off" value="${esc(state.affPerYear)}" style="${inputStyle}">
       </label>
       ${showSwitcher ? `
       <label style="display:block">
@@ -634,18 +706,15 @@
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
-      ${figure('aff-per-payment', 'Each payment', money(inShown(perPayment), shown))}
-      ${figure('aff-month-1', 'Month 1', money(inShown(proj.first), shown))}
-      ${figure('aff-month-12', 'Month 12', money(inShown(proj.last), shown))}
-      ${figure('aff-year-total', 'First year', money(inShown(proj.total), shown))}
+      ${figure('aff-per-payment', 'Each renewal', money(inShown(perPayment), shown))}
+      ${figure('aff-year-1', 'Year 1', money(inShown(proj.first), shown))}
+      ${figure('aff-year-10', `Year ${AFF_YEARS}`, money(inShown(proj.last), shown))}
+      ${figure('aff-total', 'Total potential earnings', money(inShown(proj.total), shown))}
     </div>
     ${shown !== currency ? `
     <p data-testid="aff-converted" style="margin:12px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">Converted from ${esc(String(currency).toUpperCase())} at today's European Central Bank rates. SureCart still pays you in ${esc(String(currency).toUpperCase())}, so what lands in your account moves with the exchange rate.</p>` : ''}
 
-    <div data-testid="aff-chart" aria-hidden="true" style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:20px">
-      ${proj.monthly.map((v, i) => `<div data-bar title="Month ${i + 1}" style="flex:1;height:${Math.max(3, Math.round((v / peak) * 100))}%;background:linear-gradient(180deg,#CD2DF5,#65009F);border-radius:6px 6px 3px 3px"></div>`).join('')}
-    </div>
-    <div aria-hidden="true" style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:rgba(11,21,51,.45)"><span>Month 1</span><span>Month 12</span></div>
+    ${graph}
 
     <p style="margin:16px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These figures assume the people you sign up stay subscribed — commission keeps coming for as long as they do, and stops if they cancel.</p>`
         : `
@@ -668,7 +737,7 @@
 
   <div data-testid="affiliate-calculator" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
     <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">What you could earn</h2>
-    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Because commission is paid on every payment, each person you sign up keeps paying you while the next one starts. That is what stacks up over a year.</p>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Subscriptions run by the year, and commission is paid on every renewal. Each year's sign-ups keep paying you while the next year's start, which is what builds up over ten years.</p>
     ${calculatorBody}
   </div>`;
     }
@@ -1939,7 +2008,7 @@
       // get their focus back, or a keyboard user changing the plan drops
       // straight to <body>. Text/number inputs also want their caret back,
       // or typing a two-digit number is impossible.
-      const focusAct = ['query', 'aff-per-month', 'aff-value', 'aff-plan', 'aff-currency'].includes(activeAct) ? activeAct : null;
+      const focusAct = ['query', 'aff-per-year', 'aff-value', 'aff-plan', 'aff-currency'].includes(activeAct) ? activeAct : null;
       if (focusAct) {
         hadFocus = true;
         caret = active.selectionStart;
@@ -2067,11 +2136,13 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       if ('query' === act) {
         state.query = e.target.value;
         render(true);
-      } else if ('aff-per-month' === act) {
-        state.affPerMonth = e.target.value;
+      } else if ('aff-per-year' === act) {
+        // Text inputs, so what arrives is whatever was typed — digits only for
+        // a headcount, digits and one decimal point for a price.
+        state.affPerYear = e.target.value.replace(/[^0-9]/g, '');
         render(true);
       } else if ('aff-value' === act) {
-        state.affValue = e.target.value;
+        state.affValue = e.target.value.replace(/[^0-9.]/g, '');
         render(true);
       }
     });

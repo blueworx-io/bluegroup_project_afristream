@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-07-23
+
+### Changed
+
+- **The affiliate calculator now works the way the product actually sells.** Subscriptions run by the year, so the projection does too: it asks how many people you sign up in a year rather than in a month, offers only annual plans, and projects ten years instead of twelve months. A **Total potential earnings** figure sits alongside year one and year ten.
+
+- **The chart is a line rather than a row of bars.** Ten years of recurring commission is a shape — each year's sign-ups sitting on top of everyone still paying from the years before — and a climbing line says that, where separate bars only invite you to compare their heights. Point labels are shortened ("£1.8K") because the exact figures are in the tiles above.
+
+### Fixed
+
+- **Typing in the calculator's number boxes no longer reverses what you type.** The panel re-renders on each keystroke and puts the caret back where it was, but a `type="number"` input refuses the browser API that does it, so the caret silently returned to the start and "100" came out "001". Both boxes are now text inputs with a numeric input mode, which keeps the phone keypad and fixes the caret.
+
 ## [0.17.1] - 2026-07-23
 
 ### Fixed
