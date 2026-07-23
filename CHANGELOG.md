@@ -45,8 +45,27 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - **The Setup progress rail sticks below the top bar** as you scroll a long
   walkthrough, with even space above and below, so you keep track of which of
-  the four steps you are on. It scrolls sideways as one row rather than
+  the three steps you are on. It scrolls sideways as one row rather than
   wrapping, which on a phone would have taken a third of the screen.
+
+- **Setup is three steps, not four.** Choosing an app is part of installing, not
+  a stage of its own, so the app list moved inside step 3 underneath the install
+  stages that refer to it.
+
+- **The buying advice is written for customers, not for people who read spec
+  sheets.** "3GB of RAM, dual-band 5GHz" became "at least 3GB of memory" and
+  "look for WiFi 6 or dual-band on the box"; the WiFi guidance talks about walls
+  and the network name ending in 5G rather than bands and line of sight. The
+  Fire TV warning no longer names Vega OS — it says Amazon is changing the
+  software on its newest sticks so our app will not install, and that the 4K Max
+  and 4K Plus are the last ones that work.
+
+- **Sticks and boxes link straight to something you can buy.** Two options each,
+  from Takealot and Amazon South Africa, checked against the retailers' own
+  product data so every link resolves to a real listing that was in stock at the
+  time of writing: the Fire TV Stick 4K Max and Xiaomi TV Stick 4K (2nd Gen) for
+  sticks, and the Xiaomi TV Box S in 3rd and 2nd generation for boxes. Phones
+  and tablets get none — customers already own those.
 
 - **"Profile" is now "Account" and "Free Apps" is now "Free Streaming".** The internal section id stays `profile`, so any page already pinned with `default_tab="profile"` keeps working.
 

@@ -728,7 +728,7 @@
             title: 'Install your app and sign in',
             steps: [
               'Open Downloader from your home screen.',
-              'Click into the search or URL box at the top and enter the code for the app you pick in step 4 below.',
+              'Click into the search or URL box at the top and enter the code for the app you pick from the list below.',
               'Click the search box again, or press GO, to start the download.',
               'Follow the prompts through to the end. Do not press Back or leave the screen while it is working.',
               'If the app asks to allow access to media and files, always choose Allow.',
@@ -771,7 +771,7 @@
           {
             title: 'Install your app and sign in',
             steps: [
-              'In the Downloader search or URL box, enter the code for the app you pick in step 4 below, and press GO.',
+              'In the Downloader search or URL box, enter the code for the app you pick from the list below, and press GO.',
               'Wait for the download, then choose Install and let it run to the end.',
               'If the app asks to allow access to media and files, always choose Allow.',
               'Choose Open when the install completes.',
@@ -797,7 +797,7 @@
             title: 'Download the app',
             steps: [
               'Open your web browser — Chrome on most devices, Samsung Internet on a Samsung.',
-              'Type the address for the app you pick in step 4 below into the address bar, and press Go.',
+              'Type the address for the app you pick from the list below into the address bar, and press Go.',
               'The download starts on its own. If the browser asks whether to keep the file, choose Download or Keep.',
               'When it finishes, tap the downloaded file — from the notification bar, or from Downloads in your browser menu.'
             ]
@@ -838,7 +838,7 @@
             title: 'Install a player app',
             steps: [
               "Press the Home or Smart Hub button on your TV remote to bring up your TV's own menu.",
-              'Open {store} and search for one of the apps listed in step 4 below. Any of them works.',
+              'Open {store} and search for one of the apps listed below. Any of them works.',
               'Install it — this can take a few minutes on an older set — then open it.'
             ]
           },
@@ -878,11 +878,25 @@
         tagline: 'A stick plugged into the TV, or the TV on its own.',
         summary: 'A streaming stick is a thumb-sized device on a spare HDMI port. It is the cheapest way to get AfriStream onto a television and the one most of our customers use. A TV with no stick can work too, but it is the slowest route to get going.',
         look: [
-          'WiFi 6 if you can, dual-band 5GHz at the very least — a stick has no network socket, so its wireless is the whole story',
-          '2GB of RAM or more',
-          '8GB of storage or more, so app updates have somewhere to go',
-          '4K and HDR if your TV is 4K',
-          'A mains power adapter in the box — running a stick off a USB port on the TV causes restarts and dropouts'
+          'Good WiFi matters most. A stick has nowhere to plug a cable in, so everything comes over the air — look for "WiFi 6" or "dual-band" on the box',
+          'At least 2GB of memory, so it stays quick to use',
+          'At least 8GB of storage, so there is room for the app and its updates',
+          'A 4K one if your TV is 4K — otherwise the cheaper HD version is fine',
+          'A plug that goes into the wall. Running a stick off a USB socket on the TV is the most common cause of it restarting by itself'
+        ],
+        buy: [
+          {
+            name: 'Amazon Fire TV Stick 4K Max',
+            retailer: 'Takealot',
+            note: 'The one most people buy. Works with us — unlike the newer Amazon sticks.',
+            url: 'https://www.takealot.com/amazon-fire-tv-stick-4k-max-streaming-device-alexa-voice-remote-/PLID91995419'
+          },
+          {
+            name: 'Xiaomi TV Stick 4K (2nd Gen)',
+            retailer: 'Takealot',
+            note: 'Our pick if you are buying new. Simpler to set up — no Firesend step, and nothing Amazon can switch off later.',
+            url: 'https://www.takealot.com/xiaomi-tv-stick-4k-2nd-gen-media-player/PLID100971431'
+          }
         ],
         subs: [
           {
@@ -890,15 +904,15 @@
             name: 'Amazon Fire TV Stick',
             method: 'firesend',
             pick: true,
-            hint: 'The one most people already own. Buy the 4K Max or 4K Plus specifically.',
-            warn: 'Amazon has confirmed that future Fire TV Sticks move to its own Vega system, which cannot install apps from outside the Amazon store at all. The 4K Max and 4K Plus are the last models that work with us — check before you buy a new one.'
+            hint: 'The one most people already own. If you are buying, get the 4K Max or 4K Plus specifically.',
+            warn: 'Buying a new Fire TV Stick? Check the model first. Amazon is changing the software on its newest sticks so they can only install apps from Amazon\'s own store — which means our app will not go on them. The 4K Max and the 4K Plus are the last ones that work.'
           },
           {
             key: 'xiaomi-stick',
             name: 'Xiaomi TV Stick 4K',
             method: 'downloader',
             pick: true,
-            hint: 'Runs Google TV, has WiFi 6, and installs in three steps instead of four. Our pick if you are buying new.'
+            hint: 'Our pick if you are buying new. Newer WiFi than the Fire stick, and no Firesend step when you set it up.'
           },
           {
             key: 'googletv-stick',
@@ -923,11 +937,25 @@
         tagline: 'A small box on an HDMI cable, more powerful than a stick.',
         summary: 'A box does the same job as a stick with more room for a faster chip and a better aerial. Worth the extra if your WiFi is patchy, if the TV is a long way from the router, or if you want the thing to still feel quick in three years.',
         look: [
-          'Android TV or Google TV as the operating system — not a plain Android tablet build, which looks similar in listings but runs TV apps badly',
-          'WiFi 6, or dual-band 5GHz at minimum — a box has a bigger aerial than a stick and holds a weak signal far better',
-          '3GB of RAM or more, 4GB if you can; 2GB is the bare minimum and will feel slow',
-          '16GB of storage at the very least, 32GB preferred',
-          '4K and HDR if your TV is 4K'
+          'It must say Android TV or Google TV on the box. Cheap boxes that only say "Android" run phone software and work poorly on a television',
+          'A box holds a weak WiFi signal much better than a stick does, because it has a bigger aerial inside — look for "WiFi 6" or "dual-band"',
+          'At least 3GB of memory, 4GB if you can stretch to it. 2GB will feel slow',
+          'At least 16GB of storage, 32GB if you can',
+          'A 4K one if your TV is 4K'
+        ],
+        buy: [
+          {
+            name: 'Xiaomi TV Box S (3rd Gen)',
+            retailer: 'Takealot',
+            note: 'The current model. Google TV, 32GB of storage, and the newer WiFi.',
+            url: 'https://www.takealot.com/xiaomi-tv-box-s-3rd-gen-4k-uhd-media-player-google-tv-dolby-visi/PLID98257580'
+          },
+          {
+            name: 'Xiaomi TV Box S (2nd Gen)',
+            retailer: 'Amazon',
+            note: 'The previous model, usually cheaper. Still Google TV and still works fine.',
+            url: 'https://www.amazon.co.za/Xiaomi-TV-Box-2nd-Gen/dp/B0BZC43HX8'
+          }
         ],
         subs: [
           { key: 'googletv-box', name: 'Google TV box', method: 'downloader', hint: 'Sold as Google TV — Google\'s own streamer, onn, and similar. The most polished option.' },
@@ -941,9 +969,9 @@
         tagline: 'Phones and tablets.',
         summary: 'Any reasonably current Android phone or tablet works, and it is the quickest setup of the lot — the app installs straight from the web browser, with no Downloader and nothing to find in the Play Store.',
         look: [
-          'Android 9 or newer',
-          'Dual-band 5GHz WiFi — stay off the 2.4GHz network at home if you can',
-          'A few hundred megabytes of free storage for the app and its cache'
+          'Anything from roughly the last five years will do',
+          'A bit of free space on the phone — the app itself is small',
+          'At home, join the WiFi network ending in 5G if you have one'
         ],
         subs: [
           { key: 'android-phone', name: 'Android Phone', method: 'browser', hint: 'Any make — Samsung, Pixel, Xiaomi, Motorola and the rest all install the same way.' },
@@ -961,11 +989,11 @@
     // moves the needle on picture quality — shown alongside the buying guidance
     // in step 2 rather than buried at the bottom of a page nobody scrolls.
     const WIFI_TIPS = [
-      'Use the 5GHz network, not the 2.4GHz one. Most routers broadcast both — the 5GHz one is usually the name with a 5 or 5G on the end, and it is several times faster.',
-      'Line of sight beats distance. One wall between the device and the router is fine; three walls and a floor is what causes the buffering.',
-      'A stick tucked behind a large television is sitting inside a metal box. Use the little HDMI extender that came in the packet to bring it out to the side.',
-      'If the router is at the other end of the house, a mesh point or a powerline adapter in the TV room will fix more than a new stick would.',
-      'Streaming on the 2.4GHz band alongside a microwave, a baby monitor or a cordless phone will drop out. Move to 5GHz and it stops.'
+      'If your WiFi shows two networks with almost the same name, join the one ending in 5G. It is the faster of the two and much better for video.',
+      'Walls are what slow WiFi down, not distance. One wall between your device and the router is fine — three walls and a floor is what causes the picture to freeze.',
+      'If your stick is pushed in behind a big TV, use the short extension lead that came in the box to bring it out to the side. TVs block the signal.',
+      'If the router is at the far end of the house, a WiFi booster in the TV room will help far more than buying a better stick.',
+      'Microwaves and cordless phones can interrupt WiFi while you are watching. Joining the 5G network usually puts a stop to it.'
     ];
 
     // Why a device is needed at all. The commonest misunderstanding at sign-up
@@ -1001,11 +1029,11 @@
 
     // -------------------------------------------------------------- setup tab
 
-    const SETUP_STEPS = ['Your device', 'Which one', 'Install it', 'Your app'];
+    const SETUP_STEPS = ['Your device', 'Which one', 'Install it'];
 
     // Numbers the headings on the page so they read against the progress rail.
-    // Without these, steps 3 and 4 sharing a screen looked like step 4 was
-    // somewhere you could never reach.
+    // Choosing an app is part of installing, not a step of its own — it lives
+    // under step 3, below the install stages that refer to it.
     const stepEyebrow = (n) =>
       `<div style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#65009F">Step ${n} of ${SETUP_STEPS.length}</div>`;
 
@@ -1033,11 +1061,7 @@
   <ol class="as-setup-rail" data-testid="setup-rail" data-dragscroll style="display:flex;gap:8px;list-style:none">
     ${SETUP_STEPS.map((label, i) => {
       const n = i + 1;
-      // Steps 3 and 4 are one screen — the install steps say "the app you pick
-      // in step 4 below", so they have to be readable together. The rail marks
-      // both as current once a device is chosen; showing 4 as unreached made it
-      // look like a step you could never get to.
-      const now = n === at || (at === 3 && n === 4);
+      const now = n === at;
       const done = n < at;
       const chip = `<span style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;font-family:inherit;border:1px solid ${now ? 'rgba(101,0,159,.28)' : 'rgba(11,21,51,.12)'};background:${now ? '#F7E9FF' : '#fff'};color:${now || done ? '#65009F' : 'rgba(11,21,51,.45)'}">
         <span aria-hidden="true" style="width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:${now || done ? '#65009F' : 'rgba(11,21,51,.1)'};color:${now || done ? '#fff' : 'rgba(11,21,51,.5)'}">${done ? '✓' : n}</span>${esc(label)}</span>`;
@@ -1110,10 +1134,8 @@
           ${stage.note ? `<div data-setup-note style="margin-top:16px;background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:13px 16px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(fillTokens(stage.note, sub))}</div>` : ''}
         </div>`).join('')}
     </div>
-  </div>
-  <div data-testid="setup-step" data-setup-step="4" style="margin:30px 2px 0;padding-top:26px;border-top:1px solid rgba(11,21,51,.1)">
-    ${stepEyebrow(4)}
-    <h2 style="margin:0 0 4px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Which app to install</h2>
+    <div data-testid="setup-apps" style="margin:26px 0 0">
+    <h3 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Which app to install</h3>
     <p style="margin:0 0 15px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(fillTokens(method.apps.lead, sub))}</p>
     <div data-testid="setup-codes" style="display:flex;flex-direction:column;gap:10px">
       ${method.apps.rows.map((r) => `
@@ -1124,6 +1146,7 @@
             <div style="margin-top:2px;font-size:12.5px;line-height:1.5;color:rgba(11,21,51,.58)">${esc(r.note)}</div>
           </div>
         </div>`).join('')}
+    </div>
     </div>
   </div>
   <div style="margin-top:22px;background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
@@ -1164,7 +1187,7 @@
       return `
   <div data-testid="setup-buying" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;margin:0 2px 16px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
     <h3 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Buying one? What to look for</h3>
-    <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Specifications rather than model numbers, so this holds whatever is on the shelf when you go looking.</p>
+    <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">You do not need to understand any of this to use AfriStream — it is only here to help you buy the right thing.</p>
     <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">
       ${family.look.map((l) => `
         <li style="display:flex;gap:11px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.72)">
@@ -1172,6 +1195,22 @@
           <span>${esc(l)}</span>
         </li>`).join('')}
     </ul>
+    ${family.buy && family.buy.length ? `
+    <div data-testid="setup-buy-links" style="margin-top:18px;padding-top:18px;border-top:1px solid rgba(11,21,51,.09)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:11px">Ones we know work</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+        ${family.buy.map((b) => `
+          <a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" data-buy-link style="display:flex;flex-direction:column;gap:5px;text-decoration:none;background:#FAFAFC;border:1px solid rgba(11,21,51,.1);border-radius:14px;padding:14px 16px">
+            <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(b.name)}</span>
+              <span style="flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#F7E9FF;color:#65009F;border:1px solid rgba(101,0,159,.18)">${esc(b.retailer)}</span>
+            </span>
+            <span style="font-size:12.5px;line-height:1.55;color:rgba(11,21,51,.62)">${esc(b.note)}</span>
+            <span style="font-size:13px;font-weight:700;color:#65009F">Buy on ${esc(b.retailer)} ↗</span>
+          </a>`).join('')}
+      </div>
+      <p style="margin:12px 0 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">South African retailers. Prices and stock change — if one is sold out, the list above tells you what to match on anything else you find.</p>
+    </div>` : ''}
   </div>`;
     }
 

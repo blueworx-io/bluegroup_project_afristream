@@ -71,12 +71,13 @@ State is two fields, `setupFamily` and `setupSub`, and the step is derived:
 | Step | Shows | Advances on |
 |------|-------|-------------|
 | 1 — Your device | "Why you need a device", then the three family tiles | `setup-family` |
-| 2 — Which one | Sub-device tiles, buying advice, WiFi guidance | `setup-sub` |
-| 3 — Install it | The method's stages | — |
-| 4 — Your app | The method's app list | — |
+| 2 — Which one | Sub-device tiles, buying advice and links, WiFi guidance | `setup-sub` |
+| 3 — Install it | The method's stages, then its app list | — |
 
-Steps 3 and 4 render together, since they are read together: the install steps
-say "the app you pick in step 4 below".
+Choosing an app is part of installing rather than a step of its own, so the app
+list sits inside step 3, below the stages that refer to it. It was briefly a
+fourth step; that only made the rail claim a stage the customer could never
+navigate to, because it shared a screen with step 3 anyway.
 
 A progress rail across the top marks completed steps as buttons —
 `setup-restart` back to step 1, `setup-back-sub` back to step 2 — so there is
@@ -129,26 +130,48 @@ one `assisted` method serves any TV brand without being written twice.
 A step is a plain string or `{ text, code }`; `code` renders oversized and
 monospaced, because these get typed on a TV remote from across a room.
 
-Step 4 always lists three apps to fall back through — IBO Player `617725`,
+The app list always offers three apps to fall back through — IBO Player `617725`,
 Smarters `9469460`, `6573365` — rendered as bare codes for Downloader routes,
 as `aftv.news/` addresses on the browser route, and as plain app names on the
 assisted route where there is no code to type.
 
 ### Buying advice and WiFi
 
-`family.look` renders at step 2 as "Buying one? What to look for" —
-specifications, never model numbers, so it holds against whatever is on the
-shelf. `WIFI_TIPS` renders below it.
+`family.look` renders at step 2 as "Buying one? What to look for", with
+`WIFI_TIPS` below it.
+
+**Written for customers, not for people who read spec sheets.** "3GB of RAM,
+dual-band 5GHz" reads as "at least 3GB of memory" and "look for WiFi 6 or
+dual-band on the box" — the jargon survives only where it is literally the
+wording printed on the packaging, because that is what makes it useful in a
+shop. The WiFi advice talks about walls and the network name ending in 5G,
+not bands and line of sight.
 
 **Everything leads on WiFi.** Virtually every customer watches over wireless,
 and virtually every picture complaint we are asked about is a WiFi problem
 wearing a device problem's clothes. Ethernet is mentioned once, as a reason to
 prefer a box over a stick, rather than being the headline advice.
 
-One buying warning is called out on its own, on the Fire TV sub-device:
-**Amazon has confirmed future Fire TV Sticks move to Vega OS, which cannot
-sideload at all.** The 4K Max and 4K Plus are the last models that work with
-this service. Getting that wrong costs a customer the price of a stick.
+### Purchase links
+
+`family.buy` gives sticks and boxes two options each, from Takealot and Amazon
+South Africa, rendered under "Ones we know work". Phones and tablets carry none
+— customers already own those.
+
+Every URL was checked against the retailer's own product data rather than
+trusted from a search result: Takealot's `product-details` API for the title and
+an `is_add_to_cart_available` stock check, and the Amazon product page for the
+title. Four of the ten candidates found by search were dead listings or out of
+stock and were discarded. A note under the links says stock changes and points
+back at the specification list, so the panel degrades gracefully as listings
+expire.
+
+One buying warning is called out on its own, on the Fire TV sub-device: Amazon
+is moving its newest sticks to software that can only install from Amazon's own
+store, so our app will not go on them. The 4K Max and 4K Plus are the last
+models that work. It deliberately avoids naming Vega OS — the customer needs the
+model numbers, not the codename. Getting this wrong costs a customer the price
+of a stick.
 
 ## "Why you need a device"
 
@@ -294,8 +317,8 @@ Playwright, against the local preview harness:
   Firesend stages, room code and Vega warning; a Google TV stick skips Firesend
   entirely; an Android phone installs from the browser with no Downloader
   anywhere; a bare Smart TV is told it must be registered and gets no code.
-- Step 2 carries the buying advice and the WiFi guidance; step 4 always offers
-  three apps.
+- Step 2 carries the buying advice, the purchase links and the WiFi guidance;
+  step 3 always offers three apps to fall back through.
 - The progress rail walks back a step at a time, and "Start again" clears both
   fields.
 - "Why you need a device" shows at step 1 and is gone by step 2.

@@ -914,16 +914,40 @@ test('step 2 carries the buying advice and the WiFi guidance', async ({ page }) 
 
   const buying = page.getByTestId('setup-buying');
   await expect(buying).toBeVisible();
-  await expect(buying).toContainText('RAM');
-  await expect(buying).toContainText('WiFi 6');
-  // Specifications, not model numbers.
   await expect(buying).toContainText('Android TV or Google TV');
+  await expect(buying).toContainText('memory');
 
-  // Almost everyone watches over WiFi, so that advice is in the flow.
+  // Almost everyone watches over WiFi, so that advice is in the flow — in
+  // plain words, since the people reading it are not technical.
   const wifi = page.getByTestId('setup-wifi');
   await expect(wifi).toBeVisible();
-  await expect(wifi).toContainText('5GHz');
-  await expect(wifi).toContainText('2.4GHz');
+  await expect(wifi).toContainText('ending in 5G');
+  await expect(wifi).toContainText('Walls');
+});
+
+test('sticks and boxes link straight to something you can buy', async ({ page }) => {
+  for (const [family, expected] of [[/TVs & Sticks/, 2], [/Android Boxes/, 2]]) {
+    await page.goto('/');
+    await openSetup(page);
+    await page.getByRole('button', { name: family }).click();
+
+    const links = page.getByTestId('setup-buy-links').locator('[data-buy-link]');
+    await expect(links).toHaveCount(expected);
+
+    for (let i = 0; i < expected; i++) {
+      const href = await links.nth(i).getAttribute('href');
+      // Real South African retailers, and safe to open in a new tab.
+      expect(href).toMatch(/^https:\/\/(www\.takealot\.com|www\.amazon\.co\.za)\//);
+      await expect(links.nth(i)).toHaveAttribute('target', '_blank');
+      await expect(links.nth(i)).toHaveAttribute('rel', /noopener/);
+    }
+  }
+
+  // Phones and tablets are something people already own — nothing to sell them.
+  await page.goto('/');
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android Devices/ }).click();
+  await expect(page.getByTestId('setup-buy-links')).toHaveCount(0);
 });
 
 test('a Fire TV stick gets the Firesend route and both codes', async ({ page }) => {
@@ -936,13 +960,13 @@ test('a Fire TV stick gets the Firesend route and both codes', async ({ page }) 
   await expect(steps.getByRole('heading', { name: 'Install Firesend and unlock the app list' })).toBeVisible();
   await expect(steps.getByRole('heading', { name: 'Install your app and sign in' })).toBeVisible();
 
-  // The room code is called out; the app code comes from step 4.
+  // The room code is called out; the app code comes from the list below.
   await expect(steps.locator('[data-setup-code]')).toHaveText(['10325']);
   await expect(steps.locator('[data-setup-note]').first()).toContainText('seven times');
 
-  // Vega OS kills sideloading on future Fire sticks — that has to be said
-  // before someone buys the wrong one.
-  await expect(page.getByTestId('setup-buy-warning')).toContainText('Vega');
+  // Amazon's newest sticks cannot install our app at all — that has to be
+  // said before someone buys the wrong one, in words a customer understands.
+  await expect(page.getByTestId('setup-buy-warning')).toContainText('4K Max');
 });
 
 test('a Google TV stick skips Firesend and goes straight to Downloader', async ({ page }) => {
@@ -964,7 +988,7 @@ test('an Android phone installs from the browser, not a store or Downloader', as
   const steps = page.getByTestId('setup-steps');
   await expect(steps).toContainText('web browser');
   await expect(steps).not.toContainText('Downloader');
-  // Step 4 gives addresses rather than bare codes on this route.
+  // The app list gives addresses rather than bare codes on this route.
   await expect(page.getByTestId('setup-codes')).toContainText('aftv.news/617725');
 });
 
@@ -981,7 +1005,7 @@ test('a bare Smart TV is told it has to be registered by us', async ({ page }) =
   await expect(page.getByTestId('setup-codes')).toContainText('IBO Player');
 });
 
-test('step 4 always lists three apps to fall back through', async ({ page }) => {
+test('the app list always offers three apps to fall back through', async ({ page }) => {
   await openSetup(page);
   await page.getByRole('button', { name: /Android Boxes/ }).click();
   await page.getByRole('button', { name: /Google TV box/ }).click();
@@ -997,7 +1021,7 @@ test('step 4 always lists three apps to fall back through', async ({ page }) => 
 test('the progress rail tracks the flow and walks back through it', async ({ page }) => {
   await openSetup(page);
   const rail = page.getByTestId('setup-rail');
-  await expect(rail.getByRole('listitem')).toHaveCount(4);
+  await expect(rail.getByRole('listitem')).toHaveCount(3);
 
   await page.getByRole('button', { name: /TVs & Sticks/ }).click();
   await page.getByRole('button', { name: /Xiaomi TV Stick/ }).click();
@@ -1028,22 +1052,22 @@ test('Setup explains why a device is needed, and only at step 1', async ({ page 
   await expect(page.getByTestId('why-a-device')).toHaveCount(0);
 });
 
-test('the progress rail marks steps 3 and 4 as current together', async ({ page }) => {
-  // They share a screen — the install steps say "the app you pick in step 4
-  // below" — and showing 4 as unreached made it look like a step you could
-  // never get to.
+test('the flow is three steps, with the app list folded into the last one', async ({ page }) => {
   await openSetup(page);
+  await expect(page.getByTestId('setup-rail').getByRole('listitem')).toHaveCount(3);
+
   await page.getByRole('button', { name: /Android Devices/ }).click();
   await page.getByRole('button', { name: /Android Phone/ }).click();
 
+  // One current step, and choosing an app sits inside it rather than being a
+  // step of its own — it is part of installing, not separate from it.
   const current = page.getByTestId('setup-rail').locator('[data-rail-current="1"]');
-  await expect(current).toHaveCount(2);
-  await expect(current.first()).toContainText('Install it');
-  await expect(current.last()).toContainText('Your app');
+  await expect(current).toHaveCount(1);
+  await expect(current).toContainText('Install it');
 
-  // And both sections are on the page, numbered so they read against the rail.
-  await expect(page.locator('[data-setup-step="3"]')).toContainText('Step 3 of 4');
-  await expect(page.locator('[data-setup-step="4"]')).toContainText('Step 4 of 4');
+  await expect(page.locator('[data-setup-step="3"]')).toContainText('Step 3 of 3');
+  await expect(page.locator('[data-setup-step="4"]')).toHaveCount(0);
+  await expect(page.locator('[data-setup-step="3"]').getByTestId('setup-apps')).toBeVisible();
 });
 
 test('the progress rail sticks below the top bar while the steps scroll', async ({ page }) => {
