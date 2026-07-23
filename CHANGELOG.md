@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-07-23
+
+### Fixed
+
+- **A newly approved affiliate no longer waits five minutes for their tab.** The portal caches SureCart's answer per user so that clicking between tabs does not call the API every time, but five minutes was long enough to be mistaken for the feature being broken — approve someone, refresh, and nothing happens. The cache is now a minute, which is ample for tab switching and short enough that an approval feels immediate.
+
+- **Saving the default commission rate now takes effect at once**, rather than waiting out the cache. The per-user cache keys are namespaced by a counter that saving the setting bumps, so every cached answer is abandoned on the next page load.
+
 ## [0.17.0] - 2026-07-23
 
 ### Added
