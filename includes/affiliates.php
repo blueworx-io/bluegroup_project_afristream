@@ -16,11 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * How long an answer — positive or negative — is cached per user. Long enough
- * that tab switching costs nothing, short enough that approving an affiliate in
- * SureCart shows up while you are still looking at the screen.
+ * How long an answer — positive or negative — is cached per user.
+ *
+ * A minute, not five. The cache exists so that clicking between tabs does not
+ * call SureCart every time, and a minute is ample for that. Five minutes was
+ * long enough to be mistaken for the feature being broken: approve someone in
+ * SureCart, or change their rate, and the portal went on serving the old answer
+ * well past the point where anyone would keep refreshing.
  */
-define( 'AFRISTREAM_AFFILIATE_CACHE', 5 * MINUTE_IN_SECONDS );
+define( 'AFRISTREAM_AFFILIATE_CACHE', MINUTE_IN_SECONDS );
 
 /**
  * Read a property off a SureCart model, a plain object or an array.
@@ -312,6 +316,20 @@ function afristream_affiliate_rates( $base ) {
 	return $rates;
 }
 
+/**
+ * The number the per-user cache keys are namespaced by.
+ *
+ * Bumped whenever a setting that changes the payload is saved, which abandons
+ * every cached answer at once. Deleting the transients directly would mean
+ * enumerating every user on the site; moving the key they live under costs
+ * nothing and takes effect on the next page load.
+ *
+ * @return int
+ */
+function afristream_affiliate_cache_epoch() {
+	return (int) get_option( 'afristream_affiliate_cache_epoch', 0 );
+}
+
 function afristream_affiliate_payload() {
 	$no = array( 'affiliate' => false );
 
@@ -319,7 +337,7 @@ function afristream_affiliate_payload() {
 		return $no;
 	}
 
-	$cache_key = 'afristream_affiliate_' . get_current_user_id();
+	$cache_key = 'afristream_affiliate_' . afristream_affiliate_cache_epoch() . '_' . get_current_user_id();
 	$cached    = get_transient( $cache_key );
 	if ( is_array( $cached ) ) {
 		return $cached;
@@ -423,6 +441,9 @@ function afristream_affiliate_sanitize_rate( $value ) {
 	if ( $rate > 100 ) {
 		$rate = 100;
 	}
+	// A rate you have just typed should be the rate the portal shows, not the
+	// one it cached a moment ago — so saving abandons every cached answer.
+	update_option( 'afristream_affiliate_cache_epoch', afristream_affiliate_cache_epoch() + 1 );
 	return $rate;
 }
 
@@ -431,5 +452,5 @@ function afristream_affiliate_rate_field() {
 		'<input type="number" min="0" max="100" step="0.5" class="small-text" name="afristream_affiliate_default_rate" id="afristream_affiliate_default_rate" value="%s">',
 		esc_attr( (string) get_option( 'afristream_affiliate_default_rate', 0 ) )
 	);
-	echo '<p class="description">' . esc_html__( 'The commission rate you set as the store default in SureCart. Affiliates with a custom rate use theirs — this only fills in for everyone else, because SureCart does not expose the store default to plugins. A change takes up to five minutes to appear in the portal.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The commission rate you set as the store default in SureCart. Affiliates with a custom rate use theirs — this only fills in for everyone else, because SureCart does not expose the store default to plugins. Saving takes effect immediately; a rate changed in SureCart itself appears within a minute.', 'bluegroup-project-afristream' ) . '</p>';
 }
