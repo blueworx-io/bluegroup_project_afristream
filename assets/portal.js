@@ -707,9 +707,9 @@
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
       ${figure('aff-per-payment', 'Each renewal', money(inShown(perPayment), shown))}
-      ${figure('aff-year-1', 'Year 1', money(inShown(proj.first), shown))}
-      ${figure('aff-year-10', `Year ${AFF_YEARS}`, money(inShown(proj.last), shown))}
-      ${figure('aff-total', 'Total potential earnings', money(inShown(proj.total), shown))}
+      ${figure('aff-year-1', 'Year 1 annual revenue', money(inShown(proj.first), shown))}
+      ${figure('aff-year-10', `Year ${AFF_YEARS} annual revenue`, money(inShown(proj.last), shown))}
+      ${figure('aff-total', `${AFF_YEARS} year total earnings`, money(inShown(proj.total), shown))}
     </div>
     ${shown !== currency ? `
     <p data-testid="aff-converted" style="margin:12px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">Converted from ${esc(String(currency).toUpperCase())} at today's European Central Bank rates. SureCart still pays you in ${esc(String(currency).toUpperCase())}, so what lands in your account moves with the exchange rate.</p>` : ''}

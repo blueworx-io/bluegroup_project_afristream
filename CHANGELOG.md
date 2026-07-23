@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-07-23
+
+### Changed
+
+- The affiliate calculator's tiles say what they are measuring. The total is now **10 year total earnings** rather than "Total potential earnings", and the two yearly figures are **Year 1 annual revenue** and **Year 10 annual revenue**, so neither can be read as a running total.
+
 ## [0.18.0] - 2026-07-23
 
 ### Changed
