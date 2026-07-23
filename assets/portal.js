@@ -295,6 +295,7 @@
       editorEndpoint: root.getAttribute('data-editor-endpoint') || '',
       detailEndpoint: root.getAttribute('data-detail-endpoint') || '',
       credentialsEndpoint: root.getAttribute('data-credentials-endpoint') || '',
+      affiliateEndpoint: root.getAttribute('data-affiliate-endpoint') || '',
       restNonce: root.getAttribute('data-rest-nonce') || '',
       appsUrl: root.getAttribute('data-apps-url') || ''
     };
@@ -305,6 +306,12 @@
     // license assigned) or 'error' (fetch failed).
     let accounts = ACCOUNTS.map((a) => ({ ...a }));
     let credState = props.credentialsEndpoint ? 'loading' : 'demo';
+    // Affiliate payload, and whether the tab exists at all. 'off' covers every
+    // negative: no endpoint, not an affiliate, SureCart unreachable. There is
+    // deliberately no 'error' state — a failed lookup must look exactly like
+    // not being an affiliate, or the tab becomes a way to probe for one.
+    let affiliate = null;
+    let affiliateState = props.affiliateEndpoint ? 'loading' : 'off';
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or
     // ESPN sport fixtures).
@@ -317,13 +324,16 @@
     const state = {
       // 'tips' and 'help' are hidden from the nav but still valid entry points,
       // so a host page that already pins one of them keeps working.
-      section: ['profile', 'setup', 'watch', 'apps', 'editor', 'download', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      section: ['profile', 'setup', 'watch', 'apps', 'editor', 'download', 'affiliate', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       guideOpen: 0,
       // '' until the user picks a device on the Setup tab; step 2 stays hidden
       // until then.
       setupFamily: '',
       setupSub: '',
+      affPlan: '',
+      affPerMonth: 5,
+      affValue: 15,
       accIdx: 0,
       copied: '',
       query: '',
@@ -366,6 +376,35 @@
       clearTimeout(copyTimer);
       copyTimer = setTimeout(() => setState({ copied: '' }), 1600);
       setState({ copied: key });
+    }
+
+    // Minor units in, formatted money out. AfriStream sells globally, so the
+    // currency comes from the plan rather than being assumed.
+    const money = (minor, currency) => {
+      const value = (Number(minor) || 0) / 100;
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: String(currency || 'usd').toUpperCase() }).format(value);
+      } catch (e) {
+        return value.toFixed(2);
+      }
+    };
+
+    // 30 rather than 30.0, 12.5 kept as 12.5.
+    const trimNum = (n) => String(Math.round(Number(n) * 100) / 100);
+
+    // The rate in a sentence, because "30%" on its own does not tell an
+    // affiliate the part that matters — that it keeps paying.
+    function rateSentence() {
+      const c = (affiliate && affiliate.commission) || {};
+      const cur = (affiliate && affiliate.currency) || 'usd';
+      let lead;
+      if (c.percent) lead = `You earn ${trimNum(c.percent)}% of`;
+      else if (c.amount) lead = `You earn ${money(c.amount, cur)} on`;
+      else return 'Your commission rate is set in SureCart — open your dashboard to see it.';
+
+      if (!c.recurring) return `${lead} the first payment each customer makes.`;
+      if (c.recurring_days) return `${lead} every payment, for the first ${Math.round(c.recurring_days / 30)} months of each subscription.`;
+      return `${lead} every payment, for as long as they stay subscribed.`;
     }
 
     // ------------------------------------------------------------ sections
@@ -429,6 +468,27 @@
     ${body}
   </div>
 </section>`;
+    }
+
+    function affiliateSection() {
+      const aff = affiliate || {};
+      const portalUrl = aff.portal_url || 'https://afristream.surecart.com/affiliates/';
+      const referral = aff.referral_url || '';
+
+      return `
+  <div data-testid="affiliate-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
+    <p data-testid="affiliate-rate" style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(rateSentence())}</p>
+    <a data-testid="affiliate-portal-link" class="as-hover-primary" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#65009F;color:#fff;border-radius:13px;padding:13px 24px;font-weight:700;font-size:13.5px;text-decoration:none;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)">Open your dashboard in SureCart ↗</a>
+    ${referral ? `
+    <div style="margin-top:20px">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Your referral link</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div data-testid="affiliate-referral" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:14.5px;overflow-wrap:anywhere">${esc(referral)}</div>
+        <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-referral">${state.copied === 'referral' ? 'Copied!' : 'Copy link'}</button>
+      </div>
+    </div>` : ''}
+  </div>`;
     }
 
     function filtersDrawer(results, searching) {
@@ -1470,12 +1530,21 @@
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
       { id: 'apps', label: 'Free Streaming' },
-      { id: 'download', label: 'Download' },
-      // An outbound link rather than a section: it carries an href, so it
-      // renders as an anchor and never takes the active underline.
-      { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
+      { id: 'download', label: 'Download' }
     ];
-    const SECTIONS = { profile: profileSection, setup: setupSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, tips: tipsSection, help: helpSection };
+    // Affiliates is the one tab that is not for everyone: it appears only once
+    // SureCart has confirmed this user is an active affiliate, and sits last so
+    // its late arrival never shifts a tab out from under a click.
+    const navItems = () => (affiliateState === 'ready' ? NAV.concat([{ id: 'affiliate', label: 'Affiliates' }]) : NAV);
+
+    const SECTIONS = { profile: profileSection, setup: setupSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, affiliate: affiliateSection, tips: tipsSection, help: helpSection };
+    // A deep link to a tab this user cannot have falls back to the Account tab,
+    // the same way an unknown tab name already does.
+    const currentSection = () => (
+      'affiliate' === state.section && 'ready' !== affiliateState
+        ? profileSection
+        : (SECTIONS[state.section] || profileSection)
+    );
 
     // Render-scoped registry of clickable cards: reg(obj) stashes the item
     // and returns its index so a data-card="<idx>" attribute can look it up
@@ -1697,12 +1766,7 @@
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
     <div class="as-tabs" data-dragscroll style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
-      ${NAV.map((n) => (n.href
-        // noopener/noreferrer because target=_blank otherwise hands the opened
-        // page a window.opener handle back to this one. No data-act, so the
-        // delegated click handler leaves it alone and the browser navigates.
-        ? `<a href="${esc(n.href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(n.label)} (opens in a new tab)" style="${navBtn(false)};text-decoration:none;display:flex;align-items:center" data-testid="nav-${n.id}">${esc(n.label)}<span aria-hidden="true" style="margin-left:5px;font-size:11px;line-height:1">↗</span></a>`
-        : `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`)).join('')}
+      ${navItems().map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}" data-testid="nav-${n.id}">${esc(n.label)}</button>`).join('')}
     </div>
     <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none;white-space:nowrap">
       <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
@@ -1710,7 +1774,7 @@
   </nav>
 </header>
 <main style="flex:1;width:100%;max-width:1180px;margin:0 auto;padding:clamp(22px,3.5vw,34px) clamp(16px,3vw,32px) 76px">
-${(SECTIONS[state.section] || profileSection)()}
+${currentSection()()}
 </main>
 <footer style="border-top:1px solid rgba(11,21,51,.08);padding:20px clamp(16px,3vw,32px);text-align:center;font-size:12px;color:rgba(11,21,51,.5)">Need help? <a href="mailto:support@afristream.io">support@afristream.io</a> · © 2026 AfriStream</footer>
 ${state.detail ? detailDrawer(state.detail) : ''}
@@ -1786,6 +1850,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
+        case 'copy-referral': copy((affiliate && affiliate.referral_url) || '', 'referral'); break;
         case 'quicknav': setState({ subWatch: val }); break;
         case 'open-filters': setState({ filtersOpen: true }); break;
         case 'close-filters': setState({ filtersOpen: false }); break;
@@ -2009,6 +2074,32 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         .catch(() => {
           accounts = [];
           credState = 'error';
+          render(true);
+        });
+    }
+
+    // Is this person an affiliate? The tab is appended only on a yes, so the
+    // markup never contains anything affiliate-related for anyone else — which
+    // also means a page-cached portal cannot leak it.
+    if (props.affiliateEndpoint && typeof fetch === 'function') {
+      const affHeaders = props.restNonce ? { 'X-WP-Nonce': props.restNonce } : {};
+      fetch(props.affiliateEndpoint, { headers: affHeaders, credentials: 'same-origin' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (payload && payload.affiliate) {
+            affiliate = payload;
+            affiliateState = 'ready';
+            const plans = Array.isArray(payload.plans) ? payload.plans : [];
+            if (plans.length) state.affPlan = plans[0].id;
+          } else {
+            affiliateState = 'off';
+            if (state.section === 'affiliate') state.section = 'profile';
+          }
+          render(true);
+        })
+        .catch(() => {
+          affiliateState = 'off';
+          if (state.section === 'affiliate') state.section = 'profile';
           render(true);
         });
     }

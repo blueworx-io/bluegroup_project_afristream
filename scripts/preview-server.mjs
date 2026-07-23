@@ -112,6 +112,21 @@ const CREDENTIALS_FIXTURE = {
   ],
 };
 
+// Deterministic affiliate fixture (mirrors the plugin's afristream/v1/affiliate,
+// which is SureCart-backed and per-user in production). 30% recurring on a £15
+// monthly plan is the arithmetic the Playwright projection test asserts.
+const AFFILIATE_FIXTURE = {
+  affiliate: true,
+  code: 'FIXTURE1',
+  referral_url: 'https://afristream.io/?ref=FIXTURE1',
+  commission: { amount: null, percent: 30, recurring: true, recurring_days: null },
+  currency: 'gbp',
+  plans: [
+    { amount: 1500, currency: 'gbp', id: 'price_month', interval: 'month', interval_count: 1, name: 'AfriStream — 1 Month' },
+    { amount: 12000, currency: 'gbp', id: 'price_year', interval: 'year', interval_count: 1, name: 'AfriStream — 12 Months' },
+  ],
+};
+
 let editorCache = null;
 let editorCacheAt = 0;
 
@@ -607,6 +622,17 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(payload));
       return;
     }
+    if (path === '/api/affiliate') {
+      const mode = url.searchParams.get('fixture') || '0';
+      const payload = mode === '1'
+        ? AFFILIATE_FIXTURE
+        : mode === 'noplans'
+          ? { ...AFFILIATE_FIXTURE, plans: [] }
+          : { affiliate: false };
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
     if (path === '/api/detail') {
       const id = url.searchParams.get('id') || '';
       const type = url.searchParams.get('type') || 'movie';
@@ -617,6 +643,18 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(payload));
       return;
     }
+    // The affiliate preview page carries its fixture mode in its own query
+    // string, so one page covers approved, not-approved and no-prices without
+    // three near-identical files.
+    if (path === '/preview/affiliate.html') {
+      const mode = url.searchParams.get('fixture') || '1';
+      const html = (await readFile(join(ROOT, 'preview', 'affiliate.html'), 'utf8'))
+        .replace('/api/affiliate?fixture=1', `/api/affiliate?fixture=${encodeURIComponent(mode)}`);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
+
     if (path === '/' || path === '/index.html') path = '/preview/index.html';
 
     const file = normalize(join(ROOT, path));

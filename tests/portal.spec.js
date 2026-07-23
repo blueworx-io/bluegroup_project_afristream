@@ -62,8 +62,10 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
     };
   }, id);
 
-  // A tab with room on both sides lands dead centre.
-  for (const id of ['watch', 'editor', 'apps']) {
+  // A tab with room on both sides lands dead centre. Free Streaming no longer
+  // has one (the affiliate-only tab it used to have on its right is gone by
+  // design), so it sits with the clamped tabs below instead.
+  for (const id of ['watch', 'editor']) {
     await page.locator(`.as-tabs [data-act="nav"][data-val="${id}"]`).click();
     const m = await measure(id);
     expect(Math.abs(m.offCentre), `${id} should be centred`).toBeLessThanOrEqual(1);
@@ -85,8 +87,10 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
 });
 
 test('the tab bar can be dragged with a mouse without navigating', async ({ page }) => {
-  // Narrow enough that the bar overflows on desktop too.
-  await page.setViewportSize({ width: 760, height: 800 });
+  // Narrow enough that the bar overflows on desktop too. 760px no longer
+  // does — the strip lost the outbound Affiliates anchor it used to carry —
+  // so this drops to a width that still overflows by a comfortable margin.
+  await page.setViewportSize({ width: 650, height: 800 });
   await page.goto('/');
 
   const strip = page.locator('.as-tabs');
@@ -802,29 +806,15 @@ test('the filters drawer scroll-locks the page behind it', async ({ page }) => {
   expect(await scrollable(), 'page should scroll again once closed').toBe(true);
 });
 
-test('the Affiliates tab is an outbound link that opens in a new tab', async ({ page, context }) => {
-  const link = page.getByTestId('nav-affiliates');
-  await expect(link).toBeVisible();
-
-  // Last in the tab list, and a link rather than a section button.
+test('the Affiliates tab is absent for a non-affiliate, not an outbound link', async ({ page }) => {
+  // The nav used to carry a permanent outbound link to SureCart for every
+  // subscriber. It is gone by design — the tab now appears only once the
+  // affiliate payload confirms an active affiliation.
+  await expect(page.getByTestId('nav-affiliates')).toHaveCount(0);
   const labels = await page.locator('.as-tabs > *').evaluateAll((els) => els.map((e) => e.textContent.trim()));
-  expect(labels[labels.length - 1]).toContain('Affiliates');
-  await expect(link).toHaveAttribute('href', 'https://afristream.surecart.com/affiliates/');
-  // target=_blank hands the opened page a window.opener back to this one
-  // unless it is disclaimed.
-  await expect(link).toHaveAttribute('rel', /noopener/);
+  expect(labels.join(' ')).not.toContain('Affiliates');
 
-  // Stubbed so the suite stays hermetic — we care that the browser was sent
-  // to that URL in a new tab, not what SureCart serves back.
-  await context.route('https://afristream.surecart.com/**', (route) =>
-    route.fulfill({ contentType: 'text/html', body: '<title>stub</title>' }));
-
-  const [tab] = await Promise.all([context.waitForEvent('page'), link.click()]);
-  await tab.waitForLoadState();
-  expect(tab.url()).toBe('https://afristream.surecart.com/affiliates/');
-  await tab.close();
-
-  // The portal itself stays where it was rather than navigating away.
+  // The portal itself stays on Account, unaffected by the nav change.
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
 });
 
@@ -1548,4 +1538,30 @@ test('the Apps tab shows the unavailable notice when no apps URL is configured',
 
   await page.getByRole('button', { name: 'Account', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+});
+
+test('the affiliate tab is hidden from anyone who is not an affiliate', async ({ page }) => {
+  await page.goto('/');
+  // The payload says affiliate:false, so the nav must not carry the tab at all.
+  await expect(page.getByRole('button', { name: 'Affiliates' })).toHaveCount(0);
+  await expect(page.getByTestId('nav-affiliate')).toHaveCount(0);
+});
+
+test('a non-affiliate deep-linked to the affiliate tab lands on Account', async ({ page }) => {
+  await page.goto('/preview/affiliate.html?fixture=0');
+  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+  await expect(page.getByTestId('nav-affiliate')).toHaveCount(0);
+});
+
+test('an affiliate gets the tab, their referral link and their rate', async ({ page }) => {
+  await page.goto('/preview/affiliate.html');
+
+  await expect(page.getByTestId('nav-affiliate')).toBeVisible();
+  await expect(page.getByTestId('affiliate-card')).toBeVisible();
+  await expect(page.getByTestId('affiliate-referral')).toHaveText('https://afristream.io/?ref=FIXTURE1');
+  await expect(page.getByTestId('affiliate-rate')).toHaveText('You earn 30% of every payment, for as long as they stay subscribed.');
+  await expect(page.getByTestId('affiliate-portal-link')).toHaveAttribute('href', 'https://afristream.surecart.com/affiliates/');
+
+  await page.getByRole('button', { name: 'Copy link' }).click();
+  await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible();
 });
