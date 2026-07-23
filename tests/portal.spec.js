@@ -1657,12 +1657,20 @@ test('the buy links sit under the referral link carrying the referral code', asy
   const subscription = 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=e204f70c-35dc-498c-b2b4-e850e6d84ac8&line_items%5B0%5D%5Bquantity%5D=1&ref=FIXTURE1';
   const setup = 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=8b2a7b7a-cf23-4f96-97f6-47acfe925412&line_items%5B0%5D%5Bquantity%5D=1&ref=FIXTURE1';
 
-  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveText(subscription);
-  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveText(setup);
+  // Shown shortened so it can be read at a glance, but the link itself — and
+  // what the copy button hands over — is the full, exact URL.
+  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveAttribute('href', subscription);
+  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveAttribute('href', setup);
+  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveText('afristream.io/checkout/?…&ref=FIXTURE1');
+  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveText('afristream.io/checkout/?…&ref=FIXTURE1');
 
-  const referral = await page.getByTestId('affiliate-referral').boundingBox();
-  const buys = await page.getByTestId('affiliate-buy-links').boundingBox();
-  expect(buys.y).toBeGreaterThan(referral.y);
+  const buys = page.getByTestId('affiliate-buy-links');
+  await expect(buys).toContainText('AfriStream Subscription (For users that have their own device)');
+  await expect(buys).toContainText('AfriStream Subscription & Setup (For users that need us to buy a device for them)');
+
+  const referralBox = await page.getByTestId('affiliate-referral').boundingBox();
+  const buysBox = await buys.boundingBox();
+  expect(buysBox.y).toBeGreaterThan(referralBox.y);
 
   // Three copy buttons on the card: referral, then the two buy links. Copying
   // a buy link turns that one — and only that one — into "Copied!".

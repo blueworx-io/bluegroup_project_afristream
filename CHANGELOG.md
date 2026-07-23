@@ -8,7 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- **Buy links on the affiliate card.** The two AfriStream checkout links — Subscription, and Subscription & Setup — sit under the referral link with the affiliate's referral code already appended, so a sale made through one is credited to them. The code is read off their own referral link rather than hardcoded, so if SureCart renames the tracking parameter the buy links follow it instead of quietly attributing to nobody.
+- **Buy links on the affiliate card.** The two AfriStream checkout links sit under the referral link with the affiliate's referral code already appended, so a sale made through one is credited to them. Each is labelled with who it is for — **AfriStream Subscription** (for users that have their own device) and **AfriStream Subscription & Setup** (for users that need us to buy a device for them). The code is read off their own referral link rather than hardcoded, so if SureCart renames the tracking parameter the buy links follow it instead of quietly attributing to nobody.
+
+  The link is shown shortened — `afristream.io/checkout/?…&ref=YOURCODE` — because the real one is a wall of percent-encoded price ids that reads as noise and cannot be checked at a glance. Shortened it still shows the two things that matter: that it goes to AfriStream's checkout, and that it carries their code. It is a live link, so it can be opened and tested, and Copy link puts the full, exact URL on the clipboard.
 
 - **Sub-categories on Editor Picks.** A Category row offers Action, Adventure, Animation, Comedy, Romance and Thriller, alphabetically, alongside the existing type and rating filters. Every pick answers to exactly one of them: TMDB returns a far wider genre list than six, so crime, mystery, horror and drama fold into Thriller, the speculative genres and family into Adventure, war and westerns into Action, and anything with no near neighbour — documentaries, history, music — falls back to Adventure rather than dropping out of the filter. Cards still show their real genre.
 

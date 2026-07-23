@@ -65,8 +65,8 @@
   // SureCart's and the bracket escaping is deliberate — these are pasted from
   // the store's own buy links and must survive verbatim.
   const AFF_BUY_LINKS = [
-    { key: 'subscription', label: 'AfriStream Subscription', url: 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=e204f70c-35dc-498c-b2b4-e850e6d84ac8&line_items%5B0%5D%5Bquantity%5D=1' },
-    { key: 'subscription-setup', label: 'AfriStream Subscription & Setup', url: 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=8b2a7b7a-cf23-4f96-97f6-47acfe925412&line_items%5B0%5D%5Bquantity%5D=1' },
+    { key: 'subscription', label: 'AfriStream Subscription', note: 'For users that have their own device', url: 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=e204f70c-35dc-498c-b2b4-e850e6d84ac8&line_items%5B0%5D%5Bquantity%5D=1' },
+    { key: 'subscription-setup', label: 'AfriStream Subscription & Setup', note: 'For users that need us to buy a device for them', url: 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=8b2a7b7a-cf23-4f96-97f6-47acfe925412&line_items%5B0%5D%5Bquantity%5D=1' },
   ];
 
   // A buy link earns nothing unless it carries the affiliate's code, so the
@@ -74,10 +74,22 @@
   // rather than hardcoded as "ref=" because the parameter is SureCart's to
   // name — if the store renames it, the referral link changes with it and
   // these follow, instead of quietly attributing to nobody.
+  const referralQuery = (referralUrl) => String(referralUrl || '').split('#')[0].split('?')[1] || '';
   const withReferral = (url, referralUrl) => {
-    const query = String(referralUrl || '').split('#')[0].split('?')[1] || '';
+    const query = referralQuery(referralUrl);
     if (!query) return url;
     return url + (url.indexOf('?') === -1 ? '?' : '&') + query;
+  };
+
+  // The link itself is a wall of percent-encoded price ids — unreadable, and
+  // nothing an affiliate can check at a glance. What they need to see is that
+  // it points at AfriStream's checkout and carries their code, so the price
+  // ids collapse to an ellipsis and the code stays visible. The copy button
+  // still puts the full, exact URL on the clipboard.
+  const friendlyBuyUrl = (url, referralUrl) => {
+    const base = String(url).split('?')[0].replace(/^https?:\/\//, '');
+    const query = referralQuery(referralUrl);
+    return base + '?…' + (query ? '&' + query : '');
   };
 
   // "£45 / month" for a plain monthly or annual price; a multi-month interval
@@ -637,7 +649,13 @@
     // on the clipboard can never drift apart.
     function affiliateBuyLinks() {
       const referral = (affiliate && affiliate.referral_url) || '';
-      return AFF_BUY_LINKS.map((b) => ({ key: b.key, label: b.label, url: withReferral(b.url, referral) }));
+      return AFF_BUY_LINKS.map((b) => ({
+        key: b.key,
+        label: b.label,
+        note: b.note,
+        url: withReferral(b.url, referral),
+        display: friendlyBuyUrl(b.url, referral),
+      }));
     }
 
     function affiliateSection() {
@@ -820,12 +838,14 @@
           the URL on a narrow screen instead of crushing it. */''}
     <div data-testid="affiliate-buy-links" style="margin-top:20px">
       <div style="font-size:13.5px;font-weight:700;margin-bottom:4px">Your buy links</div>
-      <p style="margin:0 0 12px;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These take someone straight to checkout with your referral code already on them, so the sale is credited to you.</p>
+      <p style="margin:0 0 12px;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These take someone straight to checkout with your referral code already on them, so the sale is credited to you. They are shown shortened to stay readable — Copy link gives you the full link to share.</p>
       ${buyLinks.map((b, i) => `
-      <div style="margin-top:${i ? '12px' : '0'}">
-        <div style="font-size:12.5px;font-weight:700;margin-bottom:6px;color:rgba(11,21,51,.72)">${esc(b.label)}</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <div data-testid="affiliate-buy-${esc(b.key)}" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13px;overflow-wrap:anywhere">${esc(b.url)}</div>
+      <div style="margin-top:${i ? '16px' : '0'}">
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:2px;color:rgba(11,21,51,.72)">${esc(b.label)} <span style="font-weight:400;color:rgba(11,21,51,.5)">(${esc(b.note)})</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+          ${/* The shortened link is the real one — an anchor, not a label — so
+                it can be opened and checked before it goes out. */''}
+          <a data-testid="affiliate-buy-${esc(b.key)}" href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:13.5px;overflow-wrap:anywhere;color:#65009F;text-decoration:none;display:flex;align-items:center">${esc(b.display)}</a>
           <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-buy" data-val="${i}">${state.copied === 'buy-' + b.key ? 'Copied!' : 'Copy link'}</button>
         </div>
       </div>`).join('')}
