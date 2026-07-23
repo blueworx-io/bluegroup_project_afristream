@@ -240,6 +240,78 @@ function afristream_affiliate_prices() {
  *
  * @return array
  */
+/**
+ * The currencies the portal will convert affiliate earnings into.
+ * Rands first — most of the audience is South African.
+ */
+function afristream_affiliate_currencies() {
+	return array( 'zar', 'usd', 'gbp', 'eur' );
+}
+
+/**
+ * Conversion rates from the store's currency into each of the four the
+ * calculator offers, or an empty array when they cannot be had.
+ *
+ * The rates come from Frankfurter, a keyless, permanently free feed of the
+ * European Central Bank's published reference rates — the same class of
+ * dependency as the sport feeds, and no key to keep. Cached for a day, since
+ * the ECB publishes once a day. If the call fails the array comes back empty
+ * and the front end drops the switcher rather than converting with a made-up
+ * number.
+ *
+ * @param string $base The store's currency (ISO 4217, lowercase).
+ * @return array<string,float> Keyed by lowercase currency code; base included at 1.0.
+ */
+function afristream_affiliate_rates( $base ) {
+	$base = strtolower( (string) $base );
+	if ( '' === $base ) {
+		return array();
+	}
+
+	$cache_key = 'afristream_affiliate_rates_' . $base;
+	$cached    = get_transient( $cache_key );
+	if ( is_array( $cached ) ) {
+		return $cached;
+	}
+
+	$wanted = array_values( array_diff( afristream_affiliate_currencies(), array( $base ) ) );
+	$rates  = array( $base => 1.0 );
+
+	$response = wp_remote_get(
+		add_query_arg(
+			array(
+				'base'    => strtoupper( $base ),
+				'symbols' => strtoupper( implode( ',', $wanted ) ),
+			),
+			'https://api.frankfurter.app/latest'
+		),
+		array( 'timeout' => 8 )
+	);
+
+	if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+		// Cached briefly even on failure, so a feed that is down does not add a
+		// timeout to every portal load.
+		set_transient( $cache_key, array(), 15 * MINUTE_IN_SECONDS );
+		return array();
+	}
+
+	$json = json_decode( wp_remote_retrieve_body( $response ), true );
+	if ( ! is_array( $json ) || empty( $json['rates'] ) || ! is_array( $json['rates'] ) ) {
+		set_transient( $cache_key, array(), 15 * MINUTE_IN_SECONDS );
+		return array();
+	}
+
+	foreach ( $json['rates'] as $code => $rate ) {
+		$code = strtolower( (string) $code );
+		if ( in_array( $code, afristream_affiliate_currencies(), true ) && $rate > 0 ) {
+			$rates[ $code ] = (float) $rate;
+		}
+	}
+
+	set_transient( $cache_key, $rates, DAY_IN_SECONDS );
+	return $rates;
+}
+
 function afristream_affiliate_payload() {
 	$no = array( 'affiliate' => false );
 
@@ -276,6 +348,7 @@ function afristream_affiliate_payload() {
 		'commission'   => afristream_affiliate_commission( $affiliation ),
 		'currency'     => $currency,
 		'plans'        => $prices['plans'],
+		'rates'        => afristream_affiliate_rates( $currency ),
 		'portal_url'   => (string) afristream_affiliate_prop( $affiliation, 'portal_url', '' ),
 		'referral_url' => (string) afristream_affiliate_prop( $affiliation, 'referral_url', '' ),
 	);

@@ -1656,3 +1656,23 @@ test('with no known rate the calculator is degraded, not wrong', async ({ page }
   await expect(page.getByTestId('aff-rate-unknown')).toBeVisible();
   await expect(page.getByTestId('aff-rate-unknown')).toContainText('SureCart');
 });
+
+// £4.50 a payment and £270 in month 12, read in Rands at the fixture's rate of
+// 24 to the pound: R108.00 and R6,480.00. The plan price beside the picker
+// stays in pounds, because that is what the customer is actually charged.
+test('earnings can be read in another currency, converted from the store one', async ({ page }) => {
+  await page.goto('/preview/affiliate.html');
+
+  const currency = page.getByTestId('aff-currency');
+  await expect(currency).toBeVisible();
+  await expect(currency.locator('option')).toHaveText(['Rands', 'Dollars', 'Pounds', 'Euros']);
+  // Opens on the store's own currency, with nothing to explain.
+  await expect(currency).toHaveValue('gbp');
+  await expect(page.getByTestId('aff-converted')).toHaveCount(0);
+
+  await currency.selectOption('zar');
+  await expect(page.getByTestId('aff-per-payment')).toContainText('108.00');
+  await expect(page.getByTestId('aff-month-12')).toContainText('6,480.00');
+  await expect(page.getByTestId('aff-converted')).toContainText('SureCart still pays you in GBP');
+  await expect(page.getByTestId('aff-plan')).toContainText('£15.00');
+});

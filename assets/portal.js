@@ -72,6 +72,16 @@
     return count > 1 ? `every ${count} ${unit}s` : `/ ${unit}`;
   };
 
+  // The currencies an affiliate can read their earnings in. Rands first,
+  // because most of them are in South Africa; named rather than coded because
+  // "Rands" is what people say and ZAR is what accountants say.
+  const AFF_CURRENCIES = [
+    { code: 'zar', label: 'Rands' },
+    { code: 'usd', label: 'Dollars' },
+    { code: 'gbp', label: 'Pounds' },
+    { code: 'eur', label: 'Euros' }
+  ];
+
   const yr = (meta) => {
     const m = String(meta).match(/((?:19|20)\d\d)/);
     return m ? +m[1] : 0;
@@ -384,6 +394,7 @@
       affPlan: '',
       affPerMonth: 5,
       affValue: 15,
+      affCurrency: '',
       accIdx: 0,
       copied: '',
       query: '',
@@ -570,6 +581,19 @@
       const proj = projectEarnings(perPayment, perMonth, intervalMonths, 12, false !== commission.recurring, commission.recurring_days || null);
       const peak = Math.max.apply(null, proj.monthly.concat([1]));
 
+      // Earnings can be read in another currency, converted from the store's
+      // own at the day's published rates. Only the currencies the rate feed
+      // actually returned are offered — with no rates there is no switcher,
+      // because a converted figure nobody can stand behind is worse than none.
+      const rates = (aff.rates && 'object' === typeof aff.rates) ? aff.rates : {};
+      const options = AFF_CURRENCIES.filter((c) => rates[c.code] > 0);
+      const showSwitcher = options.length > 1;
+      const shown = (showSwitcher && rates[state.affCurrency] > 0) ? state.affCurrency : currency;
+      const rate = rates[shown] > 0 ? rates[shown] : 1;
+      // Converted from minor units to minor units, so the maths stays integer
+      // all the way to the formatter.
+      const inShown = (minor) => Math.round(minor * rate);
+
       const inputStyle = 'width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:13px;padding:12px 14px;font-family:inherit;font-size:14px;color:inherit';
       const figure = (id, label, value) => `
         <div style="background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:14px;padding:14px 16px">
@@ -600,14 +624,23 @@
         <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">People you sign up each month</span>
         <input data-testid="aff-per-month" data-act="aff-per-month" type="number" min="1" max="100" step="1" value="${esc(state.affPerMonth)}" style="${inputStyle}">
       </label>
+      ${showSwitcher ? `
+      <label style="display:block">
+        <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">Show your earnings in</span>
+        <select data-testid="aff-currency" data-act="aff-currency" style="${inputStyle}">
+          ${options.map((c) => `<option value="${esc(c.code)}"${c.code === shown ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}
+        </select>
+      </label>` : ''}
     </div>
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
-      ${figure('aff-per-payment', 'Each payment', money(perPayment, currency))}
-      ${figure('aff-month-1', 'Month 1', money(proj.first, currency))}
-      ${figure('aff-month-12', 'Month 12', money(proj.last, currency))}
-      ${figure('aff-year-total', 'First year', money(proj.total, currency))}
+      ${figure('aff-per-payment', 'Each payment', money(inShown(perPayment), shown))}
+      ${figure('aff-month-1', 'Month 1', money(inShown(proj.first), shown))}
+      ${figure('aff-month-12', 'Month 12', money(inShown(proj.last), shown))}
+      ${figure('aff-year-total', 'First year', money(inShown(proj.total), shown))}
     </div>
+    ${shown !== currency ? `
+    <p data-testid="aff-converted" style="margin:12px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">Converted from ${esc(String(currency).toUpperCase())} at today's European Central Bank rates. SureCart still pays you in ${esc(String(currency).toUpperCase())}, so what lands in your account moves with the exchange rate.</p>` : ''}
 
     <div data-testid="aff-chart" aria-hidden="true" style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:20px">
       ${proj.monthly.map((v, i) => `<div data-bar title="Month ${i + 1}" style="flex:1;height:${Math.max(3, Math.round((v / peak) * 100))}%;background:linear-gradient(180deg,#CD2DF5,#65009F);border-radius:6px 6px 3px 3px"></div>`).join('')}
@@ -1906,7 +1939,7 @@
       // get their focus back, or a keyboard user changing the plan drops
       // straight to <body>. Text/number inputs also want their caret back,
       // or typing a two-digit number is impossible.
-      const focusAct = ['query', 'aff-per-month', 'aff-value', 'aff-plan'].includes(activeAct) ? activeAct : null;
+      const focusAct = ['query', 'aff-per-month', 'aff-value', 'aff-plan', 'aff-currency'].includes(activeAct) ? activeAct : null;
       if (focusAct) {
         hadFocus = true;
         caret = active.selectionStart;
@@ -2044,11 +2077,15 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     });
 
     root.addEventListener('change', (e) => {
-      if (e.target.getAttribute && 'aff-plan' === e.target.getAttribute('data-act')) {
-        // A direct mutate-and-render(true), like the other affiliate inputs
-        // above, rather than setState()'s plain render() — the select needs
-        // its focus restored after the rebuild, same as they do.
+      const act = e.target.getAttribute && e.target.getAttribute('data-act');
+      // A direct mutate-and-render(true), like the other affiliate inputs
+      // above, rather than setState()'s plain render() — the selects need
+      // their focus restored after the rebuild, same as they do.
+      if ('aff-plan' === act) {
         state.affPlan = e.target.value;
+        render(true);
+      } else if ('aff-currency' === act) {
+        state.affCurrency = e.target.value;
         render(true);
       }
     });

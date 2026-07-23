@@ -12,6 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
   Below that, a profit calculator. Pick the plan a referral signs up to (pulled live from the store's own recurring prices, so it always matches what you charge), say how many people you sign up a month, and it projects each payment, month one, month twelve and the first year, with a chart of the staircase recurring commission builds. Annual plans are modelled on their real renewal month rather than smeared across twelve. Custom per-affiliate rates come through from SureCart automatically; a **Default affiliate commission (%)** setting stands in for the store default, which SureCart does not expose to plugins.
 
+  Earnings can be read in **Rands, Dollars, Pounds or Euros**, converted from the store's own currency at the European Central Bank's published rates through a keyless, permanently free feed, cached for a day. The plan price beside the picker stays in the currency the customer is actually charged, and the panel says plainly that SureCart still pays out in the store currency, so what lands in the account moves with the exchange rate. If the rate feed cannot be reached the switcher simply does not appear — a converted figure nobody can stand behind is worse than none.
+
 ### Changed
 
 - The public **Affiliates** link has been removed from the portal nav. It advertised the programme to every subscriber; the tab that replaces it appears only for affiliates, and only after SureCart says so.

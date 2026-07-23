@@ -125,6 +125,9 @@ const AFFILIATE_FIXTURE = {
     { amount: 1500, currency: 'gbp', id: 'price_month', interval: 'month', interval_count: 1, name: 'AfriStream — 1 Month' },
     { amount: 12000, currency: 'gbp', id: 'price_year', interval: 'year', interval_count: 1, name: 'AfriStream — 12 Months' },
   ],
+  // Fixed rates off a GBP base, so the currency switcher's arithmetic is
+  // assertable. Live, these come from the ECB feed and move daily.
+  rates: { eur: 1.2, gbp: 1, usd: 1.3, zar: 24 },
 };
 
 let editorCache = null;
