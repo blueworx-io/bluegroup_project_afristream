@@ -593,7 +593,10 @@
       const currency = plan ? plan.currency : (aff.currency || '');
       // Clamped for the maths only — the input keeps rendering exactly what was
       // typed, or clearing the box to type "10" would snap it back to 1.
-      const perYear = Math.max(1, Math.min(1000, Number(state.affPerYear) || 1));
+      // Floored at one, with no ceiling: an upper clamp meant every number past
+      // it silently produced the same answer, which reads as the calculator
+      // being broken rather than as a limit.
+      const perYear = Math.max(1, Number(state.affPerYear) || 1);
       // No live prices to pick from — the affiliate types what a year is worth.
       const saleMinor = plan ? plan.amount : Math.max(0, Math.round((Number(state.affValue) || 0) * 100));
       const perPayment = commissionPerPayment(saleMinor);
@@ -607,7 +610,10 @@
       const rates = (aff.rates && 'object' === typeof aff.rates) ? aff.rates : {};
       const options = AFF_CURRENCIES.filter((c) => rates[c.code] > 0);
       const showSwitcher = options.length > 1;
-      const shown = (showSwitcher && rates[state.affCurrency] > 0) ? state.affCurrency : currency;
+      // Opens in Rands, where the affiliates are, falling back to the store's
+      // own currency when the rate feed cannot offer them.
+      const preferred = rates.zar > 0 ? 'zar' : currency;
+      const shown = (showSwitcher && rates[state.affCurrency] > 0) ? state.affCurrency : preferred;
       const rate = rates[shown] > 0 ? rates[shown] : 1;
       // Converted from minor units to minor units, so the maths stays integer
       // all the way to the formatter.
@@ -707,9 +713,9 @@
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
       ${figure('aff-per-payment', 'Each renewal', money(inShown(perPayment), shown))}
-      ${figure('aff-year-1', 'Year 1', money(inShown(proj.first), shown))}
-      ${figure('aff-year-10', `Year ${AFF_YEARS}`, money(inShown(proj.last), shown))}
-      ${figure('aff-total', 'Total potential earnings', money(inShown(proj.total), shown))}
+      ${figure('aff-year-1', 'Year 1 annual revenue', money(inShown(proj.first), shown))}
+      ${figure('aff-year-10', `Year ${AFF_YEARS} annual revenue`, money(inShown(proj.last), shown))}
+      ${figure('aff-total', `${AFF_YEARS} year total earnings`, money(inShown(proj.total), shown))}
     </div>
     ${shown !== currency ? `
     <p data-testid="aff-converted" style="margin:12px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">Converted from ${esc(String(currency).toUpperCase())} at today's European Central Bank rates. SureCart still pays you in ${esc(String(currency).toUpperCase())}, so what lands in your account moves with the exchange rate.</p>` : ''}

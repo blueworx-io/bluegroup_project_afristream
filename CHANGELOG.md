@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-07-23
+
+### Fixed
+
+- **The calculator no longer caps the headcount at a thousand people a year.** Anything above it produced the same answer as a thousand, which reads as the calculator being broken rather than as a limit. The figure is only floored at one now.
+
+### Changed
+
+- The affiliate calculator opens in **Rands**, which is where most affiliates are, falling back to the store's own currency if the rate feed cannot offer them. The switcher still moves it to Dollars, Pounds or Euros.
+
+- The affiliate calculator's tiles say what they are measuring. The total is now **10 year total earnings** rather than "Total potential earnings", and the two yearly figures are **Year 1 annual revenue** and **Year 10 annual revenue**, so neither can be read as a running total.
+
 ## [0.18.0] - 2026-07-23
 
 ### Changed
