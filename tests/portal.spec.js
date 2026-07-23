@@ -1581,6 +1581,7 @@ test('the calculator projects ten years of stacking recurring commission', async
   await page.goto('/preview/affiliate.html');
 
   await expect(page.getByTestId('affiliate-calculator')).toBeVisible();
+  await page.getByTestId('aff-currency').selectOption('gbp');
   await expect(page.getByTestId('aff-per-payment')).toHaveText('£36.00');
   await expect(page.getByTestId('aff-year-1')).toHaveText('£180.00');
   await expect(page.getByTestId('aff-year-10')).toHaveText('£1,800.00');
@@ -1598,6 +1599,7 @@ test('only annual plans are offered, and the headcount moves every figure', asyn
   await expect(plan).toHaveValue('price_year');
 
   // Ten a year instead of five doubles every figure.
+  await page.getByTestId('aff-currency').selectOption('gbp');
   await page.getByTestId('aff-per-year').fill('10');
   await expect(page.getByTestId('aff-year-1')).toHaveText('£360.00');
   await expect(page.getByTestId('aff-year-10')).toHaveText('£3,600.00');
@@ -1612,6 +1614,7 @@ test('with no plans to pick from the calculator falls back to a sale value', asy
 
   // £15 a year at 30% is £4.50 a renewal: £22.50 in year 1, and 50 payments —
   // £225.00 — by year 10.
+  await page.getByTestId('aff-currency').selectOption('gbp');
   await page.getByTestId('aff-value-input').fill('15');
   await expect(page.getByTestId('aff-per-payment')).toHaveText('£4.50');
   await expect(page.getByTestId('aff-year-1')).toHaveText('£22.50');
@@ -1625,6 +1628,7 @@ test('a one-off commission structure projects a flat line, not a climb', async (
   await page.goto('/preview/affiliate.html?fixture=onceoff');
 
   await expect(page.getByTestId('affiliate-rate')).toHaveText('You earn 30% of the first payment each customer makes.');
+  await page.getByTestId('aff-currency').selectOption('gbp');
   await expect(page.getByTestId('aff-per-payment')).toHaveText('£36.00');
   await expect(page.getByTestId('aff-year-1')).toHaveText('£180.00');
   await expect(page.getByTestId('aff-year-10')).toHaveText('£180.00');
@@ -1664,15 +1668,18 @@ test('earnings can be read in another currency, converted from the store one', a
   const currency = page.getByTestId('aff-currency');
   await expect(currency).toBeVisible();
   await expect(currency.locator('option')).toHaveText(['Rands', 'Dollars', 'Pounds', 'Euros']);
-  // Opens on the store's own currency, with nothing to explain.
-  await expect(currency).toHaveValue('gbp');
-  await expect(page.getByTestId('aff-converted')).toHaveCount(0);
-
-  await currency.selectOption('zar');
+  // Opens in Rands, and says where the figures were converted from.
+  await expect(currency).toHaveValue('zar');
   await expect(page.getByTestId('aff-per-payment')).toContainText('864.00');
   await expect(page.getByTestId('aff-year-10')).toContainText('43,200.00');
   await expect(page.getByTestId('aff-converted')).toContainText('SureCart still pays you in GBP');
+  // The plan price stays in what the customer is actually charged.
   await expect(page.getByTestId('aff-plan')).toContainText('£120.00');
+
+  // Switching back to the store's own currency drops the conversion note.
+  await currency.selectOption('gbp');
+  await expect(page.getByTestId('aff-per-payment')).toHaveText('£36.00');
+  await expect(page.getByTestId('aff-converted')).toHaveCount(0);
 });
 
 // Typing "100" one key at a time used to come out "001": the panel re-renders
@@ -1681,6 +1688,7 @@ test('earnings can be read in another currency, converted from the store one', a
 test('typing a headcount keeps the caret where it was', async ({ page }) => {
   await page.goto('/preview/affiliate.html');
 
+  await page.getByTestId('aff-currency').selectOption('gbp');
   const box = page.getByTestId('aff-per-year');
   await box.click();
   await page.keyboard.press('Control+a');

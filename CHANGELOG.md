@@ -8,6 +8,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- The affiliate calculator opens in **Rands**, which is where most affiliates are, falling back to the store's own currency if the rate feed cannot offer them. The switcher still moves it to Dollars, Pounds or Euros.
+
 - The affiliate calculator's tiles say what they are measuring. The total is now **10 year total earnings** rather than "Total potential earnings", and the two yearly figures are **Year 1 annual revenue** and **Year 10 annual revenue**, so neither can be read as a running total.
 
 ## [0.18.0] - 2026-07-23

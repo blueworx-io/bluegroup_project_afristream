@@ -607,7 +607,10 @@
       const rates = (aff.rates && 'object' === typeof aff.rates) ? aff.rates : {};
       const options = AFF_CURRENCIES.filter((c) => rates[c.code] > 0);
       const showSwitcher = options.length > 1;
-      const shown = (showSwitcher && rates[state.affCurrency] > 0) ? state.affCurrency : currency;
+      // Opens in Rands, where the affiliates are, falling back to the store's
+      // own currency when the rate feed cannot offer them.
+      const preferred = rates.zar > 0 ? 'zar' : currency;
+      const shown = (showSwitcher && rates[state.affCurrency] > 0) ? state.affCurrency : preferred;
       const rate = rates[shown] > 0 ? rates[shown] : 1;
       // Converted from minor units to minor units, so the maths stays integer
       // all the way to the formatter.
