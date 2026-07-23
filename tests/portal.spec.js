@@ -84,6 +84,14 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
   const last = await measure('download');
   expect(last.left).toBe(last.max);
   expect(last.offCentre).toBeGreaterThan(0);
+
+  // Free Streaming sits one tab before Download, but the strip is now narrow
+  // enough that centring it would scroll past the end of the range, so it
+  // clamps to the same right edge as the last tab rather than landing centred.
+  await page.locator('.as-tabs [data-act="nav"][data-val="apps"]').click();
+  const apps = await measure('apps');
+  expect(apps.left).toBe(apps.max);
+  expect(apps.offCentre).toBeGreaterThan(0);
 });
 
 test('the tab bar can be dragged with a mouse without navigating', async ({ page }) => {
