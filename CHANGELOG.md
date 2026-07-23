@@ -4,6 +4,112 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-07-23
+
+### Added
+
+- **An Affiliates tab**, shown only to people SureCart confirms are active affiliates. It carries a link straight to their SureCart affiliate dashboard, their referral URL with a copy button, and their commission rate written as a sentence — including whether it keeps paying on renewals, which is the part a bare percentage never says.
+
+  Below that, a profit calculator. Pick the plan a referral signs up to (pulled live from the store's own recurring prices, so it always matches what you charge), say how many people you sign up a month, and it projects each payment, month one, month twelve and the first year, with a chart of the staircase recurring commission builds. Annual plans are modelled on their real renewal month rather than smeared across twelve. Custom per-affiliate rates come through from SureCart automatically; a **Default affiliate commission (%)** setting stands in for the store default, which SureCart does not expose to plugins.
+
+  Earnings can be read in **Rands, Dollars, Pounds or Euros**, converted from the store's own currency at the European Central Bank's published rates through a keyless, permanently free feed, cached for a day. The plan price beside the picker stays in the currency the customer is actually charged, and the panel says plainly that SureCart still pays out in the store currency, so what lands in the account moves with the exchange rate. If the rate feed cannot be reached the switcher simply does not appear — a converted figure nobody can stand behind is worse than none.
+
+### Changed
+
+- The public **Affiliates** link has been removed from the portal nav. It advertised the programme to every subscriber; the tab that replaces it appears only for affiliates, and only after SureCart says so.
+
+### Fixed
+
+- The calculator now honours a one-off or time-limited commission structure instead of always projecting as if commission runs forever, and shows a plain message pointing at SureCart — rather than a wall of £0.00 — when no rate is known yet.
+
+## [0.16.1] - 2026-07-23
+
+### Changed
+
+- In "Why you need a device", the step number now sits on the same line as its heading rather than stacked above it, so each of the three points reads as one title instead of a number floating on its own row.
+
+## [0.16.0] - 2026-07-22
+
+### Added
+
+- **A Setup tab**, sitting immediately right of Account — one four-step flow: pick your device, tell us which one, install the app, choose your app. A progress rail across the top shows where you are and walks back a step at a time.
+
+  Three device families: **TVs & Sticks**, **Android Boxes** and **Android Devices**. Under TVs & Sticks sit the three sticks we recommend — Amazon Fire TV Stick, Xiaomi TV Stick 4K, and any other Google TV stick — plus a bare Smart TV for people with nothing plugged in. iPhone, iPad and Roku are deliberately off the flow, handled by a line pointing at support.
+
+  Four install routes, shared across the eight sub-devices rather than written out per device. **Fire TV:** Developer Options → Firesend room `10325` → Downloader → app code. **Google TV and Android TV:** Downloader from the Play Store → app code. **Android phone or tablet:** straight from the browser at `aftv.news/<code>` — no Downloader and nothing in the Play Store. **Bare Smart TV:** install a paid app from the TV's own store, then send us the MAC address and device key so we can register the set.
+
+  Step 4 always offers three apps to fall back through — IBO Player `617725`, Smarters `9469460` and `6573365` — so a customer whose app will not connect can try the next without opening a ticket. Codes render oversized and monospaced because they get typed on a TV remote from across a room.
+
+  Buying advice sits at step 2, next to the thing being chosen, written as specifications rather than model numbers so it holds as ranges refresh. It leads on WiFi throughout, since that is how virtually everyone watches, with a dedicated panel on 5GHz versus 2.4GHz, line of sight, and sticks suffocating behind a large television.
+
+  One warning worth calling out on its own: **Amazon has confirmed that future Fire TV Sticks move to its own Vega system, which cannot install apps from outside the Amazon store at all.** The 4K Max and 4K Plus are the last models that work with us, and the Fire TV route says so before anyone buys the wrong one.
+
+- **Setup opens by explaining why a device is needed at all** — that the subscription is a login rather than a box, that a player app turns that login into television, and that the app has to run on something. It is the commonest misunderstanding at sign-up and nothing said it before. It shows at step 1 only; once you are in the flow the rationale is just clutter.
+
+- **The Account tab now states the connection rules**, next to the credentials rather than buried in a support thread: one connection plays on one screen at a time, and two or more must be used in the same household on the same internet connection, the sole exception being one on home WiFi and one on mobile data.
+
+- **A Download tab**, explaining how to add the portal to an iPhone or Android home screen so it opens like an app. No app store and nothing to update — this adds a home-screen shortcut, since the portal ships no web app manifest.
+
+- **The Account tab now says what the credentials are not for**, in a notice placed above the username so it is read before anything is copied: they work with the apps used via AfriStream and give no access to the Free Streaming apps listed elsewhere in the portal.
+
+### Changed
+
+- **The top bar keeps the active tab centred.** On a phone the tab strip always
+  started at "Account", so the tab you were actually on was often off-screen. It
+  now scrolls the active tab to the middle, clamped at both ends — the first tab
+  stays against the left edge and the last against the right, rather than being
+  dragged into the centre with dead space beside them. Scroll snapping is gone,
+  since a proximity snap tugged the tab back off centre the moment the scroll
+  settled.
+
+- **The top bar can be dragged with a mouse.** It reuses the same pointer
+  handler as the poster rows, so it gets the 5px threshold and click
+  suppression for free — dragging across a tab scrolls the bar instead of
+  navigating. The grab cursor only appears when there is somewhere to drag to.
+
+- **The Setup progress rail sticks below the top bar** as you scroll a long
+  walkthrough, with even space above and below, so you keep track of which of
+  the three steps you are on. It scrolls sideways as one row rather than
+  wrapping, which on a phone would have taken a third of the screen.
+
+- **Setup is three steps, not four.** Choosing an app is part of installing, not
+  a stage of its own, so the app list moved inside step 3 underneath the install
+  stages that refer to it.
+
+- **The buying advice is written for customers, not for people who read spec
+  sheets.** "3GB of RAM, dual-band 5GHz" became "at least 3GB of memory" and
+  "look for WiFi 6 or dual-band on the box"; the WiFi guidance talks about walls
+  and the network name ending in 5G rather than bands and line of sight. The
+  Fire TV warning no longer names Vega OS — it says Amazon is changing the
+  software on its newest sticks so our app will not install, and that the 4K Max
+  and 4K Plus are the last ones that work.
+
+- **Sticks and boxes link straight to something you can buy.** Two options each,
+  from Takealot and Amazon South Africa, checked against the retailers' own
+  product data so every link resolves to a real listing that was in stock at the
+  time of writing: the Fire TV Stick 4K Max and Xiaomi TV Stick 4K (2nd Gen) for
+  sticks, and the Xiaomi TV Box S in 3rd and 2nd generation for boxes. Phones
+  and tablets get none — customers already own those.
+
+- **"Profile" is now "Account" and "Free Apps" is now "Free Streaming".** The internal section id stays `profile`, so any page already pinned with `default_tab="profile"` keeps working.
+
+- **Tips & Tricks and Troubleshooting are hidden from the nav.** Both sections, their content and the `[troubleshooting_guide]` shortcode are untouched and still reachable through `default_tab="tips"` / `"help"`, so bringing them back is a two-line change.
+
+- **Free Streaming is down to eight apps, capped at four per category.** Live TV and Documentaries are retired as categories, leaving Movies, Series and Sport with four apps each: Tubi, Plex, Kanopy and ARTE.tv for films, plus BBC iPlayer for series, and DAZN, Red Bull TV and the Olympics app for sport.
+
+- **Category is now the only filter on Free Streaming.** The device pills and the region dropdown are both gone, and the `regions` array comes off every entry. Devices are still listed on each card and stepped through in the app drawer — they just no longer narrow the grid, since choosing a device is what the Setup tab is for. Regional scope is stated once, in the `availability` line inside the drawer, instead of being both a filter and a sentence.
+
+### Fixed
+
+- **Setup looked as though step 4 could never be reached.** Steps 3 and 4 share
+  a screen — the install steps refer to "the app you pick in step 4 below" — but
+  the progress rail only ever marked step 3 as current, so step 4 read as a
+  place you could not get to. Both are now marked current together, and each
+  section on the page carries a "Step N of 4" label so the page and the rail
+  agree.
+
+- **Editor Picks rating filters were thresholds pretending to be bands.** Choosing "★ 7+" returned everything at 7 and above, so the 8s and 9s came with it and narrowing the filter barely narrowed the grid. Each band is now exclusive — ★ 8–8.9 returns only the 8s — with ★ 9+ left open-ended so a perfect 10 is not stranded outside every band, and a new ★ 6–6.9 band at the bottom. Bands with nothing behind them are still not offered.
+
 ## [0.15.1] - 2026-07-22
 
 ### Fixed

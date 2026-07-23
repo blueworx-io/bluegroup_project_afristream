@@ -22,6 +22,66 @@
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
+  // Commission runs for the life of the subscription, so a month's income is
+  // every cohort whose renewal lands in it — not just that month's new sign-ups.
+  // Minor units throughout (pence, cents) so twelve months of arithmetic cannot
+  // drift by a penny. Returns totals plus the month-by-month series the chart
+  // draws.
+  //
+  // `recurring` and `recurringDays` default to the forever-recurring case, so
+  // every existing caller keeps its exact behaviour. When `recurring` is
+  // false a cohort pays once, in its own signup month, and never again —
+  // commission on the first payment only, regardless of the plan's interval.
+  // When `recurringDays` is set, a cohort's payments stop once it has made
+  // Math.floor(recurringDays / 30) of them.
+  const projectEarnings = (commissionMinor, perMonth, intervalMonths, months, recurring = true, recurringDays = null) => {
+    const step = Math.max(1, intervalMonths);
+    const maxPayments = recurring && recurringDays ? Math.max(0, Math.floor(recurringDays / 30)) : null;
+    const monthly = [];
+    for (let m = 0; m < months; m++) {
+      let payers = 0;
+      for (let cohort = 0; cohort <= m; cohort++) {
+        if (!recurring) {
+          if (cohort === m) payers += perMonth;
+          continue;
+        }
+        const diff = m - cohort;
+        if (diff % step !== 0) continue;
+        if (null !== maxPayments && diff / step >= maxPayments) continue;
+        payers += perMonth;
+      }
+      monthly.push(payers * commissionMinor);
+    }
+    return {
+      monthly,
+      first: monthly[0] || 0,
+      last: monthly[months - 1] || 0,
+      total: monthly.reduce((a, b) => a + b, 0)
+    };
+  };
+
+  // A yearly plan renews every twelve months; interval_count multiplies both.
+  const planIntervalMonths = (plan) => Math.max(1, ('year' === plan.interval ? 12 : 1) * (Number(plan.interval_count) || 1));
+
+  // "£45 / month" for a plain monthly or annual price; a multi-month interval
+  // (a quarterly price, say) is a lie as "/ month", so it gets spelled out —
+  // "every 3 months" — instead.
+  const planIntervalLabel = (plan) => {
+    const count = Math.max(1, Number(plan.interval_count) || 1);
+    const unit = 'year' === plan.interval ? 'year' : 'month';
+    return count > 1 ? `every ${count} ${unit}s` : `/ ${unit}`;
+  };
+
+  // The currencies an affiliate can read their earnings in. Rands first,
+  // because most of them are in South Africa; named rather than coded because
+  // "Rands" is what people say and ZAR is what accountants say.
+  const AFF_CURRENCIES = [
+    { code: 'zar', label: 'Rands' },
+    { code: 'usd', label: 'Dollars' },
+    { code: 'gbp', label: 'Pounds' },
+    { code: 'eur', label: 'Euros' }
+  ];
+
   const yr = (meta) => {
     const m = String(meta).match(/((?:19|20)\d\d)/);
     return m ? +m[1] : 0;
@@ -112,10 +172,22 @@
   ].map((c) => ({ ...c, bg: `linear-gradient(135deg, oklch(0.42 0.12 ${c.h}), oklch(0.24 0.09 ${(c.h + 50) % 360}))` }));
 
   // Editor Picks filters: a fixed, mutually exclusive set of content types, and
-  // the IMDb rating thresholds offered alongside them. Both are filtered down to
+  // the IMDb rating bands offered alongside them. Both are filtered down to
   // the options that actually have picks behind them before rendering.
   const EDITOR_TYPES = ['Movies', 'Series', 'Documentaries'];
-  const EDITOR_RATING_STEPS = [7, 8, 9];
+  // Each step is the floor of a one-point band, not a minimum: picking 8 shows
+  // 8.0–8.9 and nothing higher. The top step stays open-ended so a perfect 10
+  // is not stranded outside every band.
+  const EDITOR_RATING_STEPS = [6, 7, 8, 9];
+  const EDITOR_RATING_TOP = Math.max(...EDITOR_RATING_STEPS);
+  const inRatingBand = (rating, floor) => {
+    const r = Number(rating);
+    if (!floor) return true;
+    if (!isFinite(r)) return false;
+    return floor === EDITOR_RATING_TOP ? r >= floor : r >= floor && r < floor + 1;
+  };
+  const ratingBandLabel = (floor) =>
+    (floor === EDITOR_RATING_TOP ? `★ ${floor}+` : `★ ${floor}–${floor}.9`);
 
   // Ceiling for a What-to-Watch row once a single category is selected. Large
   // enough to feel like the full catalog, bounded so one row can't render the
@@ -150,13 +222,16 @@
     { key: 'tablets', label: 'Tablets' },
     { key: 'phones', label: 'Phones' }
   ];
-  const APP_CONTENT = ['Sport', 'Movies', 'Series', 'Documentaries', 'Live TV'];
-  const APP_REGIONS = ['Worldwide', 'Africa', 'Europe', 'UK & Ireland', 'North America', 'Latin America', 'Asia-Pacific', 'Middle East'];
+  // Movies, Series and Sport only. Live TV and Documentaries were dropped
+  // deliberately — the directory is for on-demand films, series and sport, not
+  // for live channels or news. Anything still tagged with a retired value is
+  // discarded by prepApp() below.
+  const APP_CONTENT = ['Movies', 'Series', 'Sport'];
 
   // Card tint per content type, reusing the portal's existing hues so app tiles
   // sit in the same palette as the poster cards instead of all defaulting to one
   // colour. Falls back to bg()'s own default for anything unmapped.
-  const APP_CONTENT_HUE = { Sport: 'Sport', Movies: 'Movies', Documentaries: 'Docs', Series: 'Drama', 'Live TV': 'News' };
+  const APP_CONTENT_HUE = { Movies: 'Movies', Series: 'Drama', Sport: 'Sport' };
 
   // Generic install steps per device class. An app only carries an `install`
   // entry where its real steps differ from these.
@@ -189,8 +264,7 @@
     url: /^https:\/\//.test(String(a.url || '')) ? String(a.url) : '',
     install: a.install && typeof a.install === 'object' ? a.install : {},
     content: (Array.isArray(a.content) ? a.content : []).filter((c) => APP_CONTENT.includes(c)),
-    devices: (Array.isArray(a.devices) ? a.devices : []).filter((d) => APP_DEVICES.some((x) => x.key === d)),
-    regions: (Array.isArray(a.regions) ? a.regions : []).filter((r) => APP_REGIONS.includes(r))
+    devices: (Array.isArray(a.devices) ? a.devices : []).filter((d) => APP_DEVICES.some((x) => x.key === d))
   });
 
   // Troubleshooting accordion. `body` is trusted static HTML (rendered as-is,
@@ -281,6 +355,7 @@
       editorEndpoint: root.getAttribute('data-editor-endpoint') || '',
       detailEndpoint: root.getAttribute('data-detail-endpoint') || '',
       credentialsEndpoint: root.getAttribute('data-credentials-endpoint') || '',
+      affiliateEndpoint: root.getAttribute('data-affiliate-endpoint') || '',
       restNonce: root.getAttribute('data-rest-nonce') || '',
       appsUrl: root.getAttribute('data-apps-url') || ''
     };
@@ -291,6 +366,12 @@
     // license assigned) or 'error' (fetch failed).
     let accounts = ACCOUNTS.map((a) => ({ ...a }));
     let credState = props.credentialsEndpoint ? 'loading' : 'demo';
+    // Affiliate payload, and whether the tab exists at all. 'off' covers every
+    // negative: no endpoint, not an affiliate, SureCart unreachable. There is
+    // deliberately no 'error' state — a failed lookup must look exactly like
+    // not being an affiliate, or the tab becomes a way to probe for one.
+    let affiliate = null;
+    let affiliateState = props.affiliateEndpoint ? 'loading' : 'off';
     // Live catalog data — starts as the built-in curated lists, replaced
     // per-array by whatever the watch endpoint returns (TMDB catalog and/or
     // ESPN sport fixtures).
@@ -301,9 +382,19 @@
     const FILTER_DEFAULTS = { type: 'All Types', genre: 'All Genres', country: 'All Countries', decade: 'All Decades', sort: 'Recommended' };
 
     const state = {
-      section: ['profile', 'watch', 'apps', 'editor', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
+      // 'tips' and 'help' are hidden from the nav but still valid entry points,
+      // so a host page that already pins one of them keeps working.
+      section: ['profile', 'setup', 'watch', 'apps', 'editor', 'download', 'affiliate', 'tips', 'help'].includes(props.defaultTab) ? props.defaultTab : 'profile',
       subWatch: 'All',
       guideOpen: 0,
+      // '' until the user picks a device on the Setup tab; step 2 stays hidden
+      // until then.
+      setupFamily: '',
+      setupSub: '',
+      affPlan: '',
+      affPerMonth: 5,
+      affValue: 15,
+      affCurrency: '',
       accIdx: 0,
       copied: '',
       query: '',
@@ -312,9 +403,7 @@
       country: 'All Countries',
       decade: 'All Decades',
       sort: 'Recommended',
-      appsDevice: 'All',
       appsContent: 'All',
-      appsRegion: 'All',
       editorTag: 'All',
       editorRating: 0,
       filtersOpen: false,
@@ -350,6 +439,60 @@
       setState({ copied: key });
     }
 
+    // Minor units in, formatted money out. AfriStream sells globally, so the
+    // currency comes from the plan rather than being assumed — and when none
+    // is known at all, the number is formatted plain rather than inventing a
+    // currency symbol nobody asked for.
+    //
+    // Not every currency stores minor units the same way: JPY and KRW have no
+    // decimal places, so their "minor unit" is the same as the major one and
+    // dividing by 100 would render the value at 1/100th of its true size. The
+    // formatter's own resolvedOptions() is the source of truth for how many
+    // decimal places a currency uses, so the divisor is derived from it
+    // rather than assumed.
+    const money = (minor, currency) => {
+      const cur = currency ? String(currency).toUpperCase() : '';
+      const opts = cur
+        ? { style: 'currency', currency: cur }
+        : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+      let formatter;
+      try {
+        formatter = new Intl.NumberFormat(undefined, opts);
+      } catch (e) {
+        return ((Number(minor) || 0) / 100).toFixed(2);
+      }
+      const digits = formatter.resolvedOptions().minimumFractionDigits;
+      const value = (Number(minor) || 0) / Math.pow(10, digits);
+      return formatter.format(value);
+    };
+
+    // 30 rather than 30.0, 12.5 kept as 12.5.
+    const trimNum = (n) => String(Math.round(Number(n) * 100) / 100);
+
+    // The rate in a sentence, because "30%" on its own does not tell an
+    // affiliate the part that matters — that it keeps paying.
+    function rateSentence() {
+      const c = (affiliate && affiliate.commission) || {};
+      const cur = (affiliate && affiliate.currency) || '';
+      let lead;
+      if (c.percent) lead = `You earn ${trimNum(c.percent)}% of`;
+      else if (c.amount) lead = `You earn ${money(c.amount, cur)} on`;
+      else return 'Your commission rate is set in SureCart — open your dashboard to see it.';
+
+      if (!c.recurring) return `${lead} the first payment each customer makes.`;
+      if (c.recurring_days) return `${lead} every payment, for the first ${Math.round(c.recurring_days / 30)} months of each subscription.`;
+      return `${lead} every payment, for as long as they stay subscribed.`;
+    }
+
+    // What one payment on a given sale value earns this affiliate. A percentage
+    // structure wins over a fixed amount when SureCart somehow returns both.
+    const commissionPerPayment = (amountMinor) => {
+      const c = (affiliate && affiliate.commission) || {};
+      if (c.percent) return Math.round((amountMinor * c.percent) / 100);
+      if (c.amount) return Math.round(c.amount);
+      return 0;
+    };
+
     // ------------------------------------------------------------ sections
 
     function profileSection() {
@@ -372,6 +515,8 @@
         </div>`;
       } else {
         body = `<div style="padding:clamp(20px,3.5vw,30px);display:flex;flex-direction:column;gap:22px">
+      <div data-testid="account-scope-notice" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">The following usernames and passwords are to be used in conjunction with your Apps used via AfriStream. They do not provide any access to the Free Streaming Apps provided.</div>
+      <div data-testid="account-connections-notice" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:14px 17px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)"><strong>One connection, one screen at a time.</strong> A single connection can be used anywhere, but only on one device at once — do not leave the TV running while you watch on your phone. If you have two or more connections they must be used in the same household, on the same internet connection; the only exception is one on home WiFi and one on mobile data. Connections used across two different networks are removed automatically.</div>
       <div>
         <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Active Username</div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -409,6 +554,123 @@
     ${body}
   </div>
 </section>`;
+    }
+
+    function affiliateSection() {
+      const aff = affiliate || {};
+      const portalUrl = aff.portal_url || 'https://afristream.surecart.com/affiliates/';
+      const referral = aff.referral_url || '';
+      const commission = aff.commission || {};
+      // Neither a percentage nor a fixed amount — the affiliate is on the
+      // store default and no default rate has been set (percent and amount
+      // are both null). The rate card already sends them to SureCart to see
+      // it; the calculator has nothing to multiply, so it says so rather than
+      // rendering a wall of £0.00.
+      const rateKnown = null != commission.percent || null != commission.amount;
+
+      const plans = Array.isArray(aff.plans) ? aff.plans : [];
+      const plan = plans.find((p) => p.id === state.affPlan) || plans[0] || null;
+      const currency = plan ? plan.currency : (aff.currency || '');
+      // Clamped for the maths only — the input keeps rendering exactly what was
+      // typed, or clearing the box to type "10" would snap it back to 1.
+      const perMonth = Math.max(1, Math.min(100, Number(state.affPerMonth) || 1));
+      // No live prices to pick from — the affiliate types what a sale is worth.
+      const saleMinor = plan ? plan.amount : Math.max(0, Math.round((Number(state.affValue) || 0) * 100));
+      const intervalMonths = plan ? planIntervalMonths(plan) : 1;
+      const perPayment = commissionPerPayment(saleMinor);
+      const proj = projectEarnings(perPayment, perMonth, intervalMonths, 12, false !== commission.recurring, commission.recurring_days || null);
+      const peak = Math.max.apply(null, proj.monthly.concat([1]));
+
+      // Earnings can be read in another currency, converted from the store's
+      // own at the day's published rates. Only the currencies the rate feed
+      // actually returned are offered — with no rates there is no switcher,
+      // because a converted figure nobody can stand behind is worse than none.
+      const rates = (aff.rates && 'object' === typeof aff.rates) ? aff.rates : {};
+      const options = AFF_CURRENCIES.filter((c) => rates[c.code] > 0);
+      const showSwitcher = options.length > 1;
+      const shown = (showSwitcher && rates[state.affCurrency] > 0) ? state.affCurrency : currency;
+      const rate = rates[shown] > 0 ? rates[shown] : 1;
+      // Converted from minor units to minor units, so the maths stays integer
+      // all the way to the formatter.
+      const inShown = (minor) => Math.round(minor * rate);
+
+      const inputStyle = 'width:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:13px;padding:12px 14px;font-family:inherit;font-size:14px;color:inherit';
+      const figure = (id, label, value) => `
+        <div style="background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:14px;padding:14px 16px">
+          <div style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(11,21,51,.5)">${esc(label)}</div>
+          <div data-testid="${id}" style="margin-top:5px;font-size:21px;font-weight:800;letter-spacing:-0.02em;color:#65009F">${esc(value)}</div>
+        </div>`;
+
+      const picker = plans.length
+        ? `<label style="display:block">
+            <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">Plan they sign up to</span>
+            <select data-testid="aff-plan" data-act="aff-plan" style="${inputStyle}">
+              ${plans.map((p) => `<option value="${esc(p.id)}"${p.id === (plan ? plan.id : '') ? ' selected' : ''}>${esc(p.name)} · ${esc(money(p.amount, p.currency))} ${esc(planIntervalLabel(p))}</option>`).join('')}
+            </select>
+          </label>`
+        : `<label style="display:block">
+            <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">What one subscription is worth</span>
+            <input data-testid="aff-value-input" data-act="aff-value" type="number" min="0" step="1" value="${esc(state.affValue)}" style="${inputStyle}">
+          </label>`;
+
+      // Degraded mode: no rate to multiply anything by, so the inputs and the
+      // four figures give way to a single line pointing at where the rate
+      // actually lives.
+      const calculatorBody = rateKnown
+        ? `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:20px">
+      ${picker}
+      <label style="display:block">
+        <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">People you sign up each month</span>
+        <input data-testid="aff-per-month" data-act="aff-per-month" type="number" min="1" max="100" step="1" value="${esc(state.affPerMonth)}" style="${inputStyle}">
+      </label>
+      ${showSwitcher ? `
+      <label style="display:block">
+        <span style="display:block;font-size:13.5px;font-weight:700;margin-bottom:8px">Show your earnings in</span>
+        <select data-testid="aff-currency" data-act="aff-currency" style="${inputStyle}">
+          ${options.map((c) => `<option value="${esc(c.code)}"${c.code === shown ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}
+        </select>
+      </label>` : ''}
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+      ${figure('aff-per-payment', 'Each payment', money(inShown(perPayment), shown))}
+      ${figure('aff-month-1', 'Month 1', money(inShown(proj.first), shown))}
+      ${figure('aff-month-12', 'Month 12', money(inShown(proj.last), shown))}
+      ${figure('aff-year-total', 'First year', money(inShown(proj.total), shown))}
+    </div>
+    ${shown !== currency ? `
+    <p data-testid="aff-converted" style="margin:12px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">Converted from ${esc(String(currency).toUpperCase())} at today's European Central Bank rates. SureCart still pays you in ${esc(String(currency).toUpperCase())}, so what lands in your account moves with the exchange rate.</p>` : ''}
+
+    <div data-testid="aff-chart" aria-hidden="true" style="display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:20px">
+      ${proj.monthly.map((v, i) => `<div data-bar title="Month ${i + 1}" style="flex:1;height:${Math.max(3, Math.round((v / peak) * 100))}%;background:linear-gradient(180deg,#CD2DF5,#65009F);border-radius:6px 6px 3px 3px"></div>`).join('')}
+    </div>
+    <div aria-hidden="true" style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:rgba(11,21,51,.45)"><span>Month 1</span><span>Month 12</span></div>
+
+    <p style="margin:16px 0 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.5)">These figures assume the people you sign up stay subscribed — commission keeps coming for as long as they do, and stops if they cancel.</p>`
+        : `
+    <p data-testid="aff-rate-unknown" style="margin:0;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.6)">Your commission rate is not set yet, so there is nothing to project. Open your SureCart dashboard above to see your rate, then come back and this calculator will work it out for you.</p>`;
+
+      return `
+  <div data-testid="affiliate-card" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Your affiliate dashboard</h2>
+    <p data-testid="affiliate-rate" style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(rateSentence())}</p>
+    <a data-testid="affiliate-portal-link" class="as-hover-primary" href="${esc(portalUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#65009F;color:#fff;border-radius:13px;padding:13px 24px;font-weight:700;font-size:13.5px;text-decoration:none;box-shadow:0 8px 18px -10px rgba(101,0,159,.7)">Open your affiliate dashboard ↗</a>
+    ${referral ? `
+    <div style="margin-top:20px">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:8px">Your referral link</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div data-testid="affiliate-referral" style="flex:1 1 240px;min-width:0;background:#F4F5F9;border:1px solid rgba(11,21,51,.1);border-radius:13px;padding:14px 16px;font-family:ui-monospace,Menlo,monospace;font-size:14.5px;overflow-wrap:anywhere">${esc(referral)}</div>
+        <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-referral">${state.copied === 'referral' ? 'Copied!' : 'Copy link'}</button>
+      </div>
+    </div>` : ''}
+  </div>
+
+  <div data-testid="affiliate-calculator" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 23px 24px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">What you could earn</h2>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">Because commission is paid on every payment, each person you sign up keeps paying you while the next one starts. That is what stacks up over a year.</p>
+    ${calculatorBody}
+  </div>`;
     }
 
     function filtersDrawer(results, searching) {
@@ -585,7 +847,8 @@
     function editorSection() {
       const picks = data.editorPicks || [];
       const tag = state.editorTag || 'All';
-      const minRating = Number(state.editorRating) || 0;
+      // The floor of the selected one-point band, or 0 for "Any".
+      const ratingBand = Number(state.editorRating) || 0;
 
       // Three mutually exclusive content types rather than a genre dump: a
       // documentary is only ever a Documentary, never also Movies or Series, so
@@ -596,15 +859,15 @@
       const present = new Set(picks.map(typeOf).filter(Boolean));
       const tagOpts = ['All', ...EDITOR_TYPES.filter((t) => present.has(t))];
 
-      // Rating steps are offered only where they'd leave something on screen,
+      // Rating bands are offered only where they'd leave something on screen,
       // so the row never shows a pill that can only produce an empty grid.
       const ratingOpts = [0, ...EDITOR_RATING_STEPS.filter(
-        (r) => picks.some((p) => matchesTag(p) && Number(p.rating) >= r)
+        (r) => picks.some((p) => matchesTag(p) && inRatingBand(p.rating, r))
       )];
 
       // Best first. Watchlist position only breaks ties, so an unrated pick
       // (rating null) sinks to the bottom rather than jumping the queue.
-      let list = picks.filter((p) => matchesTag(p) && (!minRating || Number(p.rating) >= minRating));
+      let list = picks.filter((p) => matchesTag(p) && inRatingBand(p.rating, ratingBand));
       list = [...list].sort((a, b) => {
         const diff = (Number(b.rating) || 0) - (Number(a.rating) || 0);
         return diff || (a.rank || 0) - (b.rank || 0);
@@ -638,7 +901,7 @@
     ${ratingOpts.length > 1 ? `
     <div role="group" aria-label="Filter by IMDb rating" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <span style="font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(11,21,51,.45)">Rating</span>
-      ${ratingOpts.map((r) => `<button style="${subBtn(minRating === r)}" data-act="editor-filter" data-key="editorRating" data-val="${r}" aria-pressed="${minRating === r}">${r ? `★ ${r}+` : 'Any'}</button>`).join('')}
+      ${ratingOpts.map((r) => `<button style="${subBtn(ratingBand === r)}" data-act="editor-filter" data-key="editorRating" data-val="${r}" aria-pressed="${ratingBand === r}">${r ? ratingBandLabel(r) : 'Any'}</button>`).join('')}
     </div>` : ''}
   </div>` : ''}
   ${hero ? `
@@ -658,6 +921,615 @@
   ${picks.length && !grid.length && !hero ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">No picks match these filters. <button data-act="clear-editor-filters" style="background:none;border:none;color:#65009F;font-weight:700;font-size:14px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline">Reset filters</button></div>` : ''}
   ${!picks.length ? `<div style="background:#fff;border:1px dashed rgba(11,21,51,.18);border-radius:15px;padding:32px;text-align:center;font-size:14px;color:rgba(11,21,51,.6)">The editors' list is refreshing — check back shortly.</div>` : ''}
   ${editorSource === 'imdb' ? tmdbAttribution() : ''}
+</section>`;
+    }
+
+    // ------------------------------------------------------------ setup model
+    //
+    // One tab, one flow: family → which one → install → app. Devices used to be
+    // a second tab repeating the same taxonomy in different words; the buying
+    // advice now lives inside step 2, next to the thing being chosen.
+    //
+    // Install steps live on the METHOD, not the device — three families and
+    // eight sub-devices share four methods between them, so adding hardware is
+    // a row pointing at an existing method rather than another walkthrough.
+    //
+    // Method copy may contain a {store} token, filled from the chosen
+    // sub-device, which is what lets one "buy it from your platform's store"
+    // method serve Samsung and LG without repeating itself.
+
+    // A step is a plain string, or { text, code } where `code` renders oversized
+    // and monospaced because these get typed on a TV remote from across a room.
+    const SETUP_METHODS = {
+      firesend: {
+        lead: 'Fire TV will not install anything from outside the Amazon store until you unlock it, and Downloader is easiest to reach through Firesend.',
+        stages: [
+          {
+            title: 'Turn on Developer Options',
+            steps: [
+              'From the home screen, go to Settings — the cog icon along the top menu.',
+              'Open My Fire TV, then Developer Options.',
+              'Turn on both ADB Debugging and Apps from Unknown Sources. Both need to be on, not just one.'
+            ],
+            note: 'No Developer Options in the menu? Go to Settings, then My Fire TV, then About, and click the Fire TV line seven times. Developer Options then appears in the My Fire TV menu.'
+          },
+          {
+            title: 'Install Firesend and unlock the app list',
+            steps: [
+              'Press HOME on your remote to get back to the home screen.',
+              'Go to Search — the magnifying glass at the top left — and type Firesend.',
+              'Select Firesend in the results and choose Download or Get to install it.',
+              'If Fire TV asks whether to allow Firesend to install unknown apps, choose Allow. It cannot do its job otherwise.',
+              'Open Firesend and choose Join Room.',
+              { text: 'Enter this room code exactly as shown, then confirm:', code: '10325' },
+              'The room unlocks the list of apps you can install. Scroll down it, find Downloader, and install it.'
+            ],
+            note: 'A warning about installing unknown apps is normal here — Fire TV shows it for anything not from the Amazon store. Choose to continue.'
+          },
+          {
+            title: 'Install your app and sign in',
+            steps: [
+              'Open Downloader from your home screen.',
+              'Click into the search or URL box at the top and enter the code for the app you pick from the list below.',
+              'Click the search box again, or press GO, to start the download.',
+              'Follow the prompts through to the end. Do not press Back or leave the screen while it is working.',
+              'If the app asks to allow access to media and files, always choose Allow.',
+              'Choose Open when the install finishes.',
+              'Find your profile or playlist, choose Edit, and enter the username and password from your Account tab. They are case-sensitive — copy them rather than typing them out.',
+              'Save, select the profile again, and choose Connect. Give it ten to fifteen seconds to load.'
+            ]
+          }
+        ],
+        apps: {
+          lead: 'Enter one of these codes into Downloader. If an app will not connect, come back and try the next — your login details are the same for all of them.',
+          rows: [
+            { code: '617725', app: 'IBO Player', note: 'Most reliable on Fire TV right now — start here' },
+            { code: '9469460', app: 'Smarters', note: 'Try this if IBO Player will not connect' },
+            { code: '6573365', app: 'Alternative player', note: 'Worth a go if neither of the above works' }
+          ]
+        }
+      },
+
+      downloader: {
+        lead: 'Android TV and Google TV allow Downloader straight from the Play Store, so this is the shorter of the two TV routes.',
+        stages: [
+          {
+            title: 'Allow the install',
+            steps: [
+              'From the home screen, open Settings — usually the cog icon in the top corner.',
+              'Go to Device Preferences, then Security & Restrictions.',
+              'Turn on Unknown Sources. If your device lists apps individually, come back and switch on Downloader once it is installed.'
+            ],
+            note: 'A warning appears when you do this. It is the standard Google prompt for anything from outside the Play Store — choose to continue.'
+          },
+          {
+            title: 'Get Downloader',
+            steps: [
+              'Go back to the home screen and open the Google Play Store.',
+              'Search for Downloader — the orange icon by AFTVnews — and choose Install.',
+              'Open it once installed. If it asks for permission to access files, choose Allow.'
+            ]
+          },
+          {
+            title: 'Install your app and sign in',
+            steps: [
+              'In the Downloader search or URL box, enter the code for the app you pick from the list below, and press GO.',
+              'Wait for the download, then choose Install and let it run to the end.',
+              'If the app asks to allow access to media and files, always choose Allow.',
+              'Choose Open when the install completes.',
+              'Find your profile or playlist, choose Edit, and enter the username and password from your Account tab exactly as shown — they are case-sensitive.',
+              'Save, select the profile again, and choose Connect. Allow ten to fifteen seconds for the content to load.'
+            ]
+          }
+        ],
+        apps: {
+          lead: 'Enter one of these codes into Downloader. If an app will not connect, come back and try the next — your login details are the same for all of them.',
+          rows: [
+            { code: '617725', app: 'IBO Player', note: 'Most reliable on Android right now — start here' },
+            { code: '9469460', app: 'Smarters', note: 'Try this if IBO Player will not connect' },
+            { code: '6573365', app: 'Alternative player', note: 'Worth a go if neither of the above works' }
+          ]
+        }
+      },
+
+      browser: {
+        lead: 'The quickest route of the lot. There is no Downloader involved and nothing to find in the Play Store — the browser fetches the app itself.',
+        stages: [
+          {
+            title: 'Download the app',
+            steps: [
+              'Open your web browser — Chrome on most devices, Samsung Internet on a Samsung.',
+              'Type the address for the app you pick from the list below into the address bar, and press Go.',
+              'The download starts on its own. If the browser asks whether to keep the file, choose Download or Keep.',
+              'When it finishes, tap the downloaded file — from the notification bar, or from Downloads in your browser menu.'
+            ]
+          },
+          {
+            title: 'Install it',
+            steps: [
+              'Tap Install when asked.',
+              'Android will most likely block it the first time and offer a Settings button. Tap that, turn on Allow from this source for your browser, press Back, and tap Install again.',
+              'When the install finishes, tap Open. The app is now in your app list like any other.'
+            ],
+            note: 'That block is standard Android behaviour for anything not from the Play Store, not a sign that something has gone wrong.'
+          },
+          {
+            title: 'Sign in',
+            steps: [
+              'Find the option to add a playlist, profile or user.',
+              'Enter the username and password from your Account tab exactly as shown, including any capital letters.',
+              'Save, then connect. Give it ten to fifteen seconds to load the first time.'
+            ],
+            note: 'Copy and paste the details from the Account tab rather than typing them. A single mistyped character is the most common reason a login is rejected.'
+          }
+        ],
+        apps: {
+          lead: 'Type one of these addresses into your browser exactly as shown. If an app will not connect, come back and try the next.',
+          rows: [
+            { code: 'aftv.news/617725', app: 'IBO Player', note: 'Most reliable on Android right now — start here' },
+            { code: 'aftv.news/9469460', app: 'Smarters', note: 'Try this if IBO Player will not connect' },
+            { code: 'aftv.news/6573365', app: 'Alternative player', note: 'Worth a go if neither of the above works' }
+          ]
+        }
+      },
+
+      assisted: {
+        lead: 'A TV on its own only allows apps from its own store, so the player is a small one-off purchase and we have to register your TV before it will play anything. A stick plugged into the same TV avoids all of this.',
+        stages: [
+          {
+            title: 'Install a player app',
+            steps: [
+              "Press the Home or Smart Hub button on your TV remote to bring up your TV's own menu.",
+              'Open {store} and search for one of the apps listed below. Any of them works.',
+              'Install it — this can take a few minutes on an older set — then open it.'
+            ]
+          },
+          {
+            title: 'Send us your device details',
+            steps: [
+              'The first screen shows a MAC address and a device key. Write both down, or photograph the screen.',
+              'Email them to support@afristream.io with your AfriStream username, and say which app and which TV you are using.',
+              'We register the TV against your line and reply to confirm. Until that is done the app has nothing to play.'
+            ],
+            note: 'This is the one route that cannot be self-served, and it is why we suggest a stick instead — a stick is working within the hour and costs less than the app does.'
+          }
+        ],
+        apps: {
+          lead: 'Search {store} for any of these. They all work the same way once we have registered your TV.',
+          rows: [
+            { app: 'IBO Player', note: 'The one we see the fewest problems with' },
+            { app: 'Nanomid Player', note: 'A solid alternative' },
+            { app: 'SmartOne IPTV', note: 'A solid alternative' }
+          ]
+        }
+      }
+    };
+
+    // Three families, eight sub-devices. `method` sits on the sub-device, not
+    // the family, because a stick and a bare Smart TV install very differently
+    // even though customers think of both as "the telly".
+    //
+    // `pick` marks the three sticks we actively recommend. Everything else is
+    // written as specifications rather than model names, so it stays true as
+    // ranges refresh — but "which stick should I buy" deserves a real answer.
+    const DEVICE_FAMILIES = [
+      {
+        key: 'tv-sticks',
+        name: 'TVs & Sticks',
+        icon: '📺',
+        tagline: 'A stick plugged into the TV, or the TV on its own.',
+        summary: 'A streaming stick is a thumb-sized device on a spare HDMI port. It is the cheapest way to get AfriStream onto a television and the one most of our customers use. A TV with no stick can work too, but it is the slowest route to get going.',
+        look: [
+          'Good WiFi matters most. A stick has nowhere to plug a cable in, so everything comes over the air — look for "WiFi 6" or "dual-band" on the box',
+          'At least 2GB of memory, so it stays quick to use',
+          'At least 8GB of storage, so there is room for the app and its updates',
+          'A 4K one if your TV is 4K — otherwise the cheaper HD version is fine',
+          'A plug that goes into the wall. Running a stick off a USB socket on the TV is the most common cause of it restarting by itself'
+        ],
+        buy: [
+          {
+            name: 'Amazon Fire TV Stick 4K Max',
+            retailer: 'Takealot',
+            note: 'The one most people buy. Works with us — unlike the newer Amazon sticks.',
+            url: 'https://www.takealot.com/amazon-fire-tv-stick-4k-max-streaming-device-alexa-voice-remote-/PLID91995419'
+          },
+          {
+            name: 'Xiaomi TV Stick 4K (2nd Gen)',
+            retailer: 'Takealot',
+            note: 'Our pick if you are buying new. Simpler to set up — no Firesend step, and nothing Amazon can switch off later.',
+            url: 'https://www.takealot.com/xiaomi-tv-stick-4k-2nd-gen-media-player/PLID100971431'
+          }
+        ],
+        subs: [
+          {
+            key: 'firetv-stick',
+            name: 'Amazon Fire TV Stick',
+            method: 'firesend',
+            pick: true,
+            hint: 'The one most people already own. If you are buying, get the 4K Max or 4K Plus specifically.',
+            warn: 'Buying a new Fire TV Stick? Check the model first. Amazon is changing the software on its newest sticks so they can only install apps from Amazon\'s own store — which means our app will not go on them. The 4K Max and the 4K Plus are the last ones that work.'
+          },
+          {
+            key: 'xiaomi-stick',
+            name: 'Xiaomi TV Stick 4K',
+            method: 'downloader',
+            pick: true,
+            hint: 'Our pick if you are buying new. Newer WiFi than the Fire stick, and no Firesend step when you set it up.'
+          },
+          {
+            key: 'googletv-stick',
+            name: 'Other Google TV stick',
+            method: 'downloader',
+            pick: true,
+            hint: 'Any stick sold as Google TV or Android TV — onn, Thomson, Nokia and similar. They all take the same route as the Xiaomi.'
+          },
+          {
+            key: 'smart-tv',
+            name: 'Smart TV, no stick',
+            method: 'assisted',
+            store: 'your TV app store',
+            hint: 'A Samsung or LG with nothing plugged into it. Works, but we have to register the TV first — allow a day.'
+          }
+        ]
+      },
+      {
+        key: 'android-boxes',
+        name: 'Android Boxes',
+        icon: '🖥️',
+        tagline: 'A small box on an HDMI cable, more powerful than a stick.',
+        summary: 'A box does the same job as a stick with more room for a faster chip and a better aerial. Worth the extra if your WiFi is patchy, if the TV is a long way from the router, or if you want the thing to still feel quick in three years.',
+        look: [
+          'It must say Android TV or Google TV on the box. Cheap boxes that only say "Android" run phone software and work poorly on a television',
+          'A box holds a weak WiFi signal much better than a stick does, because it has a bigger aerial inside — look for "WiFi 6" or "dual-band"',
+          'At least 3GB of memory, 4GB if you can stretch to it. 2GB will feel slow',
+          'At least 16GB of storage, 32GB if you can',
+          'A 4K one if your TV is 4K'
+        ],
+        buy: [
+          {
+            name: 'Xiaomi TV Box S (3rd Gen)',
+            retailer: 'Takealot',
+            note: 'The current model. Google TV, 32GB of storage, and the newer WiFi.',
+            url: 'https://www.takealot.com/xiaomi-tv-box-s-3rd-gen-4k-uhd-media-player-google-tv-dolby-visi/PLID98257580'
+          },
+          {
+            name: 'Xiaomi TV Box S (2nd Gen)',
+            retailer: 'Amazon',
+            note: 'The previous model, usually cheaper. Still Google TV and still works fine.',
+            url: 'https://www.amazon.co.za/Xiaomi-TV-Box-2nd-Gen/dp/B0BZC43HX8'
+          }
+        ],
+        subs: [
+          { key: 'googletv-box', name: 'Google TV box', method: 'downloader', hint: 'Sold as Google TV — Google\'s own streamer, onn, and similar. The most polished option.' },
+          { key: 'androidtv-box', name: 'Android TV box', method: 'downloader', hint: 'Anything sold as Android TV, from budget boxes up to an Nvidia Shield. Same steps either way.' }
+        ]
+      },
+      {
+        key: 'android-devices',
+        name: 'Android Devices',
+        icon: '📱',
+        tagline: 'Phones and tablets.',
+        summary: 'Any reasonably current Android phone or tablet works, and it is the quickest setup of the lot — the app installs straight from the web browser, with no Downloader and nothing to find in the Play Store.',
+        look: [
+          'Anything from roughly the last five years will do',
+          'A bit of free space on the phone — the app itself is small',
+          'At home, join the WiFi network ending in 5G if you have one'
+        ],
+        subs: [
+          { key: 'android-phone', name: 'Android Phone', method: 'browser', hint: 'Any make — Samsung, Pixel, Xiaomi, Motorola and the rest all install the same way.' },
+          { key: 'android-tablet', name: 'Android Tablet', method: 'browser', hint: 'Identical to the phone route on a bigger screen. Ten inches or more is comfortable for a film.' }
+        ]
+      }
+    ];
+
+    const familyOf = (key) => DEVICE_FAMILIES.find((f) => f.key === key) || null;
+    const subOf = (family, key) => (family ? (family.subs.find((s) => s.key === key) || null) : null);
+    // {store} lets the one assisted method serve any TV brand.
+    const fillTokens = (text, sub) => String(text).replace(/\{store\}/g, (sub && sub.store) || 'your app store');
+
+    // Almost everyone watches over WiFi, so this is the advice that actually
+    // moves the needle on picture quality — shown alongside the buying guidance
+    // in step 2 rather than buried at the bottom of a page nobody scrolls.
+    const WIFI_TIPS = [
+      'If your WiFi shows two networks with almost the same name, join the one ending in 5G. It is the faster of the two and much better for video.',
+      'Walls are what slow WiFi down, not distance. One wall between your device and the router is fine — three walls and a floor is what causes the picture to freeze.',
+      'If your stick is pushed in behind a big TV, use the short extension lead that came in the box to bring it out to the side. TVs block the signal.',
+      'If the router is at the far end of the house, a WiFi booster in the TV room will help far more than buying a better stick.',
+      'Microwaves and cordless phones can interrupt WiFi while you are watching. Joining the 5G network usually puts a stop to it.'
+    ];
+
+    // Why a device is needed at all. The commonest misunderstanding at sign-up
+    // is that AfriStream arrives on the TV by itself, so step 1 does not assume it.
+    const WHY_A_DEVICE = [
+      {
+        title: 'AfriStream is a login, not a box',
+        body: 'Your subscription is a username and a password. There is no set-top box in the post and no cable to plug in — everything arrives over your home internet.'
+      },
+      {
+        title: 'A player app turns that login into television',
+        body: 'The username and password go into a player app. The app fetches the channels, films and series and puts them on screen, and it is the app — not us — that has to be installed somewhere.'
+      },
+      {
+        title: 'The app has to run on something',
+        body: 'That something is your device: a stick or box plugged into the TV, or a phone or tablet. Most televisions cannot install the app on their own, which is why a cheap stick is the usual answer.'
+      }
+    ];
+
+    const whyDevicePanel = () => `
+  <div data-testid="why-a-device" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;margin:0 2px 20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Why you need a device</h2>
+    <p style="margin:0 0 16px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">New to this? Thirty seconds of reading here saves a lot of confusion further down.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+      ${WHY_A_DEVICE.map((w, i) => `
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;align-items:center;gap:9px">
+            <span aria-hidden="true" style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800">${i + 1}</span>
+            <div style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(w.title)}</div>
+          </div>
+          <div style="font-size:13px;line-height:1.6;color:rgba(11,21,51,.68)">${esc(w.body)}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+
+    // -------------------------------------------------------------- setup tab
+
+    const SETUP_STEPS = ['Your device', 'Which one', 'Install it'];
+
+    // Numbers the headings on the page so they read against the progress rail.
+    // Choosing an app is part of installing, not a step of its own — it lives
+    // under step 3, below the install stages that refer to it.
+    const stepEyebrow = (n) =>
+      `<div style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#65009F">Step ${n} of ${SETUP_STEPS.length}</div>`;
+
+    function setupSection() {
+      const family = familyOf(state.setupFamily);
+      const sub = subOf(family, state.setupSub);
+      const method = sub ? SETUP_METHODS[sub.method] : null;
+      const at = !family ? 1 : !sub ? 2 : 3;
+
+      const tile = (act, val, icon, title, hint, badgeText) => `
+      <button class="as-editor-card" data-act="${act}" data-val="${esc(val)}" style="display:flex;align-items:flex-start;gap:13px;text-align:left;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:18px 19px;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <span aria-hidden="true" style="flex:none;font-size:23px;line-height:1.15">${icon}</span>
+        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:${hint ? '5px' : '0'}">
+          <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:15px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(title)}</span>
+            ${badgeText ? `<span style="flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#E7F8EF;color:#0B7A44;border:1px solid rgba(11,122,68,.2)">${esc(badgeText)}</span>` : ''}
+          </span>
+          ${hint ? `<span style="font-size:12.5px;line-height:1.55;color:rgba(11,21,51,.6)">${esc(hint)}</span>` : ''}
+        </span>
+        <span aria-hidden="true" style="flex:none;font-size:14px;color:#65009F;line-height:1.5">→</span>
+      </button>`;
+
+      // Progress rail. Completed steps are buttons that jump back to themselves.
+      const rail = `
+  <ol class="as-setup-rail" data-testid="setup-rail" data-dragscroll style="display:flex;gap:8px;list-style:none">
+    ${SETUP_STEPS.map((label, i) => {
+      const n = i + 1;
+      const now = n === at;
+      const done = n < at;
+      const chip = `<span style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:700;font-family:inherit;border:1px solid ${now ? 'rgba(101,0,159,.28)' : 'rgba(11,21,51,.12)'};background:${now ? '#F7E9FF' : '#fff'};color:${now || done ? '#65009F' : 'rgba(11,21,51,.45)'}">
+        <span aria-hidden="true" style="width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:${now || done ? '#65009F' : 'rgba(11,21,51,.1)'};color:${now || done ? '#fff' : 'rgba(11,21,51,.5)'}">${done ? '✓' : n}</span>${esc(label)}</span>`;
+      return `<li style="flex:none"${now ? ' data-rail-current="1"' : ''}>${done
+        ? `<button data-act="${n === 1 ? 'setup-restart' : 'setup-back-sub'}" aria-label="Back to ${esc(label)}" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit">${chip}</button>`
+        : chip}</li>`;
+    }).join('')}
+  </ol>`;
+
+      // Step 1 — which family.
+      if (!family) {
+        return setupShell(rail + `
+  ${whyDevicePanel()}
+  <div data-testid="setup-step" data-setup-step="1">
+    <div style="margin-left:2px">${stepEyebrow(1)}</div>
+    <h2 style="margin:0 0 4px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">What are you watching on?</h2>
+    <p style="margin:0 0 14px 2px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58)">Pick the kind of device you have — or the kind you are thinking of buying. We cover what to look for on the next step.</p>
+    <div data-testid="setup-device-picker" role="group" aria-label="Choose your device" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin:0 2px">
+      ${DEVICE_FAMILIES.map((f) => tile('setup-family', f.key, f.icon, f.name, f.tagline, '')).join('')}
+    </div>
+  </div>
+  <p style="margin:18px 2px 0;font-size:12.5px;line-height:1.6;color:rgba(11,21,51,.55)">On an iPhone, iPad or a Roku? Those need setting up at our end — email <a href="mailto:support@afristream.io">support@afristream.io</a> and we will sort it.</p>`);
+      }
+
+      // Step 2 — which one, with the buying advice for that family beside it.
+      if (!sub) {
+        return setupShell(rail + `
+  ${chosenRow(family, null)}
+  <div data-testid="setup-step" data-setup-step="2">
+    <div style="margin-left:2px">${stepEyebrow(2)}</div>
+    <h2 style="margin:0 0 4px 2px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">Which one do you have?</h2>
+    <p style="margin:0 0 14px 2px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(family.summary)}</p>
+    <div data-testid="setup-sub-picker" role="group" aria-label="Choose your model" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin:0 2px 20px">
+      ${family.subs.map((s) => tile('setup-sub', s.key, family.icon, s.name, s.hint || '', s.pick ? 'Recommended' : '')).join('')}
+    </div>
+    ${buyingPanel(family)}
+    ${wifiPanel()}
+  </div>`);
+      }
+
+      const stepBody = (s) => (typeof s === 'string'
+        ? `<span style="font-size:14.5px;line-height:1.65;color:rgba(11,21,51,.78)">${esc(fillTokens(s, sub))}</span>`
+        : `<span style="display:flex;flex-direction:column;gap:9px;align-items:flex-start">
+             <span style="font-size:14.5px;line-height:1.65;color:rgba(11,21,51,.78)">${esc(fillTokens(s.text, sub))}</span>
+             <code data-setup-code style="background:#F7E9FF;border:1px solid rgba(101,0,159,.2);border-radius:11px;padding:9px 17px;font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:.1em;color:#65009F">${esc(s.code)}</code>
+           </span>`);
+
+      // Steps 3 and 4 — the method's stages, then its app list.
+      return setupShell(rail + `
+  ${chosenRow(family, sub)}
+  ${sub.warn ? `<div data-testid="setup-buy-warning" style="background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:15px;padding:15px 17px;margin:0 2px 20px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(sub.warn)}</div>` : ''}
+  <div data-testid="setup-step" data-setup-step="3" style="margin:0 2px">
+    ${stepEyebrow(3)}
+    <h2 style="margin:0 0 4px;font-size:17.5px;font-weight:800;letter-spacing:-0.01em">How to install it</h2>
+    <p style="margin:0 0 15px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(fillTokens(method.lead, sub))}</p>
+    <div data-testid="setup-steps" style="display:flex;flex-direction:column;gap:16px">
+      ${method.stages.map((stage, si) => `
+        <div data-setup-stage="${si}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <span aria-hidden="true" style="flex:none;width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#65009F,#CD2DF5);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13.5px;font-weight:800">${si + 1}</span>
+            <h3 style="margin:0;font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(fillTokens(stage.title, sub))}</h3>
+          </div>
+          <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:13px">
+            ${stage.steps.map((s, i) => `
+              <li style="display:flex;gap:13px">
+                <span aria-hidden="true" style="flex:none;width:24px;height:24px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-top:1px">${i + 1}</span>
+                ${stepBody(s)}
+              </li>`).join('')}
+          </ol>
+          ${stage.note ? `<div data-setup-note style="margin-top:16px;background:#FFF7E6;border:1px solid rgba(180,120,0,.22);border-radius:13px;padding:13px 16px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.78)">${esc(fillTokens(stage.note, sub))}</div>` : ''}
+        </div>`).join('')}
+    </div>
+    <div data-testid="setup-apps" style="margin:26px 0 0">
+    <h3 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Which app to install</h3>
+    <p style="margin:0 0 15px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">${esc(fillTokens(method.apps.lead, sub))}</p>
+    <div data-testid="setup-codes" style="display:flex;flex-direction:column;gap:10px">
+      ${method.apps.rows.map((r) => `
+        <div data-setup-code-row style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:15px;padding:15px 17px;box-shadow:0 1px 2px rgba(11,21,51,.03)">
+          ${r.code ? `<code style="flex:none;background:#F7E9FF;border:1px solid rgba(101,0,159,.2);border-radius:10px;padding:8px 15px;font-family:ui-monospace,Menlo,monospace;font-size:16px;font-weight:700;letter-spacing:.08em;color:#65009F">${esc(r.code)}</code>` : ''}
+          <div style="flex:1 1 200px;min-width:0">
+            <div style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(r.app)}</div>
+            <div style="margin-top:2px;font-size:12.5px;line-height:1.5;color:rgba(11,21,51,.58)">${esc(r.note)}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    </div>
+  </div>
+  <div style="margin-top:22px;background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;color:#fff">
+    <div style="flex:1 1 300px">
+      <div class="as-on-dark" style="font-size:15.5px;font-weight:800;margin-bottom:3px;color:#fff">Need your login details?</div>
+      <div class="as-on-dark" style="font-size:13px;line-height:1.55;color:rgba(255,255,255,.72)">Your username and password are on the Account tab. They are case-sensitive — copy them rather than typing them out.</div>
+    </div>
+    <button class="as-hover-light" data-act="go-profile" style="flex:none;background:#fff;color:#65009F;border:none;border-radius:12px;padding:12px 22px;font-family:inherit;font-weight:700;font-size:13.5px;cursor:pointer">Open Account</button>
+  </div>`);
+    }
+
+    function setupShell(inner) {
+      return `
+<section data-screen-label="Setup">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Set Up AfriStream</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Four steps: pick your device, tell us which one, install the app, and sign in.</p>
+  </div>
+  ${inner}
+  <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Stuck on any step? Email <a href="mailto:support@afristream.io">support@afristream.io</a> with your device and the step number — we reply within one business day.</p>
+</section>`;
+    }
+
+    function chosenRow(family, sub) {
+      return `
+  <div data-testid="setup-chosen" style="display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.09);border-radius:15px;padding:13px 16px;margin:0 2px 20px">
+    <span aria-hidden="true" style="font-size:19px">${family.icon}</span>
+    <span style="font-size:15px;font-weight:800">${esc(family.name)}</span>
+    ${sub ? `<span aria-hidden="true" style="color:rgba(11,21,51,.3)">›</span><span style="font-size:15px;font-weight:800">${esc(sub.name)}</span>` : ''}
+    <span style="flex:1 1 20px"></span>
+    <button class="as-hover-ghost" data-act="setup-restart" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:11px;padding:9px 16px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">Start again</button>
+  </div>`;
+    }
+
+    // Buying advice, shown at step 2 next to the thing being chosen rather than
+    // on a separate tab that repeated the same device list in different words.
+    function buyingPanel(family) {
+      return `
+  <div data-testid="setup-buying" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:20px 21px 22px;margin:0 2px 16px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h3 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Buying one? What to look for</h3>
+    <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.58);max-width:720px">You do not need to understand any of this to use AfriStream — it is only here to help you buy the right thing.</p>
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">
+      ${family.look.map((l) => `
+        <li style="display:flex;gap:11px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.72)">
+          <span aria-hidden="true" style="flex:none;width:5px;height:5px;border-radius:50%;background:#65009F;margin-top:8px"></span>
+          <span>${esc(l)}</span>
+        </li>`).join('')}
+    </ul>
+    ${family.buy && family.buy.length ? `
+    <div data-testid="setup-buy-links" style="margin-top:18px;padding-top:18px;border-top:1px solid rgba(11,21,51,.09)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:11px">Ones we know work</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+        ${family.buy.map((b) => `
+          <a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" data-buy-link style="display:flex;flex-direction:column;gap:5px;text-decoration:none;background:#FAFAFC;border:1px solid rgba(11,21,51,.1);border-radius:14px;padding:14px 16px">
+            <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(b.name)}</span>
+              <span style="flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#F7E9FF;color:#65009F;border:1px solid rgba(101,0,159,.18)">${esc(b.retailer)}</span>
+            </span>
+            <span style="font-size:12.5px;line-height:1.55;color:rgba(11,21,51,.62)">${esc(b.note)}</span>
+            <span style="font-size:13px;font-weight:700;color:#65009F">Buy on ${esc(b.retailer)} ↗</span>
+          </a>`).join('')}
+      </div>
+      <p style="margin:12px 0 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">South African retailers. Prices and stock change — if one is sold out, the list above tells you what to match on anything else you find.</p>
+    </div>` : ''}
+  </div>`;
+    }
+
+    function wifiPanel() {
+      return `
+  <div data-testid="setup-wifi" style="background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:18px;padding:20px 21px 22px;margin:0 2px">
+    <h3 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">Getting the best from your WiFi</h3>
+    <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:rgba(11,21,51,.6);max-width:720px">Nearly everyone watches over WiFi, and nearly every picture problem we are asked about is a WiFi problem rather than a device one.</p>
+    <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px">
+      ${WIFI_TIPS.map((t) => `
+        <li style="display:flex;gap:11px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">
+          <span aria-hidden="true" style="flex:none;width:5px;height:5px;border-radius:50%;background:#65009F;margin-top:8px"></span>
+          <span>${esc(t)}</span>
+        </li>`).join('')}
+    </ul>
+  </div>`;
+    }
+
+    // Home-screen install guidance. Static: no manifest ships with this plugin,
+    // so both platforms create a home-screen shortcut rather than a store
+    // install — the copy is written to hold either way.
+    const DOWNLOAD_PLATFORMS = [
+      {
+        key: 'ios',
+        label: 'iPhone & iPad',
+        icon: '🍎',
+        note: 'You must use Safari. Chrome and Firefox on iOS cannot add a site to the Home Screen.',
+        steps: [
+          'Open this portal in Safari.',
+          'Tap the Share button — the square with an arrow pointing up, at the bottom of the screen.',
+          'Scroll down the share sheet and tap Add to Home Screen.',
+          'Give it a name — AfriStream works well — then tap Add.',
+          'The AfriStream icon now sits on your Home Screen alongside your other apps.'
+        ]
+      },
+      {
+        key: 'android',
+        label: 'Android',
+        icon: '🤖',
+        note: 'These steps are for Chrome. Samsung Internet and Edge have the same option under their own menus.',
+        steps: [
+          'Open this portal in Chrome.',
+          'Tap the three-dot menu button in the top right.',
+          'Tap Install app, or Add to Home screen if you do not see Install app.',
+          'Confirm the name, then tap Install or Add.',
+          'The AfriStream icon now sits on your home screen alongside your other apps.'
+        ]
+      }
+    ];
+
+    function downloadSection() {
+      return `
+<section data-screen-label="Download">
+  <div style="margin:2px 2px 18px">
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Add AfriStream to Your Device</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Put this portal on your phone or tablet home screen so it opens like an app — no app store, no download.</p>
+  </div>
+  <div class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+    ${DOWNLOAD_PLATFORMS.map((p) => `
+      <div data-testid="download-${esc(p.key)}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 22px 24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span aria-hidden="true" style="flex:none;font-size:24px">${p.icon}</span>
+          <h2 style="margin:0;font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(p.label)}</h2>
+        </div>
+        <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px">
+          ${p.steps.map((s, i) => `
+            <li style="display:flex;gap:11px">
+              <span aria-hidden="true" style="flex:none;width:23px;height:23px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">${i + 1}</span>
+              <span style="flex:1;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(s)}</span>
+            </li>`).join('')}
+        </ol>
+        <div style="margin-top:auto;padding-top:4px;font-size:12px;line-height:1.55;color:rgba(11,21,51,.5)">${esc(p.note)}</div>
+      </div>`).join('')}
+  </div>
+  <div style="margin-top:18px;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:15px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:rgba(11,21,51,.72)">This adds an icon that opens the portal full screen — it is not an app store download, so there is nothing to update and nothing taking up space on your device. Looking to install the streaming app itself? That is on the <strong>Setup</strong> tab.</div>
 </section>`;
     }
 
@@ -696,19 +1568,15 @@
     // Names the filters actually narrowing the grid, so the empty state says
     // why nothing matched rather than just that nothing did.
     function activeFilterSummary() {
-      const bits = [];
-      if (state.appsDevice !== 'All') bits.push(APP_DEVICE_LABEL(state.appsDevice));
-      if (state.appsContent !== 'All') bits.push(state.appsContent);
-      if (state.appsRegion !== 'All') bits.push(state.appsRegion);
-      return bits.length ? bits.join(' · ') : 'these filters';
+      return state.appsContent === 'All' ? 'these filters' : state.appsContent;
     }
 
+    // Content category is the only filter. Devices are still listed on each card
+    // and stepped through in the drawer, but they no longer narrow the grid —
+    // picking a device is the Setup tab's job, not this one's.
     function filteredApps() {
       const list = appsData || [];
-      return list.filter((a) =>
-        (state.appsDevice === 'All' || a.devices.includes(state.appsDevice)) &&
-        (state.appsContent === 'All' || a.content.includes(state.appsContent)) &&
-        (state.appsRegion === 'All' || a.regions.includes(state.appsRegion)));
+      return list.filter((a) => state.appsContent === 'All' || a.content.includes(state.appsContent));
     }
 
     const costBadge = (a) => `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:${a.cost === 'free' ? '#E7F8EF' : '#F7E9FF'};color:${a.cost === 'free' ? '#0B7A44' : '#65009F'}">${a.cost === 'free' ? 'Free' : 'Free tier'}</span>`;
@@ -729,10 +1597,10 @@
 
     function appsSection() {
       const shell = (inner) => `
-<section data-screen-label="Free Apps">
+<section data-screen-label="Free Streaming">
   <div style="margin:2px 2px 18px">
-    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Apps</h1>
-    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free apps you can install alongside AfriStream — pick your device to see what runs on it.</p>
+    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Free Streaming</h1>
+    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Free films, series and sport you can watch alongside AfriStream. Open any one to see which devices it runs on and how to install it.</p>
   </div>
   ${inner}
   <p style="margin:22px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Availability and free tiers change without notice. AfriStream is not affiliated with any of the services listed here.</p>
@@ -762,21 +1630,11 @@
         `<button style="${subBtn(active)}" data-act="${act}" data-val="${esc(val)}" aria-pressed="${active}">${esc(label)}</button>`;
 
       return shell(`
-  <div data-testid="apps-device-filters" role="group" aria-label="Filter apps by device" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 2px 12px">
-    ${pill('apps-device', 'All', 'All', state.appsDevice === 'All')}
-    ${APP_DEVICES.map((d) => pill('apps-device', d.key, d.label, state.appsDevice === d.key)).join('')}
-  </div>
   <div style="display:flex;gap:12px 18px;flex-wrap:wrap;align-items:center;margin:0 2px 18px">
     <div data-testid="apps-content-filters" role="group" aria-label="Filter apps by content" style="display:flex;gap:8px;flex-wrap:wrap">
       ${pill('apps-content', 'All', 'All', state.appsContent === 'All')}
       ${APP_CONTENT.map((c) => pill('apps-content', c, c, state.appsContent === c)).join('')}
     </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.62)">
-      <span>Region</span>
-      <select data-act="apps-region" style="font-family:inherit;font-size:12.5px;font-weight:700;color:rgba(11,21,51,.72);background:#fff;border:1px solid rgba(11,21,51,.12);border-radius:999px;padding:8px 13px;cursor:pointer">
-        ${['All'].concat(APP_REGIONS).map((r) => `<option value="${esc(r)}"${state.appsRegion === r ? ' selected' : ''}>${esc(r === 'All' ? 'All regions' : r)}</option>`).join('')}
-      </select>
-    </label>
   </div>
   ${shown.length
     ? `<div data-testid="apps-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">${shown.map(appCard).join('')}</div>`
@@ -844,18 +1702,31 @@
 
     // -------------------------------------------------------------- render
 
+    // Tips & Tricks and Troubleshooting are deliberately absent here while they
+    // are hidden — their sections stay in SECTIONS below, so they are still
+    // reachable via default_tab="tips"/"help" and restoring them to the portal
+    // nav is a matter of adding the two rows back.
     const NAV = [
-      { id: 'profile', label: 'Profile' },
+      { id: 'profile', label: 'Account' },
+      { id: 'setup', label: 'Setup' },
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
-      { id: 'apps', label: 'Free Apps' },
-      { id: 'tips', label: 'Tips & Tricks' },
-      { id: 'help', label: 'Troubleshooting' },
-      // An outbound link rather than a section: it carries an href, so it
-      // renders as an anchor and never takes the active underline.
-      { id: 'affiliates', label: 'Affiliates', href: 'https://afristream.surecart.com/affiliates/' }
+      { id: 'apps', label: 'Free Streaming' },
+      { id: 'download', label: 'Download' }
     ];
-    const SECTIONS = { profile: profileSection, watch: watchSection, apps: appsSection, editor: editorSection, tips: tipsSection, help: helpSection };
+    // Affiliates is the one tab that is not for everyone: it appears only once
+    // SureCart has confirmed this user is an active affiliate, and sits last so
+    // its late arrival never shifts a tab out from under a click.
+    const navItems = () => (affiliateState === 'ready' ? NAV.concat([{ id: 'affiliate', label: 'Affiliates' }]) : NAV);
+
+    const SECTIONS = { profile: profileSection, setup: setupSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, affiliate: affiliateSection, tips: tipsSection, help: helpSection };
+    // A deep link to a tab this user cannot have falls back to the Account tab,
+    // the same way an unknown tab name already does.
+    const currentSection = () => (
+      'affiliate' === state.section && 'ready' !== affiliateState
+        ? profileSection
+        : (SECTIONS[state.section] || profileSection)
+    );
 
     // Render-scoped registry of clickable cards: reg(obj) stashes the item
     // and returns its index so a data-card="<idx>" attribute can look it up
@@ -872,6 +1743,78 @@
 
     const overviewCache = new Map();
     const pendingSynopsis = new Set();
+
+    // Horizontal scroll position of the top bar, which on a phone is the
+    // difference between seeing where you are and seeing a strip that always
+    // starts at "Account".
+    //
+    // render() rebuilds innerHTML, so the strip comes back at scrollLeft 0
+    // every time. Two different things have to happen:
+    //
+    //   - an ordinary re-render (typing in search, opening a drawer) restores
+    //     exactly where the strip was, so a position the user dragged to by
+    //     hand survives and it looks as though nothing moved;
+    //   - changing section animates the newly active tab to the centre.
+    //
+    // Centring is clamped to the scroll range at both ends, so the first and
+    // last tabs sit against their own edge rather than being pulled into the
+    // middle with empty space beside them. Only the tabs with room on both
+    // sides actually land centred.
+    let lastNavSection = null;
+
+    // Scroll offset that centres `el` inside `box`, clamped to the scroll range
+    // so the first and last items sit against their own edge instead of being
+    // pulled into the middle with empty space beside them. Measured off
+    // getBoundingClientRect rather than offsetLeft, because the sticky header is
+    // a positioned ancestor and so the items' offsetParent is not the strip.
+    function centredScrollLeft(box, el) {
+      const max = box.scrollWidth - box.clientWidth;
+      if (max <= 0) return 0;
+      const boxRect = box.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const elLeft = elRect.left - boxRect.left + box.scrollLeft;
+      return Math.max(0, Math.min(elLeft - (box.clientWidth - elRect.width) / 2, max));
+    }
+
+    function placeNavScroll(prevLeft, sectionChanged) {
+      const strip = root.querySelector('.as-tabs');
+      if (!strip) return;
+      const max = strip.scrollWidth - strip.clientWidth;
+      // Only advertise dragging when there is somewhere to drag to.
+      strip.classList.toggle('as-draggable', max > 0);
+      if (max <= 0) return;
+
+      strip.scrollLeft = Math.min(prevLeft, max);
+      if (!sectionChanged) return;
+
+      const active = strip.querySelector('[data-act="nav"][data-val="' + state.section + '"]');
+      if (!active) return;
+
+      // Assigned directly rather than through scrollTo({behavior:'smooth'}).
+      // Smooth scrolling is silently a no-op in enough environments — headless
+      // Chromium among them — that relying on it means the tab sometimes never
+      // moves at all. The strip is rebuilt on every render anyway, so there is
+      // no continuity for an animation to preserve.
+      strip.scrollLeft = centredScrollLeft(strip, active);
+    }
+
+    // The Setup rail sticks below the header, so its offset has to track the
+    // header's real height — which changes between mobile and desktop, since the
+    // plan badge is hidden on narrow screens.
+    function syncHeaderHeight() {
+      const header = root.querySelector('header');
+      if (header) root.style.setProperty('--as-header-h', Math.round(header.getBoundingClientRect().height) + 'px');
+    }
+
+    // Keep the step you are on visible in the sticky rail without wrapping it
+    // onto a second line, which on a phone would eat the screen.
+    function placeRailScroll() {
+      const rail = root.querySelector('.as-setup-rail');
+      if (!rail) return;
+      rail.classList.toggle('as-draggable', rail.scrollWidth - rail.clientWidth > 0);
+      const current = rail.querySelector('[data-rail-current="1"]');
+      if (current) rail.scrollLeft = centredScrollLeft(rail, current);
+    }
 
     function fillSynopsis() {
       if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
@@ -952,7 +1895,6 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap">${costBadge(obj)}${obj.content.map((c) => `<span style="font-size:12px;font-weight:700;color:#65009F;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);padding:5px 11px;border-radius:999px">${esc(c)}</span>`).join('')}</div>
           <div style="font-size:14px;line-height:1.65;color:rgba(11,21,51,.75)">${esc(obj.blurb)}</div>
           <div style="display:flex;flex-direction:column;gap:12px">
-            ${row('Regions', obj.regions.join(', '))}
             ${row('Where', obj.availability)}
           </div>
           <div>
@@ -992,22 +1934,27 @@
       let caret = 0;
       let hadFocus = false;
       const active = document.activeElement;
-      if (preserveFocus && active && active.getAttribute && active.getAttribute('data-act') === 'query') {
+      const activeAct = preserveFocus && active && active.getAttribute ? active.getAttribute('data-act') : null;
+      // Inputs (and the plan picker) that re-render on every change have to
+      // get their focus back, or a keyboard user changing the plan drops
+      // straight to <body>. Text/number inputs also want their caret back,
+      // or typing a two-digit number is impossible.
+      const focusAct = ['query', 'aff-per-month', 'aff-value', 'aff-plan', 'aff-currency'].includes(activeAct) ? activeAct : null;
+      if (focusAct) {
         hadFocus = true;
         caret = active.selectionStart;
       }
+
+      // Read the tab strip's scroll offset before the rebuild wipes it.
+      const prevStrip = root.querySelector('.as-tabs');
+      const prevNavScroll = prevStrip ? prevStrip.scrollLeft : 0;
 
       root.innerHTML = `
 <div style="min-height:100vh;display:flex;flex-direction:column">
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
-    <div class="as-tabs" style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
-      ${NAV.map((n) => (n.href
-        // noopener/noreferrer because target=_blank otherwise hands the opened
-        // page a window.opener handle back to this one. No data-act, so the
-        // delegated click handler leaves it alone and the browser navigates.
-        ? `<a href="${esc(n.href)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(n.label)} (opens in a new tab)" style="${navBtn(false)};text-decoration:none;display:flex;align-items:center" data-testid="nav-${n.id}">${esc(n.label)}<span aria-hidden="true" style="margin-left:5px;font-size:11px;line-height:1">↗</span></a>`
-        : `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}">${esc(n.label)}</button>`)).join('')}
+    <div class="as-tabs" data-dragscroll style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
+      ${navItems().map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}" data-testid="nav-${n.id}">${esc(n.label)}</button>`).join('')}
     </div>
     <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none;white-space:nowrap">
       <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
@@ -1015,17 +1962,17 @@
   </nav>
 </header>
 <main style="flex:1;width:100%;max-width:1180px;margin:0 auto;padding:clamp(22px,3.5vw,34px) clamp(16px,3vw,32px) 76px">
-${(SECTIONS[state.section] || profileSection)()}
+${currentSection()()}
 </main>
 <footer style="border-top:1px solid rgba(11,21,51,.08);padding:20px clamp(16px,3vw,32px);text-align:center;font-size:12px;color:rgba(11,21,51,.5)">Need help? <a href="mailto:support@afristream.io">support@afristream.io</a> · © 2026 AfriStream</footer>
 ${state.detail ? detailDrawer(state.detail) : ''}
 </div>`;
 
       if (hadFocus) {
-        const input = root.querySelector('[data-act="query"]');
+        const input = root.querySelector(`[data-act="${focusAct}"]`);
         if (input) {
           input.focus();
-          try { input.setSelectionRange(caret, caret); } catch (e) { /* type=search quirk — ignore */ }
+          try { input.setSelectionRange(caret, caret); } catch (e) { /* number/search inputs reject this — ignore */ }
         }
       }
 
@@ -1034,6 +1981,11 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         const closeBtn = root.querySelector('[data-testid="detail-drawer"] [aria-label="Close details"]');
         if (closeBtn) closeBtn.focus();
       }
+
+      syncHeaderHeight();
+      placeNavScroll(prevNavScroll, lastNavSection !== state.section);
+      placeRailScroll();
+      lastNavSection = state.section;
 
       // Scroll-lock the page while a modal panel is open; restore the original
       // body overflow on close (so we don't clobber a host value). Both panels
@@ -1076,12 +2028,17 @@ ${state.detail ? detailDrawer(state.detail) : ''}
           if (val === 'apps' && appsState === 'idle') loadApps();
           break;
         case 'apps-retry': loadApps(); break;
-        case 'apps-device': setState({ appsDevice: val }); break;
         case 'apps-content': setState({ appsContent: val }); break;
-        case 'apps-reset': setState({ appsDevice: 'All', appsContent: 'All', appsRegion: 'All' }); break;
+        case 'apps-reset': setState({ appsContent: 'All' }); break;
+        case 'setup-family': setState({ setupFamily: val, setupSub: '' }); break;
+        case 'setup-sub': setState({ setupSub: val }); break;
+        case 'setup-back-sub': setState({ setupSub: '' }); break;
+        case 'setup-restart': setState({ setupFamily: '', setupSub: '' }); break;
+        case 'go-profile': setState({ section: 'profile' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
+        case 'copy-referral': copy((affiliate && affiliate.referral_url) || '', 'referral'); break;
         case 'quicknav': setState({ subWatch: val }); break;
         case 'open-filters': setState({ filtersOpen: true }); break;
         case 'close-filters': setState({ filtersOpen: false }); break;
@@ -1106,15 +2063,30 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     });
 
     root.addEventListener('input', (e) => {
-      if (e.target.getAttribute && e.target.getAttribute('data-act') === 'query') {
+      const act = e.target.getAttribute && e.target.getAttribute('data-act');
+      if ('query' === act) {
         state.query = e.target.value;
+        render(true);
+      } else if ('aff-per-month' === act) {
+        state.affPerMonth = e.target.value;
+        render(true);
+      } else if ('aff-value' === act) {
+        state.affValue = e.target.value;
         render(true);
       }
     });
 
     root.addEventListener('change', (e) => {
-      if (e.target.getAttribute && e.target.getAttribute('data-act') === 'apps-region') {
-        setState({ appsRegion: e.target.value });
+      const act = e.target.getAttribute && e.target.getAttribute('data-act');
+      // A direct mutate-and-render(true), like the other affiliate inputs
+      // above, rather than setState()'s plain render() — the selects need
+      // their focus restored after the rebuild, same as they do.
+      if ('aff-plan' === act) {
+        state.affPlan = e.target.value;
+        render(true);
+      } else if ('aff-currency' === act) {
+        state.affCurrency = e.target.value;
+        render(true);
       }
     });
 
@@ -1182,6 +2154,16 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     }, true);
 
     render();
+
+    // The top bar loses its plan badge below the mobile breakpoint, so its
+    // height — and therefore the sticky rail's offset — changes with the
+    // viewport, not just with a render.
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('resize', () => {
+        syncHeaderHeight();
+        placeRailScroll();
+      });
+    }
 
     if (state.section === 'apps') loadApps();
 
@@ -1301,6 +2283,32 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         .catch(() => {
           accounts = [];
           credState = 'error';
+          render(true);
+        });
+    }
+
+    // Is this person an affiliate? The tab is appended only on a yes, so the
+    // markup never contains anything affiliate-related for anyone else — which
+    // also means a page-cached portal cannot leak it.
+    if (props.affiliateEndpoint && typeof fetch === 'function') {
+      const affHeaders = props.restNonce ? { 'X-WP-Nonce': props.restNonce } : {};
+      fetch(props.affiliateEndpoint, { headers: affHeaders, credentials: 'same-origin' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((payload) => {
+          if (payload && payload.affiliate) {
+            affiliate = payload;
+            affiliateState = 'ready';
+            const plans = Array.isArray(payload.plans) ? payload.plans : [];
+            if (plans.length) state.affPlan = plans[0].id;
+          } else {
+            affiliateState = 'off';
+            if (state.section === 'affiliate') state.section = 'profile';
+          }
+          render(true);
+        })
+        .catch(() => {
+          affiliateState = 'off';
+          if (state.section === 'affiliate') state.section = 'profile';
           render(true);
         });
     }

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AfriStream Customer Portal — Affiliate Preview</title>
+<!-- Test harness: the portal with an affiliate payload behind it. The server
+     rewrites the fixture mode from this page's own query string, so
+     ?fixture=0 serves a non-affiliate and ?fixture=noplans an affiliate whose
+     store has no recurring prices. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/assets/portal.css">
+<style>body{margin:0}</style>
+</head>
+<body>
+<div class="afristream-portal" data-afristream-portal data-default-tab="affiliate" data-show-sport="true" data-endpoint="/api/watch?fixture=1" data-editor-endpoint="/api/editor-picks?fixture=1" data-detail-endpoint="/api/detail?fixture=1" data-credentials-endpoint="/api/credentials?fixture=1" data-affiliate-endpoint="/api/affiliate?fixture=1" data-apps-url="/data/apps.json"></div>
+<script src="/assets/portal.js"></script>
+</body>
+</html>

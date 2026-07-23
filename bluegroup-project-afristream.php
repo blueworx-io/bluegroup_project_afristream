@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.15.1
+ * Version:     0.17.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.15.1' );
+define( 'AFRISTREAM_PORTAL_VERSION', '0.17.0' );
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
@@ -24,6 +24,7 @@ define( 'AFRISTREAM_PORTAL_PICK_CAP', 300 );
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/affiliates.php';
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
@@ -55,7 +56,9 @@ add_action( 'wp_enqueue_scripts', 'afristream_portal_register_assets' );
 /**
  * [afristream_portal default_tab="profile" show_sport="true"]
  *
- * default_tab: profile | watch | apps | editor | tips | help
+ * default_tab: profile | setup | watch | apps | editor | download | affiliate | tips | help
+ *
+ * 'tips' and 'help' are hidden from the portal nav but remain valid entry points.
  */
 function afristream_portal_shortcode( $atts ) {
 	$atts = shortcode_atts(
@@ -76,13 +79,14 @@ function afristream_portal_shortcode( $atts ) {
 	wp_add_inline_style( 'bluegroup-project-afristream', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
 		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
 		esc_url( rest_url( 'afristream/v1/detail' ) ),
 		esc_url( rest_url( 'afristream/v1/credentials' ) ),
+		esc_url( rest_url( 'afristream/v1/affiliate' ) ),
 		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
 		esc_attr( wp_create_nonce( 'wp_rest' ) )
 	);
@@ -1111,7 +1115,7 @@ function afristream_portal_render_settings_page() {
 			<?php
 			printf(
 				/* translators: %s: shortcode example. */
-				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|watch|apps|editor|tips|help", show_sport="true|false").', 'bluegroup-project-afristream' ),
+				esc_html__( 'Show the portal on any page with the shortcode %s (optional attributes: default_tab="profile|setup|watch|apps|editor|download", show_sport="true|false").', 'bluegroup-project-afristream' ),
 				'<code>[afristream_portal]</code>'
 			);
 			?>

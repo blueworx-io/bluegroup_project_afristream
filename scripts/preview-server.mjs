@@ -96,6 +96,9 @@ const EDITOR_FIXTURE = {
     { t: 'Fixture Pick Two', genre: 'Thriller', platform: '★ 8.1', rating: 8.1, meta: 'TV · 2023', poster: null, type: 'Series', country: 'Nigeria', rank: 2, id: 502 },
     { t: 'Fixture Pick Three', genre: 'Comedy', platform: '★ 7.6', rating: 7.6, meta: '2022', poster: null, type: 'Movies', country: 'Kenya', rank: 3, id: 503 },
     { t: 'Fixture Pick Four', genre: 'Documentary', platform: '★ 9.1', rating: 9.1, meta: '2021', poster: null, type: 'Movies', country: 'Kenya', rank: 4, id: 504 },
+    // One pick per rating band, so the Editor Picks band filter has something
+    // to isolate in each of 6, 7, 8 and 9.
+    { t: 'Fixture Pick Five', genre: 'Drama', platform: '★ 6.4', rating: 6.4, meta: 'TV · 2020', poster: null, type: 'Series', country: 'Ghana', rank: 5, id: 505 },
   ],
 };
 
@@ -107,6 +110,24 @@ const CREDENTIALS_FIXTURE = {
     { label: 'Profile 1', user: 'afri_fixture', pass: 'Fx9Kp2Lm' },
     { label: 'Profile 2', user: 'afri_fixture_tv', pass: 'Tv4Qr8Zn' },
   ],
+};
+
+// Deterministic affiliate fixture (mirrors the plugin's afristream/v1/affiliate,
+// which is SureCart-backed and per-user in production). 30% recurring on a £15
+// monthly plan is the arithmetic the Playwright projection test asserts.
+const AFFILIATE_FIXTURE = {
+  affiliate: true,
+  code: 'FIXTURE1',
+  referral_url: 'https://afristream.io/?ref=FIXTURE1',
+  commission: { amount: null, percent: 30, recurring: true, recurring_days: null },
+  currency: 'gbp',
+  plans: [
+    { amount: 1500, currency: 'gbp', id: 'price_month', interval: 'month', interval_count: 1, name: 'AfriStream — 1 Month' },
+    { amount: 12000, currency: 'gbp', id: 'price_year', interval: 'year', interval_count: 1, name: 'AfriStream — 12 Months' },
+  ],
+  // Fixed rates off a GBP base, so the currency switcher's arithmetic is
+  // assertable. Live, these come from the ECB feed and move daily.
+  rates: { eur: 1.2, gbp: 1, usd: 1.3, zar: 24 },
 };
 
 let editorCache = null;
@@ -604,6 +625,24 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(payload));
       return;
     }
+    if (path === '/api/affiliate') {
+      const mode = url.searchParams.get('fixture') || '0';
+      const payload = mode === '1'
+        ? AFFILIATE_FIXTURE
+        : mode === 'noplans'
+          ? { ...AFFILIATE_FIXTURE, plans: [] }
+          : mode === 'onceoff'
+            // A one-off structure: 30% of the first payment only, never again.
+            ? { ...AFFILIATE_FIXTURE, commission: { amount: null, percent: 30, recurring: false, recurring_days: null } }
+            : mode === 'norate'
+              // On the store default, with no default rate configured — the
+              // out-of-the-box state the degraded calculator has to cover.
+              ? { ...AFFILIATE_FIXTURE, commission: { amount: null, percent: null, recurring: true, recurring_days: null } }
+              : { affiliate: false };
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(payload));
+      return;
+    }
     if (path === '/api/detail') {
       const id = url.searchParams.get('id') || '';
       const type = url.searchParams.get('type') || 'movie';
@@ -614,6 +653,18 @@ const server = createServer(async (req, res) => {
       res.end(JSON.stringify(payload));
       return;
     }
+    // The affiliate preview page carries its fixture mode in its own query
+    // string, so one page covers approved, not-approved and no-prices without
+    // three near-identical files.
+    if (path === '/preview/affiliate.html') {
+      const mode = url.searchParams.get('fixture') || '1';
+      const html = (await readFile(join(ROOT, 'preview', 'affiliate.html'), 'utf8'))
+        .replace('/api/affiliate?fixture=1', `/api/affiliate?fixture=${encodeURIComponent(mode)}`);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
+
     if (path === '/' || path === '/index.html') path = '/preview/index.html';
 
     const file = normalize(join(ROOT, path));
