@@ -57,6 +57,20 @@ function afristream_license_fields() {
 }
 
 /**
+ * Parse a stored expiry value strictly as Ymd. The round-trip check (format it
+ * back and compare) is what rejects both plain garbage and DateTime's habit of
+ * rolling an overflowing value into a real date instead of failing — e.g.
+ * "20261332" would otherwise silently become some day in 2027.
+ *
+ * @param string $raw Candidate Ymd string.
+ * @return DateTime|false
+ */
+function afristream_parse_ymd( $raw ) {
+	$date = DateTime::createFromFormat( 'Ymd', $raw );
+	return ( $date && $date->format( 'Ymd' ) === $raw ) ? $date : false;
+}
+
+/**
  * Read a licence field exactly as ACF's get_field() returned it.
  *
  * The only field that is not a straight passthrough is expiry_date: ACF stores
@@ -76,8 +90,8 @@ function afristream_license_meta( $post_id, $key ) {
 		return $raw;
 	}
 
-	$date = DateTime::createFromFormat( 'Ymd', $raw );
-	if ( ! $date || $date->format( 'Ymd' ) !== $raw ) {
+	$date = afristream_parse_ymd( $raw );
+	if ( ! $date ) {
 		return $raw;
 	}
 
@@ -96,8 +110,23 @@ function afristream_license_expiry_ymd( $license_id ) {
 	if ( '' === $raw ) {
 		return '';
 	}
-	$date = DateTime::createFromFormat( 'Ymd', $raw );
-	return ( $date && $date->format( 'Ymd' ) === $raw ) ? $raw : '';
+	return afristream_parse_ymd( $raw ) ? $raw : '';
+}
+
+/**
+ * Whether a licence's expiry_date can be trusted to decide availability. A
+ * blank field genuinely means "no expiry" and is trustworthy. A non-blank
+ * field that fails to parse is not: afristream_license_expiry_ymd() collapses
+ * that case to '' too, same as unset, so callers deciding availability need
+ * this to tell the two apart rather than treating a corrupted date as a licence
+ * that never expires.
+ *
+ * @param int $license_id Licence post ID.
+ * @return bool
+ */
+function afristream_license_expiry_is_readable( $license_id ) {
+	$raw = (string) get_post_meta( (int) $license_id, 'expiry_date', true );
+	return '' === $raw || false !== afristream_parse_ymd( $raw );
 }
 
 /**
@@ -158,8 +187,11 @@ function afristream_user_license_ids( $user_id ) {
 }
 
 /**
- * Whether a licence can be handed to someone: published, unowned, and not past
- * its expiry date. A licence expiring today is still usable today.
+ * Whether a licence can be handed to someone: published, unowned, not past its
+ * expiry date, and its expiry date is actually readable. A corrupted expiry_date
+ * fails closed rather than being treated as "no expiry" — we cannot promise a
+ * customer an unexpired licence when we can't tell whether it has expired. A
+ * licence expiring today is still usable today.
  *
  * @param int $license_id Licence post ID.
  * @return bool
@@ -171,6 +203,9 @@ function afristream_license_is_available( $license_id ) {
 		return false;
 	}
 	if ( afristream_license_owner( $license_id ) ) {
+		return false;
+	}
+	if ( ! afristream_license_expiry_is_readable( $license_id ) ) {
 		return false;
 	}
 

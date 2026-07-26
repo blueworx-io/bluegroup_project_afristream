@@ -70,6 +70,28 @@ af_test( 'availability requires unowned, published and unexpired', function () {
 	af_assert( afristream_license_is_available( 15 ), 'expiring today is still available today' );
 } );
 
+af_test( 'a corrupted expiry_date is not available, fail closed', function () {
+	af_seed_post( 10, 'corrupt' );
+	update_post_meta( 10, 'expiry_date', 'not-a-date' );
+
+	af_assert( ! afristream_license_is_available( 10 ), 'unreadable expiry cannot be handed out' );
+	af_assert_same( array(), afristream_available_licenses(), 'and it does not appear in the available list' );
+} );
+
+af_test( 'a licence with no expiry_date at all is still available', function () {
+	af_seed_post( 10, 'no-expiry' );
+
+	af_assert( afristream_license_is_available( 10 ), 'genuinely unset expiry still means it never expires' );
+	af_assert_same( array( 10 ), afristream_available_licenses(), 'and it does appear in the available list' );
+} );
+
+af_test( 'a corrupted expiry_date still reads back verbatim from afristream_license_meta', function () {
+	af_seed_post( 10, 'corrupt' );
+	update_post_meta( 10, 'expiry_date', 'not-a-date' );
+
+	af_assert_same( 'not-a-date', afristream_license_meta( 10, 'expiry_date' ), 'shown as-is so it can be spotted and fixed' );
+} );
+
 af_test( 'available licences come soonest-expiring first, never-expiring last', function () {
 	af_seed_post( 10, 'far' );
 	update_post_meta( 10, 'expiry_date', '20281231' );
