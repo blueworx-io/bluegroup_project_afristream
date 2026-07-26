@@ -28,6 +28,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/license-admin.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/affiliates.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/auto-assign.php';
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
