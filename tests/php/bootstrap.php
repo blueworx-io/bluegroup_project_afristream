@@ -274,6 +274,23 @@ function has_action( $tag ) {
 	return ! empty( $GLOBALS['af_store']['actions'][ $tag ] );
 }
 
+/**
+ * What add_action() has registered against a tag, right now.
+ *
+ * af_reset_store() wipes the actions array before every test, including
+ * whatever a plugin file registered at require time — so a test that wants to
+ * prove that require-time registration actually happened has to capture it
+ * before the first af_reset_store() call runs, not read it from inside a test
+ * body. This is that capture point, kept to a single accessor rather than
+ * having tests reach into $GLOBALS['af_store'] directly.
+ *
+ * @param string $tag Hook name.
+ * @return array<int,callable|string> Registered callbacks, in registration order.
+ */
+function af_registered_actions( $tag ) {
+	return isset( $GLOBALS['af_store']['actions'][ $tag ] ) ? $GLOBALS['af_store']['actions'][ $tag ] : array();
+}
+
 // -- Misc ---------------------------------------------------------------------
 
 function current_time( $type = 'timestamp' ) {

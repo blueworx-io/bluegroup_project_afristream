@@ -272,10 +272,13 @@ add_action( 'save_post_license', 'afristream_save_license_fields' );
  *
  * The old-status check on its own is not quite enough: a licence taken
  * publish → draft → publish again is a genuine transition each time, and would
- * log "created" twice. A licence's history is never empty once it exists — this
- * same function is the only thing that starts it — so an empty log is the
- * reliable sign that this is the very first publish rather than a later cycle,
- * and is checked in addition to the status transition rather than instead of it.
+ * log "created" twice. An empty history is not a reliable sign of a first
+ * publish, though: afristream_save_license_fields() can start a licence's
+ * history before this function ever runs, by logging an "updated" entry while
+ * the licence is still saved as a draft with a field filled in. So the guard
+ * checks specifically for an existing "created" entry, not for any history at
+ * all, and is checked in addition to the status transition rather than
+ * instead of it.
  *
  * @param string  $new_status New post status.
  * @param string  $old_status Previous post status.
@@ -288,8 +291,11 @@ function afristream_log_license_created( $new_status, $old_status, $post ) {
 	if ( 'publish' !== $new_status || 'publish' === $old_status ) {
 		return;
 	}
-	if ( ! empty( afristream_license_log_get( $post->ID ) ) ) {
-		return;
+
+	foreach ( afristream_license_log_get( $post->ID ) as $entry ) {
+		if ( 'created' === $entry['event'] ) {
+			return;
+		}
 	}
 
 	afristream_license_log_add( $post->ID, 'created', 0, 'admin' );
