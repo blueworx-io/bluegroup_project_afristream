@@ -80,7 +80,10 @@ add_action( 'add_meta_boxes_license', 'afristream_license_meta_boxes' );
  * @param WP_Post $post Licence being edited.
  */
 function afristream_render_license_fields_box( $post ) {
-	wp_nonce_field( 'afristream_save_license', 'afristream_license_nonce' );
+	// Scoped to this licence's ID: an unscoped action string mints a token that
+	// verifies against every licence, so a nonce grabbed from one edit screen
+	// would stay usable against any other for its whole lifetime.
+	wp_nonce_field( 'afristream_save_license_' . $post->ID, 'afristream_license_nonce' );
 
 	$owner = afristream_license_owner( $post->ID );
 	echo '<table class="form-table" role="presentation"><tbody>';
@@ -95,6 +98,17 @@ function afristream_render_license_fields_box( $post ) {
 			$ymd   = afristream_license_expiry_ymd( $post->ID );
 			$value = '' === $ymd ? '' : substr( $ymd, 0, 4 ) . '-' . substr( $ymd, 4, 2 ) . '-' . substr( $ymd, 6, 2 );
 			echo '<input type="date" id="' . esc_attr( $id ) . '" name="' . esc_attr( $key ) . '" value="' . esc_attr( $value ) . '" class="regular-text" />';
+
+			// afristream_license_expiry_ymd() collapses "unset" and "unreadable"
+			// to the same blank input, so a corrupted value would otherwise sit
+			// invisible with no way to correct it. Surfacing the raw stored
+			// string is what makes it fixable.
+			if ( ! afristream_license_expiry_is_readable( $post->ID ) ) {
+				printf(
+					'<p class="description">' . esc_html__( 'Stored value is "%s", which could not be read as a date.', 'bluegroup-project-afristream' ) . '</p>',
+					esc_html( afristream_license_meta( $post->ID, $key ) )
+				);
+			}
 		} elseif ( 'select' === $field['type'] ) {
 			$value = afristream_license_meta( $post->ID, $key );
 			echo '<select id="' . esc_attr( $id ) . '" name="' . esc_attr( $key ) . '">';
@@ -198,7 +212,7 @@ function afristream_save_license_fields( $post_id ) {
 	if ( ! isset( $_POST['afristream_license_nonce'] ) ) {
 		return;
 	}
-	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['afristream_license_nonce'] ) ), 'afristream_save_license' ) ) {
+	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['afristream_license_nonce'] ) ), 'afristream_save_license_' . $post_id ) ) {
 		return;
 	}
 	if ( ! current_user_can( 'edit_post', $post_id ) ) {
@@ -210,6 +224,17 @@ function afristream_save_license_fields( $post_id ) {
 	foreach ( array_keys( afristream_license_fields() ) as $key ) {
 		$before = (string) get_post_meta( $post_id, $key, true );
 		$after  = isset( $_POST[ $key ] ) ? afristream_license_sanitize_field( $key, $_POST[ $key ] ) : '';
+
+		// A corrupted expiry_date renders as a blank <input type="date">, because
+		// there is no Y-m-d to put in it — see afristream_license_expiry_ymd().
+		// Submitting that blank back would otherwise read as "clear the field"
+		// and delete the one copy of the bad value left to fix. Only this exact
+		// combination — a non-empty stored value that fails to parse, met by an
+		// empty submission — is left alone; a readable date is still cleared
+		// normally, and a corrected date still saves normally.
+		if ( 'expiry_date' === $key && '' !== $before && '' === $after && ! afristream_license_expiry_is_readable( $post_id ) ) {
+			continue;
+		}
 
 		if ( $before === $after ) {
 			continue;
@@ -238,9 +263,35 @@ add_action( 'save_post_license', 'afristream_save_license_fields' );
 /**
  * Record a licence being created, so its history starts at the beginning.
  *
- * @param int $post_id Licence post ID.
+ * Hooked to transition_post_status rather than publish_license: WordPress fires
+ * `{$new_status}_{$post_type}` on every save that resolves to publish, not only
+ * on the first draft→publish transition, so publish_license alone would log a
+ * spurious "created" on every re-save of an already-published licence.
+ * transition_post_status carries the old status too, which is what lets a real
+ * transition be told apart from a re-save.
+ *
+ * The old-status check on its own is not quite enough: a licence taken
+ * publish → draft → publish again is a genuine transition each time, and would
+ * log "created" twice. A licence's history is never empty once it exists — this
+ * same function is the only thing that starts it — so an empty log is the
+ * reliable sign that this is the very first publish rather than a later cycle,
+ * and is checked in addition to the status transition rather than instead of it.
+ *
+ * @param string  $new_status New post status.
+ * @param string  $old_status Previous post status.
+ * @param WP_Post $post       Post whose status changed.
  */
-function afristream_log_license_created( $post_id ) {
-	afristream_license_log_add( $post_id, 'created', 0, 'admin' );
+function afristream_log_license_created( $new_status, $old_status, $post ) {
+	if ( 'license' !== $post->post_type ) {
+		return;
+	}
+	if ( 'publish' !== $new_status || 'publish' === $old_status ) {
+		return;
+	}
+	if ( ! empty( afristream_license_log_get( $post->ID ) ) ) {
+		return;
+	}
+
+	afristream_license_log_add( $post->ID, 'created', 0, 'admin' );
 }
-add_action( 'publish_license', 'afristream_log_license_created', 10, 1 );
+add_action( 'transition_post_status', 'afristream_log_license_created', 10, 3 );
