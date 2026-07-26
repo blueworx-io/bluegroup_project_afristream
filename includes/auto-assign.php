@@ -822,3 +822,62 @@ function afristream_autoassign_status() {
 		),
 	);
 }
+
+/**
+ * Declare auto-assignment on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_autoassign_registry( $items ) {
+	$status = afristream_autoassign_status();
+
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Auto-assign on purchase',
+		'type'   => 'hook',
+		'handle' => 'surecart/purchase_created',
+		'file'   => 'includes/auto-assign.php',
+		'status' => $status,
+	);
+
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Auto-assign on new subscription',
+		'type'   => 'hook',
+		'handle' => 'surecart/subscription_created',
+		'file'   => 'includes/auto-assign.php',
+		'status' => $status,
+	);
+
+	$over = afristream_over_allocated();
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Entitlement check',
+		'type'   => 'integration',
+		'handle' => 'afristream_entitlement',
+		'file'   => 'includes/auto-assign.php',
+		'status' => empty( $over )
+			? array( 'state' => 'ok', 'label' => __( 'One licence per active subscription', 'bluegroup-project-afristream' ) )
+			: array(
+				'state' => 'warn',
+				/* translators: %d: number of users. */
+				'label' => sprintf( _n( '%d user over-allocated', '%d users over-allocated', count( $over ), 'bluegroup-project-afristream' ), count( $over ) ),
+			),
+	);
+
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Waiting list',
+		'type'   => 'hook',
+		'handle' => 'save_post_license',
+		'file'   => 'includes/auto-assign.php',
+		'status' => array(
+			'state' => 'ok',
+			'label' => __( 'Served automatically when a licence frees up', 'bluegroup-project-afristream' ),
+		),
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_autoassign_registry' );

@@ -302,3 +302,32 @@ function afristream_portal_sort_license_columns( $query ) {
 	}
 }
 add_action( 'pre_get_posts', 'afristream_portal_sort_license_columns' );
+
+/**
+ * Declare the licence admin columns on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_columns_registry( $items ) {
+	$columns = array(
+		'active_licenses' => array( 'Users: Active Licenses column', 'manage_users_columns' ),
+		'expiry_date'     => array( 'Licences: Expiry Date column', 'manage_license_posts_columns' ),
+		'mobile_active'   => array( 'Licences: Mobile Active column', 'manage_license_posts_columns' ),
+		'active_license'  => array( 'Licences: Connected User column', 'manage_license_posts_columns' ),
+		'last_assigned'   => array( 'Licences: Last Assigned column', 'manage_license_posts_columns' ),
+	);
+
+	foreach ( $columns as $handle => $column ) {
+		$items[] = array(
+			'group'  => 'Admin UI',
+			'name'   => $column[0],
+			'type'   => 'column',
+			'handle' => $handle,
+			'file'   => 'includes/licenses.php',
+		);
+	}
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_columns_registry' );

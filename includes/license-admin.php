@@ -550,3 +550,38 @@ function afristream_license_refused_notice() {
 	echo '</div>';
 }
 add_action( 'admin_notices', 'afristream_license_refused_notice' );
+
+/**
+ * Declare the licence and profile editors on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_admin_registry( $items ) {
+	$items[] = array(
+		'group'  => 'Admin UI',
+		'name'   => 'Licence editor fields',
+		'type'   => 'page',
+		'handle' => 'afristream-license-fields',
+		'file'   => 'includes/license-admin.php',
+	);
+
+	$items[] = array(
+		'group'  => 'Admin UI',
+		'name'   => 'Licence editor history',
+		'type'   => 'page',
+		'handle' => 'afristream-license-history',
+		'file'   => 'includes/license-admin.php',
+	);
+
+	$items[] = array(
+		'group'  => 'Admin UI',
+		'name'   => 'Licence field on user profiles',
+		'type'   => 'field',
+		'handle' => 'afristream_active_license',
+		'file'   => 'includes/license-admin.php',
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_admin_registry' );

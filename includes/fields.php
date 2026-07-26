@@ -1193,3 +1193,61 @@ function afristream_maybe_upgrade() {
 	update_option( AFRISTREAM_SCHEMA_OPTION, AFRISTREAM_SCHEMA_VERSION );
 }
 add_action( 'admin_init', 'afristream_maybe_upgrade' );
+
+/**
+ * Declare the data model on the Configurations page.
+ *
+ * Kept in the file it describes so the two are edited together. A description
+ * that lives somewhere else goes stale the first time someone is in a hurry.
+ *
+ * No function_exists() guard around afristream_license_stock(): this callback
+ * only ever runs when something calls afristream_registry(), and that never
+ * happens before every include has finished loading — includes/configurations.php,
+ * where that function lives, is required last, precisely so every other file's
+ * entries are already registered by the time the page reads the filter. By the
+ * time this runs, the function is simply there.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_field_registry( $items ) {
+	$stock = afristream_license_stock();
+
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Licence post type',
+		'type'   => 'field',
+		'handle' => 'license',
+		'file'   => 'includes/fields.php',
+		'status' => array(
+			'state' => 'ok',
+			/* translators: 1: total licences, 2: available licences. */
+			'label' => sprintf( __( '%1$d licences — %2$d available', 'bluegroup-project-afristream' ), $stock['total'], $stock['available'] ),
+		),
+	);
+
+	foreach ( afristream_license_fields() as $key => $field ) {
+		$items[] = array(
+			'group'  => 'Licences',
+			'name'   => $field['label'],
+			'type'   => 'field',
+			'handle' => $key,
+			'file'   => 'includes/fields.php',
+		);
+	}
+
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Licence assignment',
+		'type'   => 'field',
+		'handle' => AFRISTREAM_LICENSE_OWNER_META,
+		'file'   => 'includes/fields.php',
+		'status' => array(
+			'state' => 'ok',
+			'label' => __( 'Owner stored on the licence, user meta mirrored', 'bluegroup-project-afristream' ),
+		),
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_field_registry' );

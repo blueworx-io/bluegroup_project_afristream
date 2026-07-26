@@ -151,3 +151,27 @@ function afristream_license_log_recent( $limit = 20 ) {
 	$limit = (int) $limit;
 	return $limit > 0 ? array_slice( $all, 0, $limit ) : $all;
 }
+
+/**
+ * Declare the licence history on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_log_registry( $items ) {
+	$items[] = array(
+		'group'  => 'Licences',
+		'name'   => 'Licence history',
+		'type'   => 'field',
+		'handle' => AFRISTREAM_LICENSE_LOG_META,
+		'file'   => 'includes/license-log.php',
+		'status' => array(
+			'state' => 'ok',
+			/* translators: %d: entries kept per licence. */
+			'label' => sprintf( __( 'Last %d events per licence', 'bluegroup-project-afristream' ), AFRISTREAM_LOG_CAP ),
+		),
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_log_registry' );

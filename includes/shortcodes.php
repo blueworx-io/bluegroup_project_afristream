@@ -564,3 +564,34 @@ function afristream_portal_troubleshooting_sections() {
 		),
 	);
 }
+
+/**
+ * Declare the legacy shortcodes on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_shortcode_registry( $items ) {
+	$items[] = array(
+		'group'  => 'Portal',
+		'name'   => 'App credentials shortcode',
+		'type'   => 'shortcode',
+		'handle' => 'user_acf_fields',
+		'file'   => 'includes/shortcodes.php',
+		'status' => array(
+			'state' => 'ok',
+			'label' => __( 'Legacy tag name, no ACF dependency', 'bluegroup-project-afristream' ),
+		),
+	);
+
+	$items[] = array(
+		'group'  => 'Portal',
+		'name'   => 'Troubleshooting guide shortcode',
+		'type'   => 'shortcode',
+		'handle' => 'troubleshooting_guide',
+		'file'   => 'includes/shortcodes.php',
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_shortcode_registry' );
