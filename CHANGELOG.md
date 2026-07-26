@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-07-26
+
+### Fixed
+
+- **The ACF readiness panel can now say it does not know.** Every way the check could fail used to come back looking identical to a clean site: a database query that timed out returned nothing and was read as nothing found; a file scan that gave up at its own eight-hundred-file cap returned "no ACF here" rather than "I stopped early". Someone reading the panel would deactivate ACF on the strength of it and take every Elementor page using an ACF dynamic tag down with it. The audit now answers with three states rather than two, and the third — **undetermined** — is rendered as its own cautious panel that lists exactly which checks did not finish. `safe` is reported only when every check ran to completion and every one of them came back empty.
+
+- **A single-file plugin such as `hello.php` no longer points the scan at every plugin on the site.** `dirname( 'hello.php' )` is `.`, so the scan walked the whole plugins directory, found ACF's own source, and reported `hello.php` as the reason ACF could not be retired — while burning the file cap that would have caught the real culprit. Single-file plugins are now scanned as the one file they are.
+
+- **An unreadable subdirectory no longer takes the Configurations page down with it.** The directory walk is caught, and a directory it could not read is counted as unknown rather than as clean.
+
+- **Elementor revisions no longer produce a row each.** One page saved a dozen times read as a dozen problems.
+
+- **A licence in the events table that has since been deleted no longer renders an empty link.**
+
+### Added
+
+- **The scan looks in the places it was missing.** The parent theme as well as the child (near-universal alongside Elementor, and where the template code usually lives), the must-use plugins directory, and on multisite the network-activated plugins, which never appear in a site's own `active_plugins`.
+
+- **It also detects the usage it was blind to.** `the_sub_field`, `get_fields`, `get_field_object`, `update_field`, `add_row`, `acf_form` and their neighbours, references to ACF's own `acf/*` filters and actions, and — with nothing to do with Elementor — ACF blocks and `[acf]` shortcodes saved into post content.
+
+- **The result is cached**, keyed per site so a network install cannot serve one site's answer to another. A clean result is held for six hours because it is the expensive one to produce; an undetermined one for five minutes, because it is a report of a check that did not finish and the reasons for that are usually passing.
+
+### Changed
+
+- A status of **"cannot tell"** now has a colour of its own instead of the grey used for "switched off", which told the reader the opposite of what it meant. An unrecognised status reads the same way rather than being guessed at as off.
+
 ## [0.19.0] - 2026-07-23
 
 ### Added

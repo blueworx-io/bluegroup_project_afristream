@@ -12,6 +12,21 @@ define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'MB_IN_BYTES', 1048576 );
 
+/**
+ * The ACF-readiness scan reads real files off disk, so the one thing that
+ * cannot be faked here is the filesystem — it is pointed at a small tree of
+ * fixture plugins and themes instead. Which of them a given test sees is
+ * decided per test by seeding active_plugins and the theme stubs, so the
+ * constants can stay fixed the way WordPress's are.
+ *
+ * The must-use directory deliberately does not exist. A site without one is the
+ * common case, and the scan has to treat a missing directory as nothing to read
+ * rather than as something it failed to read.
+ */
+define( 'WP_PLUGIN_DIR', __DIR__ . '/fixtures/plugins' );
+define( 'WPMU_PLUGIN_DIR', __DIR__ . '/fixtures/mu-plugins' );
+define( 'AF_FIXTURE_THEMES', __DIR__ . '/fixtures/themes' );
+
 $GLOBALS['af_store'] = array();
 
 function af_reset_store() {
@@ -19,10 +34,18 @@ function af_reset_store() {
 		'postmeta'        => array(),
 		'usermeta'        => array(),
 		'options'         => array(),
+		'site_options'    => array(),
 		'transients'      => array(),
 		'autoload'        => array(),
 		'posts'           => array(),
 		'users'           => array(),
+		'multisite'       => false,
+		'theme'           => array(
+			'stylesheet'           => 'clean-theme',
+			'stylesheet_directory' => AF_FIXTURE_THEMES . '/clean-theme',
+			'template'             => 'clean-theme',
+			'template_directory'   => AF_FIXTURE_THEMES . '/clean-theme',
+		),
 		'filters'         => array(),
 		'actions'         => array(),
 		'surecart'        => array(
@@ -34,18 +57,62 @@ function af_reset_store() {
 		'capabilities'    => null, // null means permissive — see current_user_can() below.
 		'current_user_id' => 0, // 0 means logged out — see is_user_logged_in() below.
 	);
+
+	// The fake $wpdb is a single long-lived object rather than part of the
+	// store, so a query failure armed by one test would otherwise still be
+	// armed for the next one and fail it somewhere unrelated.
+	if ( isset( $GLOBALS['wpdb'] ) && $GLOBALS['wpdb'] instanceof AF_Fake_WPDB ) {
+		$GLOBALS['wpdb']->af_reset();
+	}
 }
 af_reset_store();
 
 // -- Test-side seeding helpers ------------------------------------------------
 
-function af_seed_post( $id, $title, $status = 'publish', $type = 'license' ) {
+/**
+ * $content is stored because the ACF-readiness audit searches post_content for
+ * ACF blocks and shortcodes, and there is nowhere else a test could put one.
+ * It defaults to empty, so every existing caller is unaffected.
+ */
+function af_seed_post( $id, $title, $status = 'publish', $type = 'license', $content = '' ) {
 	$GLOBALS['af_store']['posts'][ $id ] = array(
-		'ID'          => $id,
-		'post_title'  => $title,
-		'post_status' => $status,
-		'post_type'   => $type,
+		'ID'           => $id,
+		'post_title'   => $title,
+		'post_status'  => $status,
+		'post_type'    => $type,
+		'post_content' => $content,
 	);
+}
+
+/**
+ * Point the theme stubs at a pair of fixture directories.
+ *
+ * Two arguments because a child theme and its parent are different directories
+ * and the audit has to look in both — passing one name sets a theme with no
+ * parent, which is the other real case.
+ *
+ * @param string $stylesheet Directory name under tests/php/fixtures/themes.
+ * @param string $template   Parent directory name, or '' for no parent.
+ */
+function af_set_theme( $stylesheet, $template = '' ) {
+	$template = '' === $template ? $stylesheet : $template;
+
+	$GLOBALS['af_store']['theme'] = array(
+		'stylesheet'           => $stylesheet,
+		'stylesheet_directory' => AF_FIXTURE_THEMES . '/' . $stylesheet,
+		'template'             => $template,
+		'template_directory'   => AF_FIXTURE_THEMES . '/' . $template,
+	);
+}
+
+/**
+ * Turn multisite on for the rest of the current test, so the network-activated
+ * plugin list is consulted.
+ *
+ * @param bool $on Whether this is a network install.
+ */
+function af_set_multisite( $on = true ) {
+	$GLOBALS['af_store']['multisite'] = (bool) $on;
 }
 
 function af_seed_user( $id, $login = '', $registered = '2026-01-01 00:00:00' ) {
@@ -315,6 +382,30 @@ function delete_option( $key ) {
 }
 
 /**
+ * Network options live in their own table in real WordPress, and a
+ * network-activated plugin is recorded only there — never in the per-site
+ * active_plugins. Kept as a separate store here for exactly that reason: a stub
+ * that aliased this onto get_option() would let a scan that only reads
+ * active_plugins pass while missing every plugin on a real network install.
+ */
+function get_site_option( $key, $default = false ) {
+	return array_key_exists( $key, $GLOBALS['af_store']['site_options'] ) ? $GLOBALS['af_store']['site_options'][ $key ] : $default;
+}
+
+function update_site_option( $key, $value ) {
+	$GLOBALS['af_store']['site_options'][ $key ] = $value;
+	return true;
+}
+
+function is_multisite() {
+	return (bool) $GLOBALS['af_store']['multisite'];
+}
+
+function get_current_blog_id() {
+	return 1;
+}
+
+/**
  * The autoload setting the last write to this option asked for.
  *
  * @param string $key Option name.
@@ -544,8 +635,38 @@ function get_edit_user_link( $user_id ) {
 	return 'user-edit.php?user_id=' . (int) $user_id;
 }
 
-function get_edit_post_link( $post_id ) {
-	return 'post.php?post=' . (int) $post_id . '&action=edit';
+/**
+ * Answers null for a post that does not exist, the way the real one answers
+ * null for a post that has been deleted or that the current user cannot edit.
+ * A stub that always handed back a URL would let a page linking to nothing pass
+ * here and print an empty href on the live site.
+ *
+ * @param int    $post_id Post to link to.
+ * @param string $context 'display' escapes the ampersand, anything else does not.
+ * @return string|null
+ */
+function get_edit_post_link( $post_id, $context = 'display' ) {
+	if ( ! isset( $GLOBALS['af_store']['posts'][ $post_id ] ) ) {
+		return null;
+	}
+	$separator = 'display' === $context ? '&amp;' : '&';
+	return 'post.php?post=' . (int) $post_id . $separator . 'action=edit';
+}
+
+function get_stylesheet() {
+	return $GLOBALS['af_store']['theme']['stylesheet'];
+}
+
+function get_stylesheet_directory() {
+	return $GLOBALS['af_store']['theme']['stylesheet_directory'];
+}
+
+function get_template() {
+	return $GLOBALS['af_store']['theme']['template'];
+}
+
+function get_template_directory() {
+	return $GLOBALS['af_store']['theme']['template_directory'];
 }
 
 function admin_url( $path = '' ) {
@@ -607,8 +728,46 @@ class AF_Fake_WPDB {
 	/** @var string Table name, interpolated into the statement by the plugin. */
 	public $postmeta = 'wp_postmeta';
 
+	/** @var string The other table name the ACF audit's joins name. */
+	public $posts = 'wp_posts';
+
+	/**
+	 * @var string What the last statement went wrong with, '' when it did not.
+	 *             Real $wpdb clears this at the start of every query and sets it
+	 *             on failure, and the ACF audit reads it to tell a genuinely
+	 *             empty result apart from a query that never ran.
+	 */
+	public $last_error = '';
+
+	/** @var string Which modelled SELECT to fail, '' for none, '*' for all. */
+	private $fail_query = '';
+
+	/** @var string What to report in last_error when one fails. */
+	private $fail_message = '';
+
 	/** @var bool True while a query is running, so nested ones fire no actions. */
 	private $in_query = false;
+
+	/**
+	 * Disarm any seeded failure and clear the error, between tests.
+	 */
+	public function af_reset() {
+		$this->fail_query   = '';
+		$this->fail_message = '';
+		$this->last_error   = '';
+	}
+
+	/**
+	 * Make a modelled SELECT fail the way a timed-out query does: null back, and
+	 * a message in last_error.
+	 *
+	 * @param string $which        elementor, acf_posts, content, or '*' for all.
+	 * @param string $message      What last_error should report.
+	 */
+	public function af_fail_query( $which = '*', $message = 'MySQL server has gone away' ) {
+		$this->fail_query   = (string) $which;
+		$this->fail_message = (string) $message;
+	}
 
 	/**
 	 * Substitute %s and %d exactly as many times as there are arguments. A
@@ -646,6 +805,8 @@ class AF_Fake_WPDB {
 	 * @return int Rows changed: 1 when a row matched, 0 when none did.
 	 */
 	public function query( $sql ) {
+		$this->last_error = '';
+
 		$parsed = $this->parse( $sql );
 
 		$outer          = $this->in_query;
@@ -711,9 +872,251 @@ class AF_Fake_WPDB {
 		$GLOBALS['af_store']['postmeta'][ $p['post_id'] ][ $p['meta_key'] ] = $p['to'];
 		return 1;
 	}
+
+	/**
+	 * Escapes the LIKE wildcards, exactly as the real one does, so a search term
+	 * carrying a % cannot turn into a wildcard.
+	 */
+	public function esc_like( $text ) {
+		return addcslashes( (string) $text, '_%\\' );
+	}
+
+	/**
+	 * The three SELECTs the ACF-readiness audit issues, and nothing else.
+	 *
+	 * Modelled to the same standard as the UPDATE above: narrow on purpose, and
+	 * it throws at anything it does not recognise rather than guessing at an
+	 * answer. The point of these three is that they can fail — a leading-wildcard
+	 * LIKE across postmeta is the query that times out on a real site — so this
+	 * returns null and sets last_error when armed, because null cast to an empty
+	 * array is precisely how a timeout used to be reported as a clean site.
+	 *
+	 * @param string $sql Already through prepare() where it takes arguments.
+	 * @return array<int,object>|null Rows, or null when the query failed.
+	 */
+	public function get_results( $sql ) {
+		$this->last_error = '';
+
+		$query = $this->identify( $sql );
+
+		if ( '' !== $this->fail_query && ( '*' === $this->fail_query || $query['name'] === $this->fail_query ) ) {
+			$this->last_error = $this->fail_message;
+			return null;
+		}
+
+		if ( 'elementor' === $query['name'] ) {
+			return $this->rows_elementor( $query['like'][0] );
+		}
+		if ( 'acf_posts' === $query['name'] ) {
+			return $this->rows_acf_posts( $query['types'] );
+		}
+		return $this->rows_content( $query['like'] );
+	}
+
+	/**
+	 * Which of the three modelled SELECTs this is, with its bound values.
+	 *
+	 * @param string $sql Prepared SQL.
+	 * @return array{name:string,like:string[],types:string[]}
+	 */
+	private function identify( $sql ) {
+		// Collapsed to single spaces first: the plugin writes these across
+		// several indented lines, and matching the shape matters, not the
+		// whitespace it is laid out with.
+		$q      = trim( preg_replace( '/\s+/', ' ', (string) $sql ) );
+		$quoted = "'((?:[^'\\\\]|\\\\.)*)'";
+		$meta   = preg_quote( $this->postmeta, '/' );
+		$posts  = preg_quote( $this->posts, '/' );
+
+		$elementor = '/^SELECT p\.ID, p\.post_title, p\.post_type'
+			. ' FROM ' . $meta . ' m'
+			. ' INNER JOIN ' . $posts . ' p ON p\.ID = m\.post_id'
+			. " WHERE m\.meta_key = '_elementor_data'"
+			. ' AND m\.meta_value LIKE ' . $quoted
+			. " AND p\.post_status != 'trash'"
+			. " AND p\.post_type != 'revision'$/";
+
+		if ( preg_match( $elementor, $q, $m ) ) {
+			return array( 'name' => 'elementor', 'like' => array( stripslashes( $m[1] ) ), 'types' => array() );
+		}
+
+		$acf_posts = '/^SELECT ID, post_title, post_type'
+			. ' FROM ' . $posts
+			. ' WHERE post_type IN \( ' . $quoted . ', ' . $quoted . ', ' . $quoted . ' \)'
+			. " AND post_status != 'trash'$/";
+
+		if ( preg_match( $acf_posts, $q, $m ) ) {
+			return array(
+				'name'  => 'acf_posts',
+				'like'  => array(),
+				'types' => array( stripslashes( $m[1] ), stripslashes( $m[2] ), stripslashes( $m[3] ) ),
+			);
+		}
+
+		$content = '/^SELECT ID, post_title, post_type'
+			. ' FROM ' . $posts
+			. " WHERE post_status != 'trash'"
+			. " AND post_type != 'revision'"
+			. ' AND \( post_content LIKE ' . $quoted . ' OR post_content LIKE ' . $quoted . ' \)$/';
+
+		if ( preg_match( $content, $q, $m ) ) {
+			return array(
+				'name'  => 'content',
+				'like'  => array( stripslashes( $m[1] ), stripslashes( $m[2] ) ),
+				'types' => array(),
+			);
+		}
+
+		throw new RuntimeException( 'Fake $wpdb was handed a SELECT it does not model: ' . $sql );
+	}
+
+	/**
+	 * MySQL's LIKE, including the escaping esc_like() applies and the
+	 * case-insensitivity of WordPress's default collation. Written out rather
+	 * than reduced to a strpos() because the audit binds a pattern built by
+	 * esc_like(), and a stub that ignored the escaping would happily match on a
+	 * wildcard the real database would have treated as a literal.
+	 *
+	 * @param string $pattern LIKE pattern.
+	 * @param string $value   Value to test.
+	 * @return bool
+	 */
+	private function like_matches( $pattern, $value ) {
+		$regex  = '';
+		$length = strlen( $pattern );
+
+		for ( $i = 0; $i < $length; $i++ ) {
+			$char = $pattern[ $i ];
+
+			if ( '\\' === $char && $i + 1 < $length ) {
+				$regex .= preg_quote( $pattern[ ++$i ], '/' );
+				continue;
+			}
+			if ( '%' === $char ) {
+				$regex .= '.*';
+				continue;
+			}
+			if ( '_' === $char ) {
+				$regex .= '.';
+				continue;
+			}
+			$regex .= preg_quote( $char, '/' );
+		}
+
+		return 1 === preg_match( '/^' . $regex . '$/si', (string) $value );
+	}
+
+	/**
+	 * Posts whose _elementor_data matches, excluding trash and revisions.
+	 *
+	 * @param string $like LIKE pattern.
+	 * @return array<int,object>
+	 */
+	private function rows_elementor( $like ) {
+		$out = array();
+
+		foreach ( $this->ordered_posts() as $post ) {
+			if ( 'trash' === $post['post_status'] || 'revision' === $post['post_type'] ) {
+				continue;
+			}
+
+			$meta = isset( $GLOBALS['af_store']['postmeta'][ $post['ID'] ]['_elementor_data'] )
+				? $GLOBALS['af_store']['postmeta'][ $post['ID'] ]['_elementor_data']
+				: null;
+
+			if ( null === $meta || ! $this->like_matches( $like, $meta ) ) {
+				continue;
+			}
+
+			$out[] = $this->row( $post );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * ACF's own field groups, post types and taxonomies.
+	 *
+	 * @param string[] $types Post types the statement named.
+	 * @return array<int,object>
+	 */
+	private function rows_acf_posts( $types ) {
+		$out = array();
+
+		foreach ( $this->ordered_posts() as $post ) {
+			if ( 'trash' === $post['post_status'] || ! in_array( $post['post_type'], $types, true ) ) {
+				continue;
+			}
+			$out[] = $this->row( $post );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Posts whose content matches either LIKE pattern.
+	 *
+	 * @param string[] $likes Two LIKE patterns, OR'd.
+	 * @return array<int,object>
+	 */
+	private function rows_content( $likes ) {
+		$out = array();
+
+		foreach ( $this->ordered_posts() as $post ) {
+			if ( 'trash' === $post['post_status'] || 'revision' === $post['post_type'] ) {
+				continue;
+			}
+
+			$content = isset( $post['post_content'] ) ? $post['post_content'] : '';
+			if ( ! $this->like_matches( $likes[0], $content ) && ! $this->like_matches( $likes[1], $content ) ) {
+				continue;
+			}
+
+			$out[] = $this->row( $post );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Seeded posts in ID order, so a result set is stable to assert against.
+	 *
+	 * @return array<int,array>
+	 */
+	private function ordered_posts() {
+		$posts = $GLOBALS['af_store']['posts'];
+		ksort( $posts );
+		return $posts;
+	}
+
+	/**
+	 * One row, carrying only the three columns the statements select — a stub
+	 * that handed back the whole record would let code read a column the query
+	 * never asked for and still pass here.
+	 *
+	 * @param array $post Stored post.
+	 * @return object
+	 */
+	private function row( $post ) {
+		return (object) array(
+			'ID'         => $post['ID'],
+			'post_title' => $post['post_title'],
+			'post_type'  => $post['post_type'],
+		);
+	}
 }
 
 $GLOBALS['wpdb'] = new AF_Fake_WPDB();
+
+/**
+ * Arm a modelled SELECT to fail, the way a timeout on a big postmeta table does.
+ *
+ * @param string $which   elementor, acf_posts, content, or '*' for all of them.
+ * @param string $message What $wpdb->last_error should then report.
+ */
+function af_wpdb_fail( $which = '*', $message = 'MySQL server has gone away' ) {
+	$GLOBALS['wpdb']->af_fail_query( $which, $message );
+}
 
 // Admin-only functions the includes call at load time but tests never exercise.
 function is_admin() { return false; }
