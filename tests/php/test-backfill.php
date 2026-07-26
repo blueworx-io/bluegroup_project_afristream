@@ -73,20 +73,64 @@ af_test( 'a licence somebody else already holds keeps its owner, and the dropped
 	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'and the dropped claimant mirror is corrected' );
 } );
 
-af_test( 'a mirror entry pointing at anything but a published licence is never written to', function () {
+af_test( 'a mirror entry pointing at a post that was never a licence is silently dropped', function () {
 	af_seed_user( 7, 'alice' );
 	af_seed_post( 20, 'an order', 'publish', 'shop_order' );
-	af_seed_post( 21, 'a licence taken back to draft', 'draft', 'license' );
-	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '20', '21' ) );
+	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '20' ) );
 
 	$report = afristream_backfill_ownership();
 
 	af_assert_same( 0, $report['claimed'], 'nothing claimed' );
+	af_assert_same( array(), $report['conflicts'], 'nothing to report either — it was never a licence' );
 	af_assert_same( array(), get_post_meta( 20, AFRISTREAM_LICENSE_OWNER_META ), 'no owner row on a post that is not a licence' );
-	af_assert_same( array(), get_post_meta( 21, AFRISTREAM_LICENSE_OWNER_META ), 'and none on a draft' );
 	af_assert_same( array(), afristream_license_log_get( 20 ), 'no history invented on the unrelated post' );
-	af_assert_same( array(), afristream_license_log_get( 21 ), 'nor on the draft' );
-	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'both entries are dropped from the mirror' );
+	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the entry is dropped from the mirror' );
+} );
+
+af_test( 'a licence taken back to draft keeps its owner meta instead of losing the assignment', function () {
+	af_seed_user( 7, 'alice', '2026-01-01 00:00:00' );
+	af_seed_post( 21, 'a licence taken back to draft', 'draft', 'license' );
+	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '21' ) );
+
+	$report = afristream_backfill_ownership();
+
+	af_assert_same( 7, afristream_license_owner( 21 ), 'the owner meta is written even though the post is a draft' );
+	af_assert_same( 1, count( $report['conflicts'] ), 'a human is told about it' );
+	af_assert_same( 21, $report['conflicts'][0]['license'], 'naming the licence' );
+	af_assert_same( 7, $report['conflicts'][0]['kept'], 'and who it belongs to' );
+	af_assert_same( array(), $report['conflicts'][0]['rejected'], 'nobody else claimed it — this is not a two-user clash' );
+	af_assert_same( 'draft', $report['conflicts'][0]['status'], 'and why it was flagged' );
+
+	$log = afristream_license_log_get( 21 );
+	af_assert_same( 2, count( $log ), 'the draft licence gets an assigned entry and a flag explaining why' );
+	af_assert_same( 'conflict', $log[0]['event'], 'flagged the same way a genuine clash would be, newest first' );
+	af_assert_same( 7, $log[0]['user'], 'against the user whose assignment was preserved' );
+	af_assert_same( 'assigned', $log[1]['event'], 'under the assignment it explains' );
+
+	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the mirror is still rebuilt — a draft licence is never counted as held' );
+} );
+
+af_test( 'a trashed licence keeps its owner meta instead of losing the assignment', function () {
+	af_seed_user( 7, 'alice', '2026-01-01 00:00:00' );
+	af_seed_post( 22, 'a licence sent to trash', 'trash', 'license' );
+	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '22' ) );
+
+	$report = afristream_backfill_ownership();
+
+	af_assert_same( 7, afristream_license_owner( 22 ), 'the owner meta is written even though the post is trashed' );
+	af_assert_same( 1, count( $report['conflicts'] ), 'a human is told about it' );
+	af_assert_same( 22, $report['conflicts'][0]['license'], 'naming the licence' );
+	af_assert_same( 7, $report['conflicts'][0]['kept'], 'and who it belongs to' );
+	af_assert_same( array(), $report['conflicts'][0]['rejected'], 'nobody else claimed it — this is not a two-user clash' );
+	af_assert_same( 'trash', $report['conflicts'][0]['status'], 'and why it was flagged' );
+
+	$log = afristream_license_log_get( 22 );
+	af_assert_same( 2, count( $log ), 'the trashed licence gets an assigned entry and a flag explaining why' );
+	af_assert_same( 'conflict', $log[0]['event'], 'flagged the same way a genuine clash would be, newest first' );
+	af_assert_same( 7, $log[0]['user'], 'against the user whose assignment was preserved' );
+	af_assert_same( 'assigned', $log[1]['event'], 'under the assignment it explains' );
+
+	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the mirror is still rebuilt — a trashed licence is never counted as held' );
 } );
 
 af_test( 'a licence claimed by two users registered at the same moment resolves on user ID', function () {
