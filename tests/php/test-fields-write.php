@@ -1,6 +1,44 @@
 <?php
 require_once __DIR__ . '/../../includes/fields.php';
 
+/**
+ * The licence log module does not exist yet — fields.php calls it behind a
+ * function_exists() so it can be added later. Standing it in here is what gives
+ * "the loser logs nothing" any force: without it the assertion would pass just
+ * as happily against code that never logs anything at all.
+ */
+if ( ! function_exists( 'afristream_license_log_add' ) ) {
+	function afristream_license_log_add( $license_id, $event, $user_id, $context = '' ) {
+		$GLOBALS['af_log'][] = array( (int) $license_id, $event, (int) $user_id, $context );
+	}
+}
+
+/**
+ * Stand in for a competing claim that lands after $license_id's owner row is
+ * written and before the writer reads it back. Fires once, on that licence only,
+ * and writes nothing but the owner row — the winner's mirror is deliberately
+ * left alone so that only the losing caller can be the one that repairs it.
+ *
+ * @param int $license_id Licence whose owner row gets stolen.
+ * @param int $winner     User the licence really ends up with.
+ * @return void
+ */
+function af_steal_owner_mid_write( $license_id, $winner ) {
+	$fired = false;
+	add_action(
+		'updated_post_meta',
+		function ( $meta_id, $post_id, $key, $value ) use ( $license_id, $winner, &$fired ) {
+			if ( $fired || AFRISTREAM_LICENSE_OWNER_META !== $key || (int) $post_id !== (int) $license_id ) {
+				return;
+			}
+			$fired = true;
+			$GLOBALS['af_store']['postmeta'][ $post_id ][ $key ] = (int) $winner;
+		},
+		10,
+		4
+	);
+}
+
 af_test( 'assigning writes the licence and rebuilds the mirror as strings', function () {
 	af_seed_user( 7 );
 	af_seed_post( 10, 'alpha' );
@@ -210,6 +248,98 @@ af_test( 'a stale lock is broken by the next caller', function () {
 		afristream_with_lock( function () { return 'ran'; } ),
 		'past the TTL it is broken rather than wedging assignment forever'
 	);
+} );
+
+af_test( 'losing the race leaves neither user appearing to hold the licence', function () {
+	af_seed_user( 7 );
+	af_seed_user( 8 );
+	af_seed_post( 10, 'alpha' );
+	af_seed_post( 11, 'beta' );
+
+	// User 7 already holds something, so an emptied mirror below would be as
+	// visible a failure as a mirror still listing licence 10.
+	afristream_assign_license( 11, 7, 'test' );
+
+	// User 8's claim gets past the lock at the same moment and writes last.
+	af_steal_owner_mid_write( 10, 8 );
+
+	$result = afristream_assign_license( 10, 7, 'test' );
+
+	// Guarded, because a regression here returns true rather than an error, and a
+	// fatal on ->get_error_code() would take the rest of the suite down with it.
+	af_assert( is_wp_error( $result ), 'the caller that lost is told so' );
+	af_assert_same(
+		'afristream_license_taken',
+		is_wp_error( $result ) ? $result->get_error_code() : 'assignment reported success',
+		'with the code an owned licence already gives'
+	);
+	af_assert_same( 8, afristream_license_owner( 10 ), 'the licence has exactly one owner, the winner' );
+
+	// The whole point: the mirror the Connected User column and the portal read
+	// has to agree with the licence's own record on both sides of the race.
+	af_assert_same( array( '10' ), get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'the winner\'s mirror was repaired' );
+	af_assert_same( array( '11' ), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'and the loser\'s lists only what it still holds' );
+	af_assert_same( array( 11 ), afristream_user_license_ids( 7 ), 'which is what the loser truly holds' );
+	af_assert_same( array( 10 ), afristream_user_license_ids( 8 ), 'and the winner truly holds the contested one' );
+} );
+
+af_test( 'the loser of a race logs nothing', function () {
+	$GLOBALS['af_log'] = array();
+	af_seed_user( 7 );
+	af_seed_user( 8 );
+	af_seed_post( 10, 'alpha' );
+	af_seed_post( 11, 'beta' );
+
+	afristream_assign_license( 11, 7, 'test' );
+	af_assert_same( 1, count( $GLOBALS['af_log'] ), 'a claim that wins is logged, so an unchanged count means something' );
+
+	af_steal_owner_mid_write( 10, 8 );
+	afristream_assign_license( 10, 7, 'test' );
+
+	// A logged 'assigned' here would be a permanent record of user 7 being given a
+	// licence user 8 holds — the audit trail contradicting the licence itself.
+	af_assert_same( 1, count( $GLOBALS['af_log'] ), 'the loser adds no entry' );
+} );
+
+af_test( 'breaking a stale lock cannot break the live lock that replaced it', function () {
+	// A request that died holding the lock, now past its TTL.
+	af_assert( false !== afristream_lock_acquire(), 'the dead request took the lock' );
+	af_set_now( current_time( 'timestamp' ) + AFRISTREAM_LOCK_TTL + 1 );
+
+	// Caller A lands between B reading the dead lock and B acting on what it read:
+	// A breaks the dead lock and takes a live one. B carries on holding the value
+	// it already read, so it is about to break a lock that is no longer there.
+	$a     = false;
+	$fired = false;
+	add_filter(
+		'option_' . AFRISTREAM_LOCK_KEY,
+		function ( $value ) use ( &$a, &$fired ) {
+			if ( ! $fired ) {
+				$fired = true;
+				$a     = afristream_lock_acquire();
+			}
+			return $value;
+		}
+	);
+
+	$b = afristream_lock_acquire();
+
+	af_assert( false !== $a, 'A broke the stale lock and acquired' );
+	af_assert_same( false, $b, 'B is refused rather than acquiring alongside A' );
+	af_assert_same( $a, afristream_lock_token( get_option( AFRISTREAM_LOCK_KEY ) ), 'and A\'s live lock survived B\'s break' );
+} );
+
+af_test( 'an unreadable lock value is cleared rather than wedging assignment', function () {
+	// Nothing writes this shape, but the option is a row anybody could touch, and
+	// a value with no readable expiry must not lock assignment out forever.
+	update_option( AFRISTREAM_LOCK_KEY, array( 'token' => array( 'not', 'a', 'string' ) ) );
+
+	af_assert_same(
+		'ran',
+		afristream_with_lock( function () { return 'ran'; } ),
+		'the junk lock is broken and the claim runs'
+	);
+	af_assert_same( false, get_option( AFRISTREAM_LOCK_KEY ), 'and the lock is released cleanly afterwards' );
 } );
 
 af_test( 'the mirror can be rebuilt from the licences alone', function () {

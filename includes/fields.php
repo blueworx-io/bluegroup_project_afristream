@@ -199,12 +199,21 @@ function afristream_user_license_ids( $user_id ) {
  * licence posts — comes back empty, so the caller is told the assignment worked
  * while the customer holds nothing.
  *
+ * A zero or otherwise falsy ID is refused before the post type is asked for,
+ * because get_post_type( 0 ) does not mean "no post" in WordPress — it falls back
+ * to the global $post, so on a licence's own admin screen it would happily answer
+ * 'license' and let an ID of nothing look available. No caller reaches this with
+ * 0 today; the check is here so the function is correct read on its own.
+ *
  * @param int $license_id Licence post ID.
  * @return bool
  */
 function afristream_license_is_available( $license_id ) {
 	$license_id = (int) $license_id;
 
+	if ( ! $license_id ) {
+		return false;
+	}
 	if ( 'license' !== get_post_type( $license_id ) ) {
 		return false;
 	}
@@ -321,6 +330,28 @@ define( 'AFRISTREAM_LOCK_KEY', 'afristream_assign_lock' );
 define( 'AFRISTREAM_LOCK_TTL', 10 );
 
 /**
+ * The token inside a stored lock value, or '' when the value is not a shape we
+ * recognise as a lock.
+ *
+ * Two reasons this is a function rather than an inline comparison. First, the
+ * option is just a row anybody could have written, so its 'token' may be missing
+ * or be an array; comparing that to a string directly raises an "Array to string
+ * conversion" warning and then compares nonsense. Second, an unreadable lock
+ * value still has to be clearable or assignment wedges permanently, and giving it
+ * the token '' lets it be cleared through the same compare-and-delete as every
+ * other lock instead of needing a special unconditional path.
+ *
+ * @param mixed $value Whatever is stored under AFRISTREAM_LOCK_KEY.
+ * @return string
+ */
+function afristream_lock_token( $value ) {
+	if ( is_array( $value ) && isset( $value['token'] ) && is_scalar( $value['token'] ) ) {
+		return (string) $value['token'];
+	}
+	return '';
+}
+
+/**
  * Try to take the assignment lock, returning the token that proves ownership of
  * it, or false if somebody else holds it.
  *
@@ -335,18 +366,27 @@ define( 'AFRISTREAM_LOCK_TTL', 10 );
  *
  * A holder that dies mid-claim never releases anything, so the stored value
  * carries the moment it stops being credible. A later caller that finds an
- * expired lock clears it and tries once more — once, not in a loop, because the
- * only caller that should be breaking a lock is one that found it already dead,
- * and anything beyond a single retry is waiting, which this lock does not do.
+ * expired lock breaks it and tries once more — once, not in a loop, because
+ * anything beyond a single retry is waiting, which this lock does not do.
+ *
+ * Breaking is itself a claim, so it is done as a compare-and-delete against the
+ * exact token that was observed as expired, never as a plain delete. Two callers
+ * that both read the same dead lock would otherwise both get in: the first
+ * deletes it and takes a fresh lock, and the second's delete would then remove
+ * that live lock and leave the second free to acquire alongside the first. With
+ * the token compared, the second's delete finds a token it did not observe and
+ * does nothing, so its one retry meets a live lock and it is refused — which is
+ * the correct answer for a caller that was too late.
  *
  * The residual race: WordPress's add_option() checks for the option before its
- * INSERT ... ON DUPLICATE KEY UPDATE, so two callers landing inside the same
- * few microseconds can in principle both be told they acquired. That window is
- * the width of one INSERT rather than the width of a whole callback body, and
- * the token check on release means the loser can no longer delete the winner's
- * lock — so the worst case degrades from "two customers appear to hold one
- * licence" to "one claim is retried". Closing it completely needs a real named
- * database lock, which is more machinery than assignment volumes justify here.
+ * INSERT ... ON DUPLICATE KEY UPDATE, so two callers landing inside the same few
+ * microseconds can in principle both be told they acquired. This function does
+ * not close that window, and closing it would need a real named database lock —
+ * more machinery than assignment volumes here justify. It is survivable only
+ * because nothing relies on the lock alone: afristream_assign_license() reads
+ * back the owner it just wrote and refuses if it is not its own, so a caller that
+ * slipped through this window still cannot end up appearing to hold a licence
+ * that somebody else holds.
  *
  * @return string|false Ownership token, or false when the lock is held.
  */
@@ -371,13 +411,15 @@ function afristream_lock_acquire() {
 		return false;
 	}
 
-	delete_option( AFRISTREAM_LOCK_KEY );
+	// Break the dead lock only if it is still the dead lock we looked at.
+	afristream_lock_release( afristream_lock_token( $held ) );
 
 	return add_option( AFRISTREAM_LOCK_KEY, $value, '', 'no' ) ? $token : false;
 }
 
 /**
- * Give up the lock, but only if we still hold it.
+ * Give up the lock, but only if the lock in place is still the one identified by
+ * this token.
  *
  * A claim can overrun the TTL — afristream_rebuild_user_mirror() reads a meta
  * row per licence, and a slow database makes ten seconds reachable. Once it has
@@ -386,13 +428,24 @@ function afristream_lock_acquire() {
  * that claim is mid-write. Matching the token first means an overrunning holder
  * quietly leaves its successor alone.
  *
- * @param string $token The token returned by afristream_lock_acquire().
+ * The same matching is what makes breaking a stale lock safe, which is why
+ * afristream_lock_acquire() comes through here rather than deleting the option
+ * itself: a caller that observed a dead lock passes that dead lock's token, and
+ * if somebody else has already broken it and taken a live one, this finds a
+ * different token and leaves it alone.
+ *
+ * @param string $token The token returned by afristream_lock_acquire(), or the
+ *                      token read from a lock observed as expired.
  * @return void
  */
 function afristream_lock_release( $token ) {
 	$held = get_option( AFRISTREAM_LOCK_KEY );
 
-	if ( is_array( $held ) && isset( $held['token'] ) && (string) $held['token'] === (string) $token ) {
+	if ( false === $held ) {
+		return;
+	}
+
+	if ( afristream_lock_token( $held ) === (string) $token ) {
 		delete_option( AFRISTREAM_LOCK_KEY );
 	}
 }
@@ -487,6 +540,28 @@ function afristream_user_mirror_ids( $user_id ) {
  * so a licence that was free when the caller looked but taken by the time it
  * acted is refused rather than quietly stolen.
  *
+ * The lock is an optimisation, not the guarantee. The guarantee is the
+ * compare-and-swap: the owner row is written and then read straight back, and a
+ * caller that does not find its own user ID there knows another claim landed
+ * between the two and gives up. Without that read-back, two callers that both
+ * got past the lock would both see an unowned licence, both write, and each
+ * rebuild only its own mirror — leaving one owner on the licence but the licence
+ * listed in two users' active_license. Since the Connected User column and the
+ * customer's own portal read that mirror, that is exactly "two customers appear
+ * to hold the same licence", the one state this whole design exists to make
+ * impossible. The lock makes it rare; the read-back makes it impossible.
+ *
+ * A caller that finds it lost repairs both mirrors before returning: the real
+ * holder's, so the mirror agrees with the licence's own record, and its own, so
+ * it is not left advertising a licence it does not hold. It logs nothing, because
+ * nothing was assigned to it, and it is refused with the same
+ * afristream_license_taken code an already-owned licence gives, because from the
+ * caller's side that is the same answer.
+ *
+ * What remains true is that the winner is whoever wrote last rather than whoever
+ * asked first. That is fine: both callers wanted an unowned licence, and exactly
+ * one of them ends up with it.
+ *
  * @param int    $license_id Licence post ID.
  * @param int    $user_id    User to give it to.
  * @param string $context    Why, for the log: 'auto-assign', 'profile', 'backfill'.
@@ -525,6 +600,20 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
 			}
 
 			update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, $user_id );
+
+			// Read back what is actually on the licence now. Anything other than
+			// our own user ID means a concurrent claim wrote after us and owns it.
+			$holder = afristream_license_owner( $license_id );
+			if ( $holder !== $user_id ) {
+				afristream_rebuild_user_mirror( $holder );
+				afristream_rebuild_user_mirror( $user_id );
+
+				return new WP_Error(
+					'afristream_license_taken',
+					__( 'That licence is already assigned to another user.', 'bluegroup-project-afristream' )
+				);
+			}
+
 			afristream_rebuild_user_mirror( $user_id );
 
 			if ( function_exists( 'afristream_license_log_add' ) ) {
@@ -544,7 +633,13 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
  * licence was already free when in fact it is still assigned and nothing was
  * done — the one wrong answer that leads to an unrevoked account. So a refusal
  * is returned as the WP_Error it is, exactly as afristream_assign_license()
- * does, and callers that only test truthiness keep the meaning they had.
+ * does.
+ *
+ * That does change what a bare truthiness test means, and callers have to be
+ * updated rather than left alone: a refused lock used to come back as false and
+ * now comes back as a WP_Error, which is truthy, so `if ( unassign( $id ) )`
+ * now reads a refusal as a success. Check is_wp_error() first and treat the
+ * three outcomes separately — they cannot safely be collapsed into two.
  *
  * @param int    $license_id Licence post ID.
  * @param string $context    Why, for the log.

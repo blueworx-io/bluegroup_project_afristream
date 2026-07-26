@@ -66,8 +66,14 @@ function get_post_meta( $post_id, $key = '', $single = false ) {
 	return $single ? $all[ $key ] : array( $all[ $key ] );
 }
 
+/**
+ * Writes the row, then fires the action WordPress fires after a meta write.
+ * Modelled because it is the only honest way to reproduce a concurrent writer
+ * landing between one caller's write and its read-back, with no threads to hand.
+ */
 function update_post_meta( $post_id, $key, $value ) {
 	$GLOBALS['af_store']['postmeta'][ $post_id ][ $key ] = $value;
+	do_action( 'updated_post_meta', 0, $post_id, $key, $value );
 	return true;
 }
 
@@ -99,8 +105,15 @@ function delete_user_meta( $user_id, $key ) {
 
 // -- Options and transients ---------------------------------------------------
 
+/**
+ * Reads the value, then passes it through the "option_{$name}" filter WordPress
+ * really does apply. Modelled for the same reason as the meta write action: it
+ * is the one place a test can stand another caller up between this caller's read
+ * of the lock and what it does about it.
+ */
 function get_option( $key, $default = false ) {
-	return array_key_exists( $key, $GLOBALS['af_store']['options'] ) ? $GLOBALS['af_store']['options'][ $key ] : $default;
+	$value = array_key_exists( $key, $GLOBALS['af_store']['options'] ) ? $GLOBALS['af_store']['options'][ $key ] : $default;
+	return apply_filters( 'option_' . $key, $value );
 }
 
 /**
