@@ -243,12 +243,39 @@ function get_posts( $args = array() ) {
 	return $out;
 }
 
+/**
+ * Every seeded user, in ID order, as objects.
+ *
+ * 'fields' is honoured, because the real get_users() honours it: handed an array
+ * of field names it builds rows carrying only those. A stub that returned the
+ * whole record regardless would let code reach for a property the query never
+ * asked for and pass here while fataling on the live site.
+ *
+ * 'orderby' and 'order' are deliberately ignored, and rows come back in ID order,
+ * which is not registration order. That is the less convenient answer on purpose:
+ * the only caller sorts in PHP anyway — it has to, for the tie-break and for an
+ * unreadable registration date — and a stub that pre-sorted into the order that
+ * caller wants would let a broken sort pass unnoticed. 'number' is ignored
+ * because the only caller passes -1, meaning all of them.
+ */
 function get_users( $args = array() ) {
-	$out = array();
-	foreach ( $GLOBALS['af_store']['users'] as $user ) {
+	$users = $GLOBALS['af_store']['users'];
+	ksort( $users );
+
+	$fields = isset( $args['fields'] ) ? $args['fields'] : 'all';
+	$out    = array();
+
+	foreach ( $users as $user ) {
+		if ( is_array( $fields ) ) {
+			$row = array();
+			foreach ( $fields as $field ) {
+				$row[ $field ] = array_key_exists( $field, $user ) ? $user[ $field ] : null;
+			}
+			$user = $row;
+		}
 		$out[] = (object) $user;
 	}
-	usort( $out, function ( $a, $b ) { return $a->ID <=> $b->ID; } );
+
 	return $out;
 }
 

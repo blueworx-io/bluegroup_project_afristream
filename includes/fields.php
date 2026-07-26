@@ -902,127 +902,218 @@ define( 'AFRISTREAM_SCHEMA_VERSION', 2 );
 define( 'AFRISTREAM_CONFLICTS_OPTION', 'afristream_ownership_conflicts' );
 
 /**
+ * A user's registration date as a timestamp, for deciding who registered first.
+ *
+ * WordPress writes user_registered as UTC 'Y-m-d H:i:s', so it is parsed strictly
+ * in that format — formatted back and compared, the same round-trip
+ * afristream_parse_ymd() uses — and anything else is treated as unreadable.
+ *
+ * An unreadable date sorts last, never first. Both of the ways this goes wrong in
+ * practice would otherwise come out ahead of every genuine registration: a
+ * missing or empty value, where strtotime() answers false and false compared
+ * against an integer is compared as boolean, and the '0000-00-00 00:00:00' an
+ * older MySQL leaves behind, which parses to a date near year zero. Either way
+ * the account with the worst data would win a contested licence, which is exactly
+ * backwards — a row we cannot read is the last one that should be trusted with
+ * somebody's subscription.
+ *
+ * Sorting last is not a guess at the real date. It only decides the order two
+ * users are considered in, and a licence contested by two unreadable rows falls
+ * through to the caller's tie-break on user ID.
+ *
+ * @param object $user Anything carrying a user_registered property.
+ * @return int Unix timestamp, or PHP_INT_MAX when the date cannot be read.
+ */
+function afristream_user_registered_timestamp( $user ) {
+	$raw  = isset( $user->user_registered ) ? (string) $user->user_registered : '';
+	$date = DateTime::createFromFormat( 'Y-m-d H:i:s', $raw, new DateTimeZone( 'UTC' ) );
+
+	if ( ! $date || $date->format( 'Y-m-d H:i:s' ) !== $raw ) {
+		return PHP_INT_MAX;
+	}
+
+	return $date->getTimestamp();
+}
+
+/**
  * Point every licence at whoever the old usermeta arrays say holds it.
  *
  * Safe to run repeatedly: a licence that already has an owner is left alone, so
  * a second pass claims nothing and writes no duplicate history.
+ *
+ * The whole migration runs under the assignment lock, and is refused rather than
+ * run without it. admin_init is not the once-per-upgrade moment it looks like —
+ * it fires on admin-ajax.php too, the heartbeat included — so two requests really
+ * can arrive here at once, both find the schema version still at 1, and both
+ * write the same 'assigned' and 'conflict' entries. Holding the lock is also what
+ * earns the plain update_post_meta() below: every other writer in this file goes
+ * through afristream_claim_license_row()'s conditional UPDATE precisely because
+ * it cannot assume it is alone, and this one may only skip that while it can.
  *
  * Where two users' arrays both claim the same licence — which the old shape had
  * no way to prevent — the earlier-registered user keeps it. That is a guess, so
  * it is recorded on the licence's own history and in a report the Configurations
  * page surfaces, rather than resolved quietly. Someone has to look at those.
  *
- * @return array{claimed:int,conflicts:array<int,array{license:int,kept:int,rejected:int[]}>}
+ * A licence that already belongs to somebody the old arrays never mentioned is
+ * reported the same way. The licence's own record wins, because it is the
+ * authority and whatever wrote it — an auto-assign, a webhook — did so after ACF
+ * did. But a paying customer's assignment has just been dropped on the floor, so
+ * the report names who actually holds it and who the old data said should.
+ *
+ * @return array{claimed:int,conflicts:array<int,array{license:int,kept:int,rejected:int[]}>}|WP_Error
+ *         WP_Error when the lock is held, in which case nothing was written.
  */
 function afristream_backfill_ownership() {
-	$claims = array();
+	return afristream_with_lock(
+		function () {
+			$claims = array();
 
-	// Oldest registration first, so the first claim on a licence is the one that
-	// wins and the ordering of the report is deterministic.
-	$users = get_users(
-		array(
-			'fields'  => array( 'ID', 'user_registered' ),
-			'orderby' => 'registered',
-			'order'   => 'ASC',
-			'number'  => -1,
-		)
-	);
-
-	usort(
-		$users,
-		function ( $a, $b ) {
-			$ta = isset( $a->user_registered ) ? strtotime( $a->user_registered ) : 0;
-			$tb = isset( $b->user_registered ) ? strtotime( $b->user_registered ) : 0;
-			if ( $ta !== $tb ) {
-				return $ta <=> $tb;
-			}
-			return (int) $a->ID <=> (int) $b->ID;
-		}
-	);
-
-	foreach ( $users as $user ) {
-		foreach ( afristream_user_mirror_ids( $user->ID ) as $license_id ) {
-			$claims[ $license_id ][] = (int) $user->ID;
-		}
-	}
-
-	$claimed   = 0;
-	$conflicts = array();
-	$touched   = array();
-
-	foreach ( $claims as $license_id => $claimants ) {
-		$claimants = array_values( array_unique( $claimants ) );
-
-		// A mirror pointing at a licence that has since been deleted. Nothing to
-		// claim; the stale reference is cleaned up when the mirror is rebuilt.
-		if ( ! get_post_status( $license_id ) ) {
-			foreach ( $claimants as $user_id ) {
-				$touched[ $user_id ] = true;
-			}
-			continue;
-		}
-
-		$keeper = $claimants[0];
-
-		foreach ( $claimants as $user_id ) {
-			$touched[ $user_id ] = true;
-		}
-
-		if ( ! afristream_license_owner( $license_id ) ) {
-			update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, $keeper );
-			afristream_license_log_add( $license_id, 'assigned', $keeper, 'backfill' );
-			$claimed++;
-		}
-
-		// Logged after the assignment itself, so in the licence's own history —
-		// which reads newest first — the conflict sits right on top of the entry
-		// it explains instead of being buried under it.
-		if ( count( $claimants ) > 1 ) {
-			$rejected    = array_values( array_slice( $claimants, 1 ) );
-			$conflicts[] = array(
-				'license'  => (int) $license_id,
-				'kept'     => $keeper,
-				'rejected' => $rejected,
+			// Oldest registration first, so the first claim on a licence is the one
+			// that wins and the ordering of the report is deterministic.
+			$users = get_users(
+				array(
+					'fields'  => array( 'ID', 'user_registered' ),
+					'orderby' => 'registered',
+					'order'   => 'ASC',
+					'number'  => -1,
+				)
 			);
-			afristream_license_log_add(
-				$license_id,
-				'conflict',
-				$keeper,
-				'backfill',
-				'also claimed by user ' . implode( ', ', $rejected )
+
+			// Sorted again here rather than taken on trust from the query, because
+			// the tie-break and the treatment of an unreadable date both have to be
+			// ours: no ORDER BY expresses either.
+			usort(
+				$users,
+				function ( $a, $b ) {
+					$ta = afristream_user_registered_timestamp( $a );
+					$tb = afristream_user_registered_timestamp( $b );
+					if ( $ta !== $tb ) {
+						return $ta <=> $tb;
+					}
+					return (int) $a->ID <=> (int) $b->ID;
+				}
+			);
+
+			foreach ( $users as $user ) {
+				foreach ( afristream_user_mirror_ids( $user->ID ) as $license_id ) {
+					$claims[ $license_id ][] = (int) $user->ID;
+				}
+			}
+
+			$claimed   = 0;
+			$conflicts = array();
+			$touched   = array();
+
+			foreach ( $claims as $license_id => $claimants ) {
+				$license_id = (int) $license_id;
+				$claimants  = array_values( array_unique( $claimants ) );
+
+				// Every user whose array mentioned this licence has their mirror
+				// rebuilt at the end, whatever becomes of the licence itself.
+				foreach ( $claimants as $user_id ) {
+					$touched[ $user_id ] = true;
+				}
+
+				// Only ever write to a post that is a published licence. A mirror
+				// entry is old data and can point anywhere: at a licence since
+				// deleted, at one since trashed or put back to draft, or — a post ID
+				// being just a number — at a page or an order that was never a
+				// licence at all. This is the test afristream_license_is_available()
+				// opens with and every other reader in this file applies. That
+				// function itself is no use here, because it also insists the licence
+				// is free and unexpired, and an expired licence somebody holds still
+				// needs its owner recorded. Writing through this guard would put an
+				// ownership row and a false 'assigned' history entry onto an
+				// unrelated post while handing the customer nothing, so anything
+				// failing it is dropped exactly like a dangling reference: nothing is
+				// written and the mirror rebuild clears the entry.
+				if ( ! $license_id || 'license' !== get_post_type( $license_id ) || 'publish' !== get_post_status( $license_id ) ) {
+					continue;
+				}
+
+				// The licence's own record is the authority. It is empty here only
+				// because nothing but ACF has ever assigned this one.
+				$keeper = afristream_license_owner( $license_id );
+
+				if ( ! $keeper ) {
+					$keeper = $claimants[0];
+					update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, $keeper );
+					afristream_license_log_add( $license_id, 'assigned', $keeper, 'backfill' );
+					$claimed++;
+				}
+
+				// Everyone the old arrays said held this licence who does not hold it
+				// now. Usually the losers of a two-user clash; it is also whoever ACF
+				// recorded when the licence had meanwhile gone to somebody the arrays
+				// never mentioned, which is the case that would otherwise disappear
+				// without leaving a trace anywhere.
+				//
+				// Recorded after the assignment above, so in the licence's own history
+				// — which reads newest first — the conflict sits right on top of the
+				// entry it explains instead of being buried under it.
+				$rejected = array_values( array_diff( $claimants, array( $keeper ) ) );
+
+				if ( ! empty( $rejected ) ) {
+					$conflicts[] = array(
+						'license'  => $license_id,
+						'kept'     => (int) $keeper,
+						'rejected' => $rejected,
+					);
+					afristream_license_log_add(
+						$license_id,
+						'conflict',
+						$keeper,
+						'backfill',
+						'also claimed by user ' . implode( ', ', $rejected )
+					);
+				}
+			}
+
+			// Every published licence needs its owner row left in the shape
+			// afristream_claim_license_row() expects, not just the ones the old
+			// usermeta arrays happened to mention. That function's conditional UPDATE
+			// can only ever match a row that already exists, and while it does create
+			// a missing row lazily via add_post_meta() on someone's next claim
+			// attempt, this migration's job is to leave the data correctly shaped
+			// itself rather than depend on that fallback firing later. A licence
+			// nobody's mirror pointed at never appears in $claims above, so without
+			// this loop it would come out of the backfill with no owner meta row at
+			// all. afristream_license_owner() reads a missing row and a '0' row as the
+			// same "free", but afristream_claim_license_row() needs the row itself to
+			// be there — so every licence that is still unowned at this point gets one
+			// written explicitly.
+			foreach ( afristream_all_license_ids() as $license_id ) {
+				if ( ! afristream_license_owner( $license_id ) ) {
+					update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, '0' );
+				}
+			}
+
+			// Rebuild every affected mirror from the licences, which corrects the
+			// losers of a conflict and drops references to anything that is not a
+			// published licence pointing back at them.
+			foreach ( array_keys( $touched ) as $user_id ) {
+				afristream_rebuild_user_mirror( $user_id );
+			}
+
+			// Only replace the report when this run actually found something to
+			// report. A run that finds nothing is far more likely to be a second pass
+			// over data already migrated than evidence the last report was wrong, and
+			// writing unconditionally would swap a list of licences somebody still
+			// has to look at for an empty array — quietly, and with no way back. A
+			// run that does find conflicts replaces the report with what it found, so
+			// what is stored describes the most recent run that had anything to say.
+			// Nothing here ever clears the report: that is a person's job, once they
+			// have dealt with it.
+			if ( ! empty( $conflicts ) ) {
+				update_option( AFRISTREAM_CONFLICTS_OPTION, $conflicts );
+			}
+
+			return array(
+				'claimed'   => $claimed,
+				'conflicts' => $conflicts,
 			);
 		}
-	}
-
-	// Every published licence needs its owner row left in the shape
-	// afristream_claim_license_row() expects, not just the ones the old usermeta
-	// arrays happened to mention. That function's conditional UPDATE can only
-	// ever match a row that already exists, and while it does create a missing
-	// row lazily via add_post_meta() on someone's next claim attempt, this
-	// migration's job is to leave the data correctly shaped itself rather than
-	// depend on that fallback firing later. A licence nobody's mirror pointed at
-	// never appears in $claims above, so without this loop it would come out of
-	// the backfill with no owner meta row at all. afristream_license_owner()
-	// reads a missing row and a '0' row as the same "free", but
-	// afristream_claim_license_row() needs the row itself to be there — so every
-	// licence that is still unowned at this point gets one written explicitly.
-	foreach ( afristream_all_license_ids() as $license_id ) {
-		if ( ! afristream_license_owner( $license_id ) ) {
-			update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, '0' );
-		}
-	}
-
-	// Rebuild every affected mirror from the licences, which both corrects the
-	// losers of a conflict and drops references to licences that no longer exist.
-	foreach ( array_keys( $touched ) as $user_id ) {
-		afristream_rebuild_user_mirror( $user_id );
-	}
-
-	update_option( AFRISTREAM_CONFLICTS_OPTION, $conflicts );
-
-	return array(
-		'claimed'   => $claimed,
-		'conflicts' => $conflicts,
 	);
 }
 
@@ -1041,13 +1132,24 @@ function afristream_ownership_conflicts() {
  *
  * On admin_init rather than plugin activation: the plugin is already active on
  * the live site, so an activation hook would never fire.
+ *
+ * The version is recorded only once the backfill reports that it ran. This gate
+ * is a read followed much later by a write, so two requests can both pass it;
+ * the lock inside the backfill is what stops the second one running, and it says
+ * so by returning a WP_Error. Recording the version on that answer would mark a
+ * migration done that this request never performed, and if the request holding
+ * the lock then died mid-way there would be nothing left to finish it. Standing
+ * down instead costs one more attempt on a later admin page load.
  */
 function afristream_maybe_upgrade() {
 	if ( (int) get_option( AFRISTREAM_SCHEMA_OPTION, 1 ) >= AFRISTREAM_SCHEMA_VERSION ) {
 		return;
 	}
 
-	afristream_backfill_ownership();
+	if ( is_wp_error( afristream_backfill_ownership() ) ) {
+		return;
+	}
+
 	update_option( AFRISTREAM_SCHEMA_OPTION, AFRISTREAM_SCHEMA_VERSION );
 }
 add_action( 'admin_init', 'afristream_maybe_upgrade' );
