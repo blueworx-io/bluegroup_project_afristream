@@ -14,29 +14,102 @@ if ( ! function_exists( 'afristream_license_log_add' ) ) {
 }
 
 /**
- * Stand in for a competing claim that lands after $license_id's owner row is
- * written and before the writer reads it back. Fires once, on that licence only,
- * and writes nothing but the owner row — the winner's mirror is deliberately
- * left alone so that only the losing caller can be the one that repairs it.
+ * A competing request that got past the lock and is claiming the same licence.
  *
- * @param int $license_id Licence whose owner row gets stolen.
- * @param int $winner     User the licence really ends up with.
+ * It does exactly what afristream_assign_license() does once it holds the lock —
+ * the conditional claim, and then, only if that claim actually changed the row, a
+ * rebuild of its own mirror — and nothing else. Written out rather than calling
+ * the real function because the real one would take the lock, which is the very
+ * thing these tests need bypassed: the question is what happens to two claims
+ * that reach the owner row together.
+ *
+ * @param int $license_id Licence being fought over.
+ * @param int $user_id    The rival's user.
+ * @return bool Whether the rival got it.
+ */
+function af_rival_claim( $license_id, $user_id ) {
+	$won = afristream_claim_license_row( $license_id, '0', (string) $user_id );
+	if ( $won ) {
+		afristream_rebuild_user_mirror( $user_id );
+	}
+	return $won;
+}
+
+/**
+ * The same, for a competing release.
+ *
+ * @param int $license_id Licence being released.
+ * @param int $owner      The holder the rival believes is in place.
+ * @return bool Whether the rival freed it.
+ */
+function af_rival_release( $license_id, $owner ) {
+	$freed = afristream_claim_license_row( $license_id, (string) $owner, '0' );
+	if ( $freed ) {
+		afristream_rebuild_user_mirror( $owner );
+	}
+	return $freed;
+}
+
+/**
+ * Run $fn once, immediately before the next claim reaches the database — a rival
+ * that gets to the owner row first.
+ *
+ * @param callable $fn Rival's body.
  * @return void
  */
-function af_steal_owner_mid_write( $license_id, $winner ) {
+function af_before_claim( $fn ) {
 	$fired = false;
 	add_action(
-		'updated_post_meta',
-		function ( $meta_id, $post_id, $key, $value ) use ( $license_id, $winner, &$fired ) {
-			if ( $fired || AFRISTREAM_LICENSE_OWNER_META !== $key || (int) $post_id !== (int) $license_id ) {
+		'af_wpdb_before_query',
+		function ( $post_id, $meta_key, $from, $to ) use ( $fn, &$fired ) {
+			if ( $fired ) {
 				return;
 			}
 			$fired = true;
-			$GLOBALS['af_store']['postmeta'][ $post_id ][ $key ] = (int) $winner;
+			call_user_func( $fn, $post_id, $from, $to );
 		},
 		10,
 		4
 	);
+}
+
+/**
+ * Run $fn once, immediately after a claim has been decided — a rival that
+ * arrives when the first caller already believes it has won and has passed the
+ * point where any read-back of its own could see anything.
+ *
+ * @param callable $fn Rival's body.
+ * @return void
+ */
+function af_after_claim( $fn ) {
+	$fired = false;
+	add_action(
+		'af_wpdb_after_query',
+		function ( $post_id, $meta_key, $from, $to, $changed ) use ( $fn, &$fired ) {
+			if ( $fired ) {
+				return;
+			}
+			$fired = true;
+			call_user_func( $fn, $post_id, $from, $to, $changed );
+		},
+		10,
+		5
+	);
+}
+
+/**
+ * Age the lock in place until it is stale. The TTL is measured in real seconds
+ * now, which no test can fast-forward, so the lock's own expiry is pushed into
+ * the past instead — the same state a request that died holding it leaves behind.
+ *
+ * @return void
+ */
+function af_expire_lock() {
+	$held = get_option( AFRISTREAM_LOCK_KEY );
+	if ( is_array( $held ) ) {
+		$held['expires'] = time() - 1;
+		update_option( AFRISTREAM_LOCK_KEY, $held );
+	}
 }
 
 af_test( 'assigning writes the licence and rebuilds the mirror as strings', function () {
@@ -218,7 +291,7 @@ af_test( 'a lock is released only by the caller that took it', function () {
 		AFRISTREAM_LOCK_KEY,
 		array(
 			'token'   => 'someone-else',
-			'expires' => current_time( 'timestamp' ) + AFRISTREAM_LOCK_TTL,
+			'expires' => time() + AFRISTREAM_LOCK_TTL,
 		)
 	);
 
@@ -241,7 +314,7 @@ af_test( 'a stale lock is broken by the next caller', function () {
 		'inside the TTL it is honoured'
 	);
 
-	af_set_now( current_time( 'timestamp' ) + AFRISTREAM_LOCK_TTL + 1 );
+	af_expire_lock();
 
 	af_assert_same(
 		'ran',
@@ -260,8 +333,11 @@ af_test( 'losing the race leaves neither user appearing to hold the licence', fu
 	// visible a failure as a mirror still listing licence 10.
 	afristream_assign_license( 11, 7, 'test' );
 
-	// User 8's claim gets past the lock at the same moment and writes last.
-	af_steal_owner_mid_write( 10, 8 );
+	// User 8's claim gets past the lock at the same moment and reaches the owner
+	// row first.
+	af_before_claim( function () {
+		af_rival_claim( 10, 8 );
+	} );
 
 	$result = afristream_assign_license( 10, 7, 'test' );
 
@@ -276,8 +352,11 @@ af_test( 'losing the race leaves neither user appearing to hold the licence', fu
 	af_assert_same( 8, afristream_license_owner( 10 ), 'the licence has exactly one owner, the winner' );
 
 	// The whole point: the mirror the Connected User column and the portal read
-	// has to agree with the licence's own record on both sides of the race.
-	af_assert_same( array( '10' ), get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'the winner\'s mirror was repaired' );
+	// has to agree with the licence's own record on both sides of the race. The
+	// winner wrote its own mirror as part of its own claim — the loser never
+	// touches it, because a set computed here could be stale by the time it
+	// landed and would drop whatever the winner was assigned in between.
+	af_assert_same( array( '10' ), get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'the winner\'s mirror lists it' );
 	af_assert_same( array( '11' ), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'and the loser\'s lists only what it still holds' );
 	af_assert_same( array( 11 ), afristream_user_license_ids( 7 ), 'which is what the loser truly holds' );
 	af_assert_same( array( 10 ), afristream_user_license_ids( 8 ), 'and the winner truly holds the contested one' );
@@ -293,7 +372,9 @@ af_test( 'the loser of a race logs nothing', function () {
 	afristream_assign_license( 11, 7, 'test' );
 	af_assert_same( 1, count( $GLOBALS['af_log'] ), 'a claim that wins is logged, so an unchanged count means something' );
 
-	af_steal_owner_mid_write( 10, 8 );
+	af_before_claim( function () {
+		af_rival_claim( 10, 8 );
+	} );
 	afristream_assign_license( 10, 7, 'test' );
 
 	// A logged 'assigned' here would be a permanent record of user 7 being given a
@@ -304,7 +385,7 @@ af_test( 'the loser of a race logs nothing', function () {
 af_test( 'breaking a stale lock cannot break the live lock that replaced it', function () {
 	// A request that died holding the lock, now past its TTL.
 	af_assert( false !== afristream_lock_acquire(), 'the dead request took the lock' );
-	af_set_now( current_time( 'timestamp' ) + AFRISTREAM_LOCK_TTL + 1 );
+	af_expire_lock();
 
 	// Caller A lands between B reading the dead lock and B acting on what it read:
 	// A breaks the dead lock and takes a live one. B carries on holding the value
@@ -340,6 +421,108 @@ af_test( 'an unreadable lock value is cleared rather than wedging assignment', f
 		'the junk lock is broken and the claim runs'
 	);
 	af_assert_same( false, get_option( AFRISTREAM_LOCK_KEY ), 'and the lock is released cleanly afterwards' );
+} );
+
+af_test( 'a rival claiming after the winner already believes it has won is refused', function () {
+	af_seed_user( 7 );
+	af_seed_user( 8 );
+	af_seed_post( 10, 'alpha' );
+
+	// The interleaving no read-back can ever see: the rival arrives after this
+	// caller's own write has been decided. An implementation that read its write
+	// back and trusted the answer would report success to both callers here.
+	$rival = null;
+	af_after_claim( function () use ( &$rival ) {
+		$rival = af_rival_claim( 10, 8 );
+	} );
+
+	$result = afristream_assign_license( 10, 7, 'test' );
+
+	af_assert_same( true, $result, 'the first caller succeeded' );
+	af_assert_same( false, $rival, 'and the late rival is refused by the row it tried to move' );
+	af_assert_same( 7, afristream_license_owner( 10 ), 'the licence has one owner' );
+
+	// Exactly one mirror may list a licence — this is the state the customer
+	// asked never to see.
+	af_assert_same( array( '10' ), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the winner lists it' );
+	af_assert_same( '', get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'and nobody else does' );
+} );
+
+af_test( 'a licence is never freed out from under the owner who just took it', function () {
+	af_seed_user( 7 );
+	af_seed_user( 8 );
+	af_seed_post( 10, 'alpha' );
+	afristream_assign_license( 10, 7, 'test' );
+
+	// A revoke reads user 7 as the holder. Before its release reaches the row,
+	// another request releases the licence and a new customer claims it. Acting
+	// on the stale read would strip user 8 of a licence their mirror still lists.
+	af_before_claim( function () {
+		af_rival_release( 10, 7 );
+		af_rival_claim( 10, 8 );
+	} );
+
+	$result = afristream_unassign_license( 10, 'test' );
+
+	af_assert( is_wp_error( $result ), 'the revoke is told its read went stale' );
+	af_assert_same(
+		'afristream_license_changed',
+		is_wp_error( $result ) ? $result->get_error_code() : 'the release reported success',
+		'with a code that is not "already free"'
+	);
+	af_assert_same( 8, afristream_license_owner( 10 ), 'the new owner keeps it' );
+	af_assert_same( array( '10' ), get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'and their mirror still agrees with the licence' );
+	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the previous holder lists nothing' );
+} );
+
+af_test( 'a claim conditioned on the wrong current owner changes nothing', function () {
+	af_seed_post( 10, 'alpha' );
+	update_post_meta( 10, AFRISTREAM_LICENSE_OWNER_META, '7' );
+
+	af_assert_same( false, afristream_claim_license_row( 10, '0', '8' ), 'a held licence cannot be claimed as free' );
+	af_assert_same( false, afristream_claim_license_row( 10, '9', '8' ), 'nor taken from a holder it does not have' );
+	af_assert_same( 7, afristream_license_owner( 10 ), 'the real holder is untouched by either' );
+
+	af_assert_same( true, afristream_claim_license_row( 10, '7', '8' ), 'naming the owner actually in place succeeds' );
+	af_assert_same( 8, afristream_license_owner( 10 ), 'and moves it' );
+	af_assert_same( false, afristream_claim_license_row( 10, '7', '9' ), 'the same claim cannot be replayed' );
+} );
+
+af_test( 'a licence that has never been assigned is claimed exactly once', function () {
+	af_seed_post( 10, 'alpha' );
+	af_assert_same( array(), get_post_meta( 10 ), 'there is no owner row to update yet' );
+
+	af_assert_same( true, afristream_claim_license_row( 10, '0', '7' ), 'the row is created and claimed' );
+	af_assert_same( false, afristream_claim_license_row( 10, '0', '8' ), 'and the next claimant finds it no longer free' );
+	af_assert_same( 7, afristream_license_owner( 10 ), 'one owner, the first' );
+} );
+
+af_test( 'released licences keep an owner row, holding nobody', function () {
+	af_seed_user( 7 );
+	af_seed_post( 10, 'alpha' );
+	afristream_assign_license( 10, 7, 'test' );
+	afristream_unassign_license( 10, 'test' );
+
+	// Deleting the row instead would leave the next conditional claim with
+	// nothing to match, and the licence unassignable.
+	af_assert_same( '0', get_post_meta( 10, AFRISTREAM_LICENSE_OWNER_META, true ), 'the row survives, reading nobody' );
+	af_assert_same( 0, afristream_license_owner( 10 ), 'which reads the same as never having had one' );
+	af_assert_same( true, afristream_assign_license( 10, 7, 'test' ), 'and it can be handed out again' );
+} );
+
+af_test( 'the fake database refuses statements it does not model', function () {
+	// The race tests are only worth anything if the stub is at least as strict as
+	// MySQL. A silent success for unrecognised SQL would make them decorative.
+	global $wpdb;
+
+	$threw = false;
+	try {
+		$wpdb->query( 'DELETE FROM wp_postmeta WHERE post_id = 10' );
+	} catch ( RuntimeException $e ) {
+		$threw = true;
+	}
+
+	af_assert( $threw, 'unmodelled SQL is an error, never a pretend row count' );
 } );
 
 af_test( 'the mirror can be rebuilt from the licences alone', function () {

@@ -77,8 +77,32 @@ function update_post_meta( $post_id, $key, $value ) {
 	return true;
 }
 
+/**
+ * Insert-if-absent when $unique, like the real thing. The owner row is created
+ * through this, so a stub that overwrote an existing row would quietly wipe out
+ * whoever holds the licence at the start of every claim.
+ */
+function add_post_meta( $post_id, $key, $value, $unique = false ) {
+	$existing = isset( $GLOBALS['af_store']['postmeta'][ $post_id ] ) ? $GLOBALS['af_store']['postmeta'][ $post_id ] : array();
+	if ( $unique && array_key_exists( $key, $existing ) ) {
+		return false;
+	}
+	$GLOBALS['af_store']['postmeta'][ $post_id ][ $key ] = $value;
+	return 1;
+}
+
 function delete_post_meta( $post_id, $key ) {
 	unset( $GLOBALS['af_store']['postmeta'][ $post_id ][ $key ] );
+	return true;
+}
+
+/**
+ * There is no meta cache in front of this store — get_post_meta() reads the
+ * array the fake $wpdb writes — so invalidation has nothing to do here. It is
+ * stubbed rather than left out because the code under test must call it after
+ * raw SQL, and a fatal for an undefined function would hide that.
+ */
+function wp_cache_delete( $key, $group = '' ) {
 	return true;
 }
 
@@ -353,6 +377,138 @@ class WP_Error {
 		return $this->code;
 	}
 }
+
+// -- Database -----------------------------------------------------------------
+
+/**
+ * The one piece of $wpdb the plugin uses: the conditional UPDATE that claims a
+ * licence's owner row.
+ *
+ * Deliberately narrow. The value of that statement is that it changes a row only
+ * when the row still holds the exact value the caller expected, so a stub that
+ * were any more forgiving than MySQL would make every test built on it
+ * meaningless — a race the real database would refuse would sail through here.
+ * It therefore matches on post_id, meta_key and the exact current meta_value,
+ * answers 1 only when a row genuinely matched and 0 otherwise, and throws on any
+ * SQL it does not recognise rather than guessing at a success.
+ *
+ * It also fires an action either side of the write. That is the only honest way,
+ * with no threads available, to stand another request up at a chosen instant:
+ * before the statement (a rival that gets there first) or after it (a rival that
+ * arrives once this caller already believes it has won). Nested queries — the
+ * rival's own — do not re-fire the actions, so a test hook cannot recurse.
+ */
+class AF_Fake_WPDB {
+	/** @var string Table name, interpolated into the statement by the plugin. */
+	public $postmeta = 'wp_postmeta';
+
+	/** @var bool True while a query is running, so nested ones fire no actions. */
+	private $in_query = false;
+
+	/**
+	 * Substitute %s and %d exactly as many times as there are arguments. A
+	 * mismatch is a bug in the caller and is raised as one: silently ignoring a
+	 * spare argument is how an unbound placeholder reaches a real database.
+	 */
+	public function prepare( $query, ...$args ) {
+		$parts = preg_split( '/(%[sd])/', $query, -1, PREG_SPLIT_DELIM_CAPTURE );
+		$out   = '';
+		$i     = 0;
+
+		foreach ( $parts as $part ) {
+			if ( '%s' === $part || '%d' === $part ) {
+				if ( ! array_key_exists( $i, $args ) ) {
+					throw new RuntimeException( 'Fake $wpdb->prepare: more placeholders than arguments.' );
+				}
+				$out .= '%s' === $part
+					? "'" . addslashes( (string) $args[ $i ] ) . "'"
+					: (string) (int) $args[ $i ];
+				$i++;
+				continue;
+			}
+			$out .= $part;
+		}
+
+		if ( count( $args ) !== $i ) {
+			throw new RuntimeException( 'Fake $wpdb->prepare: more arguments than placeholders.' );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param string $sql Already through prepare().
+	 * @return int Rows changed: 1 when a row matched, 0 when none did.
+	 */
+	public function query( $sql ) {
+		$parsed = $this->parse( $sql );
+
+		$outer          = $this->in_query;
+		$this->in_query = true;
+
+		try {
+			if ( ! $outer ) {
+				do_action( 'af_wpdb_before_query', $parsed['post_id'], $parsed['meta_key'], $parsed['from'], $parsed['to'] );
+			}
+
+			$changed = $this->swap( $parsed );
+
+			if ( ! $outer ) {
+				do_action( 'af_wpdb_after_query', $parsed['post_id'], $parsed['meta_key'], $parsed['from'], $parsed['to'], $changed );
+			}
+		} finally {
+			$this->in_query = $outer;
+		}
+
+		return $changed;
+	}
+
+	/**
+	 * The single statement this fake models, and nothing else.
+	 *
+	 * @param string $sql Prepared SQL.
+	 * @return array{to:string,post_id:int,meta_key:string,from:string}
+	 */
+	private function parse( $sql ) {
+		$quoted  = "'((?:[^'\\\\]|\\\\.)*)'";
+		$pattern = '/^\s*UPDATE\s+' . preg_quote( $this->postmeta, '/' )
+			. '\s+SET\s+meta_value\s*=\s*' . $quoted
+			. '\s+WHERE\s+post_id\s*=\s*(\d+)'
+			. '\s+AND\s+meta_key\s*=\s*' . $quoted
+			. '\s+AND\s+meta_value\s*=\s*' . $quoted . '\s*$/';
+
+		if ( ! preg_match( $pattern, $sql, $m ) ) {
+			throw new RuntimeException( 'Fake $wpdb was handed SQL it does not model: ' . $sql );
+		}
+
+		return array(
+			'to'       => stripslashes( $m[1] ),
+			'post_id'  => (int) $m[2],
+			'meta_key' => stripslashes( $m[3] ),
+			'from'     => stripslashes( $m[4] ),
+		);
+	}
+
+	/**
+	 * @param array $p Parsed statement.
+	 * @return int 1 if a row matched and changed, 0 otherwise.
+	 */
+	private function swap( $p ) {
+		$rows = isset( $GLOBALS['af_store']['postmeta'][ $p['post_id'] ] ) ? $GLOBALS['af_store']['postmeta'][ $p['post_id'] ] : array();
+
+		if ( ! array_key_exists( $p['meta_key'], $rows ) ) {
+			return 0;
+		}
+		if ( (string) $rows[ $p['meta_key'] ] !== $p['from'] ) {
+			return 0;
+		}
+
+		$GLOBALS['af_store']['postmeta'][ $p['post_id'] ][ $p['meta_key'] ] = $p['to'];
+		return 1;
+	}
+}
+
+$GLOBALS['wpdb'] = new AF_Fake_WPDB();
 
 // Admin-only functions the includes call at load time but tests never exercise.
 function is_admin() { return false; }

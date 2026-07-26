@@ -132,6 +132,13 @@ function afristream_license_expiry_is_readable( $license_id ) {
 /**
  * The user holding this licence, or 0 if it is free.
  *
+ * "Free" has two storage shapes and both must read the same. A licence that has
+ * never been touched has no owner row at all; one that has been released has a
+ * row holding '0', because afristream_claim_license_row() needs a row to exist
+ * before it can conditionally update it and so releases by writing '0' rather
+ * than deleting. Casting to int collapses both — '' and '0' are each 0 — so no
+ * caller has to know which shape it is looking at.
+ *
  * @param int $license_id Licence post ID.
  * @return int
  */
@@ -378,20 +385,24 @@ function afristream_lock_token( $value ) {
  * does nothing, so its one retry meets a live lock and it is refused — which is
  * the correct answer for a caller that was too late.
  *
- * The residual race: WordPress's add_option() checks for the option before its
- * INSERT ... ON DUPLICATE KEY UPDATE, so two callers landing inside the same few
- * microseconds can in principle both be told they acquired. This function does
- * not close that window, and closing it would need a real named database lock —
- * more machinery than assignment volumes here justify. It is survivable only
- * because nothing relies on the lock alone: afristream_assign_license() reads
- * back the owner it just wrote and refuses if it is not its own, so a caller that
- * slipped through this window still cannot end up appearing to hold a licence
- * that somebody else holds.
+ * The residual race, stated plainly: WordPress's add_option() checks for the
+ * option before its INSERT ... ON DUPLICATE KEY UPDATE, so two callers landing
+ * inside the same few microseconds can in principle both be told they acquired.
+ * This function does not close that window. It does not need to, because the
+ * lock is not what keeps two customers off one licence — the conditional UPDATE
+ * in afristream_claim_license_row() is, and it is decided by InnoDB's row lock
+ * rather than by anything sequenced in PHP. What the lock buys is that claims
+ * rarely collide in the first place, so the losing path is rarely taken.
+ *
+ * Expiry is measured with time(), not current_time(), because the TTL is a
+ * duration in real seconds. current_time() applies the site's timezone offset,
+ * which would make a lock written before a timezone change look hours old or
+ * hours in the future.
  *
  * @return string|false Ownership token, or false when the lock is held.
  */
 function afristream_lock_acquire() {
-	$now   = (int) current_time( 'timestamp' );
+	$now   = time();
 	$token = uniqid( 'af', true ) . '.' . random_int( 100000, 999999 );
 	$value = array(
 		'token'   => $token,
@@ -454,11 +465,12 @@ function afristream_lock_release( $token ) {
  * Run a callback with the assignment lock held.
  *
  * Claims are short — read an owner, write an owner — so a single global lock
- * costs nothing and removes a whole class of interleaving. A caller that cannot
- * take the lock is told so rather than proceeding without it, because
- * proceeding is exactly how two checkouts end up claiming the same licence. It
- * is told immediately: this never waits, so a queue of blocked requests can
- * never build up behind one slow claim.
+ * costs nothing and removes most interleaving before it can happen. A caller
+ * that cannot take the lock is refused rather than run without it, so two
+ * checkouts almost never reach the owner row at the same moment; the conditional
+ * UPDATE in afristream_claim_license_row() is what decides it correctly on the
+ * occasions they do. The refusal is immediate: this never waits, so a queue of
+ * blocked requests can never build up behind one slow claim.
  *
  * The TTL means a request that dies mid-claim releases the lock on its own
  * within ten seconds instead of wedging assignment until someone notices.
@@ -484,11 +496,103 @@ function afristream_with_lock( $fn ) {
 }
 
 /**
+ * Move a licence's owner row from one exact value to another, and report whether
+ * this caller is the one that moved it.
+ *
+ * This is the only place in the plugin that issues SQL, and it exists because
+ * every PHP-level way of claiming a licence is check-then-act: read the owner,
+ * decide it is free, write. Two requests can both read "free" before either
+ * writes, and no amount of reading back afterwards fixes that — a read-back only
+ * catches a rival that wrote between our write and our read, never one that
+ * writes after it. Both callers would then be told they succeeded, and both
+ * users' mirrors would list the licence, which is precisely the state this
+ * design exists to make impossible.
+ *
+ * A single conditional UPDATE removes the gap. InnoDB takes a row lock for the
+ * duration of the statement, so of two concurrent callers naming the same
+ * expected current value, exactly one changes the row and is told one row
+ * changed; the other matches nothing and is told zero. The answer comes from the
+ * database's own serialisation, not from how PHP happened to interleave.
+ *
+ * Two details the statement depends on:
+ *
+ * The row must exist. A conditional UPDATE cannot match a row that was never
+ * inserted, so a licence nobody has ever held gets its owner row created here,
+ * holding '0'. add_post_meta() with $unique = true is a no-op when the row is
+ * already there, so this is safe to run on every claim. It is itself a
+ * check-then-act inside WordPress, so two requests racing the very first claim
+ * of a licence could in principle insert two rows; the UPDATE would then change
+ * both together rather than letting two claimers each match one, so the outcome
+ * is still a single owner. A licence whose owner row has been hand-edited to an
+ * empty string is not repaired here: it simply fails to claim, which refuses an
+ * assignment rather than risking one being taken from underneath somebody.
+ *
+ * Rows changed, not rows matched. MySQL reports rows actually changed, so a swap
+ * whose target equals the value it matched would report zero and read as a lost
+ * race. No caller does that — a claim always moves between '0' and a real user
+ * ID — and the guard below refuses such a call rather than answering it wrongly.
+ *
+ * @param int        $license_id Licence post ID.
+ * @param int|string $from       The owner value this caller believes is in place.
+ * @param int|string $to         The owner value to write. '0' releases.
+ * @return bool True only if this call changed the row.
+ */
+function afristream_claim_license_row( $license_id, $from, $to ) {
+	global $wpdb;
+
+	$license_id = (int) $license_id;
+	$from       = (string) $from;
+	$to         = (string) $to;
+
+	if ( ! $license_id || $from === $to ) {
+		return false;
+	}
+
+	add_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, '0', true );
+
+	$changed = $wpdb->query(
+		$wpdb->prepare(
+			"UPDATE {$wpdb->postmeta} SET meta_value = %s WHERE post_id = %d AND meta_key = %s AND meta_value = %s",
+			$to,
+			$license_id,
+			AFRISTREAM_LICENSE_OWNER_META,
+			$from
+		)
+	);
+
+	// Raw SQL goes round the meta cache, so without this every get_post_meta()
+	// later in the same request would still be served the pre-claim owner.
+	wp_cache_delete( $license_id, 'post_meta' );
+
+	// A query error comes back as false, a row count as an integer. They are not
+	// the same answer and must not be flattened into one: "somebody beat me to
+	// it" is a normal outcome, a broken query is not. Both mean this caller did
+	// not claim the licence, which is why both return false here, but the caller
+	// distinguishes them by re-reading the owner — a lost race leaves a real
+	// holder behind, a failed query leaves the licence still free — and reports
+	// the two differently rather than telling somebody a free licence is taken.
+	if ( false === $changed ) {
+		return false;
+	}
+
+	return (int) $changed > 0;
+}
+
+/**
  * Rewrite a user's usermeta mirror from the licences that point at them.
  *
  * The values are written as strings, not integers, because that is what ACF
  * wrote and what the Connected User column's LIKE '"10"' query matches: a
  * serialized integer is i:10; and would never be found.
+ *
+ * The set is derived here, immediately before it is written, and never passed in
+ * or cached by a caller. This is a read-then-write and cannot be made atomic
+ * without abandoning the array shape ACF left behind, so the window between the
+ * derive and the write is kept as small as it can be. It also means no request
+ * ever rebuilds another user's mirror: a request that computed somebody else's
+ * licences and then wrote them could easily be writing a set that went stale
+ * while it was busy — dropping a licence that user was assigned in the meantime.
+ * Each claim rebuilds only the mirror of the user it claimed for.
  *
  * @param int $user_id User ID.
  * @return void
@@ -540,27 +644,38 @@ function afristream_user_mirror_ids( $user_id ) {
  * so a licence that was free when the caller looked but taken by the time it
  * acted is refused rather than quietly stolen.
  *
- * The lock is an optimisation, not the guarantee. The guarantee is the
- * compare-and-swap: the owner row is written and then read straight back, and a
- * caller that does not find its own user ID there knows another claim landed
- * between the two and gives up. Without that read-back, two callers that both
- * got past the lock would both see an unowned licence, both write, and each
- * rebuild only its own mirror — leaving one owner on the licence but the licence
- * listed in two users' active_license. Since the Connected User column and the
- * customer's own portal read that mirror, that is exactly "two customers appear
- * to hold the same licence", the one state this whole design exists to make
- * impossible. The lock makes it rare; the read-back makes it impossible.
+ * The lock is an optimisation, not the guarantee. It keeps claims from colliding
+ * often; it cannot keep them from colliding at all, because add_option() decides
+ * who holds it with a read followed by a write. The guarantee is the conditional
+ * UPDATE in afristream_claim_license_row(): the owner row moves from '0' to this
+ * user in one statement that only matches while the licence is still free, and
+ * the database says whether this caller was the one that moved it. Of two
+ * callers that both got past the lock and both saw an unowned licence, exactly
+ * one gets a row changed and assigns; the other gets nothing and is refused.
  *
- * A caller that finds it lost repairs both mirrors before returning: the real
- * holder's, so the mirror agrees with the licence's own record, and its own, so
- * it is not left advertising a licence it does not hold. It logs nothing, because
- * nothing was assigned to it, and it is refused with the same
- * afristream_license_taken code an already-owned licence gives, because from the
- * caller's side that is the same answer.
+ * That is what stops two customers appearing to hold one licence. The mirror in
+ * active_license — what the Connected User column and the customer's own portal
+ * read — is only ever written by a caller whose claim actually changed the row,
+ * so a licence can only ever be listed in one user's mirror.
  *
- * What remains true is that the winner is whoever wrote last rather than whoever
- * asked first. That is fine: both callers wanted an unowned licence, and exactly
- * one of them ends up with it.
+ * A caller that loses has written nothing at all, so it repairs nothing before
+ * returning. In particular it does not rebuild the winner's mirror: the winner
+ * rebuilds its own as part of its own claim, and a set computed here could
+ * already be stale by the time it was written, dropping a licence the winner was
+ * assigned in between. The loser logs nothing either, because nothing was
+ * assigned to it.
+ *
+ * A lost claim is reported by what the licence says afterwards, not by the claim
+ * failing. Somebody else holding it is afristream_license_taken, the same answer
+ * an already-owned licence gives. A licence that reads free after a failed claim
+ * is a different thing — an unassign landed in the gap, or the query itself
+ * errored — and telling the caller it is "assigned to another user" would be a
+ * lie, so it gets its own afristream_license_unclaimed code and an invitation to
+ * try again.
+ *
+ * What remains true is that the winner is whoever the database serialised first
+ * rather than whoever asked first. That is fine: both callers wanted an unowned
+ * licence, and exactly one of them ends up with it.
  *
  * @param int    $license_id Licence post ID.
  * @param int    $user_id    User to give it to.
@@ -599,18 +714,33 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
 				);
 			}
 
-			update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, $user_id );
+			// The claim, and the only thing that decides who gets the licence.
+			// It changes the owner row only while it still reads '0'.
+			if ( ! afristream_claim_license_row( $license_id, '0', (string) $user_id ) ) {
+				$holder = afristream_license_owner( $license_id );
 
-			// Read back what is actually on the licence now. Anything other than
-			// our own user ID means a concurrent claim wrote after us and owns it.
-			$holder = afristream_license_owner( $license_id );
-			if ( $holder !== $user_id ) {
-				afristream_rebuild_user_mirror( $holder );
-				afristream_rebuild_user_mirror( $user_id );
+				// Somebody else assigned it to this same user while we were
+				// asking. Nothing to complain about: the customer holds it, and
+				// their mirror is the winner's to have written, so all this
+				// caller does is agree.
+				if ( $holder === $user_id ) {
+					return true;
+				}
 
+				if ( $holder ) {
+					return new WP_Error(
+						'afristream_license_taken',
+						__( 'That licence is already assigned to another user.', 'bluegroup-project-afristream' )
+					);
+				}
+
+				// Free, yet the claim did not land: it was assigned and released
+				// again in the gap, or the query failed. Either way nothing was
+				// written and nobody else has it, so say that rather than blaming
+				// an owner who does not exist.
 				return new WP_Error(
-					'afristream_license_taken',
-					__( 'That licence is already assigned to another user.', 'bluegroup-project-afristream' )
+					'afristream_license_unclaimed',
+					__( 'That licence could not be claimed just now. Please try again.', 'bluegroup-project-afristream' )
 				);
 			}
 
@@ -635,6 +765,20 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
  * is returned as the WP_Error it is, exactly as afristream_assign_license()
  * does.
  *
+ * The release goes through the same conditional UPDATE as a claim, naming the
+ * owner this call read as the value it expects to find. Deleting the row on the
+ * strength of that read would be a check-then-act: if an assignment landed in
+ * between, the licence would be freed out from under its new owner while that
+ * owner's mirror went on listing it — two records disagreeing about who holds
+ * what, from a request that meant to release somebody else entirely. Conditioned
+ * on the expected owner, that release simply does not happen, and the caller is
+ * told so with afristream_license_changed rather than being allowed to carry on
+ * from a stale read.
+ *
+ * Releasing writes '0' rather than deleting the row, because the conditional
+ * UPDATE needs a row to match; afristream_license_owner() reads a '0' row and a
+ * missing row alike, so nothing downstream can tell the difference.
+ *
  * That does change what a bare truthiness test means, and callers have to be
  * updated rather than left alone: a refused lock used to come back as false and
  * now comes back as a WP_Error, which is truthy, so `if ( unassign( $id ) )`
@@ -644,8 +788,9 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
  * @param int    $license_id Licence post ID.
  * @param string $context    Why, for the log.
  * @return true|false|WP_Error True if a holder was removed, false if it was
- *                             already free, WP_Error if the lock was refused
- *                             and nothing was attempted.
+ *                             already free, WP_Error if the lock was refused or
+ *                             the licence changed hands mid-release — in both
+ *                             error cases nothing was written.
  */
 function afristream_unassign_license( $license_id, $context = '' ) {
 	$license_id = (int) $license_id;
@@ -660,7 +805,16 @@ function afristream_unassign_license( $license_id, $context = '' ) {
 				return false;
 			}
 
-			delete_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META );
+			// Release only while the licence still says what we just read. A row
+			// count of nothing means somebody changed it underneath us, and the
+			// one thing we must not do then is act on the owner we read.
+			if ( ! afristream_claim_license_row( $license_id, (string) $owner, '0' ) ) {
+				return new WP_Error(
+					'afristream_license_changed',
+					__( 'That licence changed hands while it was being released. Nothing was changed. Please try again.', 'bluegroup-project-afristream' )
+				);
+			}
+
 			afristream_rebuild_user_mirror( $owner );
 
 			if ( function_exists( 'afristream_license_log_add' ) ) {
