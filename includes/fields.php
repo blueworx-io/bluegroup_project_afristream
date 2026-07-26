@@ -187,11 +187,17 @@ function afristream_user_license_ids( $user_id ) {
 }
 
 /**
- * Whether a licence can be handed to someone: published, unowned, not past its
- * expiry date, and its expiry date is actually readable. A corrupted expiry_date
- * fails closed rather than being treated as "no expiry" — we cannot promise a
- * customer an unexpired licence when we can't tell whether it has expired. A
- * licence expiring today is still usable today.
+ * Whether a licence can be handed to someone: it is actually a licence,
+ * published, unowned, not past its expiry date, and its expiry date is actually
+ * readable. A corrupted expiry_date fails closed rather than being treated as
+ * "no expiry" — we cannot promise a customer an unexpired licence when we can't
+ * tell whether it has expired. A licence expiring today is still usable today.
+ *
+ * The post type is checked because a post ID is just a number and nothing stops
+ * a caller passing the ID of a page or an order. Without this, ownership meta
+ * lands on an unrelated post, and the user's mirror — which is rebuilt only from
+ * licence posts — comes back empty, so the caller is told the assignment worked
+ * while the customer holds nothing.
  *
  * @param int $license_id Licence post ID.
  * @return bool
@@ -199,6 +205,9 @@ function afristream_user_license_ids( $user_id ) {
 function afristream_license_is_available( $license_id ) {
 	$license_id = (int) $license_id;
 
+	if ( 'license' !== get_post_type( $license_id ) ) {
+		return false;
+	}
 	if ( 'publish' !== get_post_status( $license_id ) ) {
 		return false;
 	}
@@ -305,11 +314,88 @@ function afristream_register_license_post_type() {
 }
 add_action( 'init', 'afristream_register_license_post_type', 5 );
 
-/** Transient key guarding a licence claim. */
+/** Option name guarding a licence claim. */
 define( 'AFRISTREAM_LOCK_KEY', 'afristream_assign_lock' );
 
 /** How long a claim may hold the lock before it is assumed abandoned. */
 define( 'AFRISTREAM_LOCK_TTL', 10 );
+
+/**
+ * Try to take the assignment lock, returning the token that proves ownership of
+ * it, or false if somebody else holds it.
+ *
+ * The lock is an option rather than a transient because taking it has to be one
+ * indivisible act. Reading a transient and then writing it is two acts with a
+ * gap between them, and two requests that both look during that gap both see
+ * nothing and both proceed — which is the entire situation the lock exists to
+ * prevent. add_option() is an INSERT against a unique key, so the database, not
+ * our sequencing, decides who wins. wp_cache_add() would be atomic too, but only
+ * where a persistent object cache is installed, and this plugin cannot assume
+ * one; an option works on the plainest possible WordPress host.
+ *
+ * A holder that dies mid-claim never releases anything, so the stored value
+ * carries the moment it stops being credible. A later caller that finds an
+ * expired lock clears it and tries once more — once, not in a loop, because the
+ * only caller that should be breaking a lock is one that found it already dead,
+ * and anything beyond a single retry is waiting, which this lock does not do.
+ *
+ * The residual race: WordPress's add_option() checks for the option before its
+ * INSERT ... ON DUPLICATE KEY UPDATE, so two callers landing inside the same
+ * few microseconds can in principle both be told they acquired. That window is
+ * the width of one INSERT rather than the width of a whole callback body, and
+ * the token check on release means the loser can no longer delete the winner's
+ * lock — so the worst case degrades from "two customers appear to hold one
+ * licence" to "one claim is retried". Closing it completely needs a real named
+ * database lock, which is more machinery than assignment volumes justify here.
+ *
+ * @return string|false Ownership token, or false when the lock is held.
+ */
+function afristream_lock_acquire() {
+	$now   = (int) current_time( 'timestamp' );
+	$token = uniqid( 'af', true ) . '.' . random_int( 100000, 999999 );
+	$value = array(
+		'token'   => $token,
+		'expires' => $now + AFRISTREAM_LOCK_TTL,
+	);
+
+	if ( add_option( AFRISTREAM_LOCK_KEY, $value, '', 'no' ) ) {
+		return $token;
+	}
+
+	$held = get_option( AFRISTREAM_LOCK_KEY );
+
+	// A lock we cannot read an expiry from is treated as expired: leaving an
+	// unrecognisable value in place would wedge assignment permanently.
+	$expires = is_array( $held ) && isset( $held['expires'] ) ? (int) $held['expires'] : 0;
+	if ( $expires > $now ) {
+		return false;
+	}
+
+	delete_option( AFRISTREAM_LOCK_KEY );
+
+	return add_option( AFRISTREAM_LOCK_KEY, $value, '', 'no' ) ? $token : false;
+}
+
+/**
+ * Give up the lock, but only if we still hold it.
+ *
+ * A claim can overrun the TTL — afristream_rebuild_user_mirror() reads a meta
+ * row per licence, and a slow database makes ten seconds reachable. Once it has
+ * overrun, the lock in the option may already belong to somebody else, and
+ * deleting it unconditionally would strip a live claim of its protection while
+ * that claim is mid-write. Matching the token first means an overrunning holder
+ * quietly leaves its successor alone.
+ *
+ * @param string $token The token returned by afristream_lock_acquire().
+ * @return void
+ */
+function afristream_lock_release( $token ) {
+	$held = get_option( AFRISTREAM_LOCK_KEY );
+
+	if ( is_array( $held ) && isset( $held['token'] ) && (string) $held['token'] === (string) $token ) {
+		delete_option( AFRISTREAM_LOCK_KEY );
+	}
+}
 
 /**
  * Run a callback with the assignment lock held.
@@ -317,7 +403,9 @@ define( 'AFRISTREAM_LOCK_TTL', 10 );
  * Claims are short — read an owner, write an owner — so a single global lock
  * costs nothing and removes a whole class of interleaving. A caller that cannot
  * take the lock is told so rather than proceeding without it, because
- * proceeding is exactly how two checkouts end up claiming the same licence.
+ * proceeding is exactly how two checkouts end up claiming the same licence. It
+ * is told immediately: this never waits, so a queue of blocked requests can
+ * never build up behind one slow claim.
  *
  * The TTL means a request that dies mid-claim releases the lock on its own
  * within ten seconds instead of wedging assignment until someone notices.
@@ -326,19 +414,19 @@ define( 'AFRISTREAM_LOCK_TTL', 10 );
  * @return mixed The callback's return value, or WP_Error when the lock is held.
  */
 function afristream_with_lock( $fn ) {
-	if ( get_transient( AFRISTREAM_LOCK_KEY ) ) {
+	$token = afristream_lock_acquire();
+
+	if ( false === $token ) {
 		return new WP_Error(
 			'afristream_locked',
 			__( 'Another licence assignment is in progress. Please try again.', 'bluegroup-project-afristream' )
 		);
 	}
 
-	set_transient( AFRISTREAM_LOCK_KEY, 1, AFRISTREAM_LOCK_TTL );
-
 	try {
 		return call_user_func( $fn );
 	} finally {
-		delete_transient( AFRISTREAM_LOCK_KEY );
+		afristream_lock_release( $token );
 	}
 }
 
@@ -432,7 +520,7 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
 			if ( ! afristream_license_is_available( $license_id ) ) {
 				return new WP_Error(
 					'afristream_license_unavailable',
-					__( 'That licence is expired or not published.', 'bluegroup-project-afristream' )
+					__( 'That licence is expired, not published, or not a licence at all.', 'bluegroup-project-afristream' )
 				);
 			}
 
@@ -451,9 +539,18 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
 /**
  * Take a licence back.
  *
+ * Three outcomes, and they have to stay distinguishable. Flattening a refused
+ * lock into false would tell somebody revoking a customer's access that the
+ * licence was already free when in fact it is still assigned and nothing was
+ * done — the one wrong answer that leads to an unrevoked account. So a refusal
+ * is returned as the WP_Error it is, exactly as afristream_assign_license()
+ * does, and callers that only test truthiness keep the meaning they had.
+ *
  * @param int    $license_id Licence post ID.
  * @param string $context    Why, for the log.
- * @return bool True if a holder was removed, false if it was already free.
+ * @return true|false|WP_Error True if a holder was removed, false if it was
+ *                             already free, WP_Error if the lock was refused
+ *                             and nothing was attempted.
  */
 function afristream_unassign_license( $license_id, $context = '' ) {
 	$license_id = (int) $license_id;
@@ -478,6 +575,10 @@ function afristream_unassign_license( $license_id, $context = '' ) {
 			return true;
 		}
 	);
+
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
 
 	return true === $result;
 }

@@ -15,6 +15,12 @@ af_test( 'the store resets between tests', function () {
 	af_assert_same( '', get_post_meta( 5, 'app_password', true ), 'previous test did not leak' );
 } );
 
+af_test( 'add_option refuses to overwrite, as the real one does', function () {
+	af_assert_same( true, add_option( 'thing', 'first', '', 'no' ), 'the first caller creates it' );
+	af_assert_same( false, add_option( 'thing', 'second', '', 'no' ), 'the second is refused' );
+	af_assert_same( 'first', get_option( 'thing' ), 'and the first value survives' );
+} );
+
 af_test( 'transients expire against the frozen clock', function () {
 	set_transient( 'lock', '1', 30 );
 	af_assert_same( '1', get_transient( 'lock' ), 'live transient reads back' );

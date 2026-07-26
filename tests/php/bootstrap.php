@@ -103,6 +103,19 @@ function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['af_store']['options'] ) ? $GLOBALS['af_store']['options'][ $key ] : $default;
 }
 
+/**
+ * Insert-if-absent, like the real thing: false and no overwrite when the option
+ * already exists. The lock is built on exactly that refusal, so a forgiving stub
+ * here would make every lock test pass without the lock working.
+ */
+function add_option( $key, $value = '', $deprecated = '', $autoload = 'yes' ) {
+	if ( array_key_exists( $key, $GLOBALS['af_store']['options'] ) ) {
+		return false;
+	}
+	$GLOBALS['af_store']['options'][ $key ] = $value;
+	return true;
+}
+
 function update_option( $key, $value ) {
 	$GLOBALS['af_store']['options'][ $key ] = $value;
 	return true;
