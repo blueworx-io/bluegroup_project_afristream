@@ -24,6 +24,7 @@ define( 'AFRISTREAM_PORTAL_PICK_CAP', 300 );
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/fields.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/license-log.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/license-admin.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/affiliates.php';
