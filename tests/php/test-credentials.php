@@ -39,3 +39,35 @@ af_test( 'a licence with neither title nor password is skipped, not shown blank'
 	af_assert_same( 1, count( $profiles ), 'the empty licence is skipped' );
 	af_assert_same( 'Profile 1', $profiles[0]['label'], 'and numbering closes up rather than skipping to 2' );
 } );
+
+af_test( 'a licence with only a title or only a password still appears, only neither is skipped', function () {
+	af_seed_user( 7 );
+	af_seed_post( 10, 'BabyBlue-TitleOnly' );
+	af_seed_post( 11, '' );
+	update_post_meta( 11, 'app_password', 'pass-only' );
+	update_post_meta( 10, AFRISTREAM_LICENSE_OWNER_META, 7 );
+	update_post_meta( 11, AFRISTREAM_LICENSE_OWNER_META, 7 );
+
+	$profiles = afristream_portal_credentials_for_user( 7 );
+
+	af_assert_same( 2, count( $profiles ), 'both half-filled licences appear' );
+	af_assert_same( 'BabyBlue-TitleOnly', $profiles[0]['user'], 'title-only keeps its title' );
+	af_assert_same( '', $profiles[0]['pass'], 'title-only has no password' );
+	af_assert_same( '', $profiles[1]['user'], 'password-only has no title' );
+	af_assert_same( 'pass-only', $profiles[1]['pass'], 'password-only keeps its password' );
+} );
+
+af_test( 'afristream_portal_user_credentials() is empty when nobody is logged in', function () {
+	af_seed_user( 7 );
+	af_seed_post( 10, 'BabyBlue123' );
+	update_post_meta( 10, 'app_password', 'pass-one' );
+	update_post_meta( 10, AFRISTREAM_LICENSE_OWNER_META, 7 );
+
+	// Logged out is the bootstrap default, but set it explicitly so this test
+	// does not depend on that default never changing.
+	af_set_current_user( 0 );
+	af_assert_same( array(), afristream_portal_user_credentials(), 'no session, no credentials, regardless of who holds a licence' );
+
+	af_set_current_user( 7 );
+	af_assert_same( 1, count( afristream_portal_user_credentials() ), 'sanity: the same licence appears once someone is logged in' );
+} );

@@ -154,28 +154,32 @@ function afristream_portal_license_columns( $columns ) {
 add_filter( 'manage_license_posts_columns', 'afristream_portal_license_columns' );
 
 /**
- * Convert an expiry date string to a timestamp, tolerant of several formats.
+ * Convert a licence's displayed expiry date to a timestamp.
  *
- * Kept tolerant even though the field is now written only as Ymd, because dates
- * entered before this plugin owned the field may be in any of these shapes.
+ * expiry_date is written only as Ymd, and afristream_license_is_available()
+ * treats anything else as unreadable so that stock whose expiry can't be
+ * trusted is never handed to a customer. The admin column deliberately agrees
+ * with that: afristream_portal_render_license_columns() only reaches this
+ * function after afristream_license_expiry_is_readable() has confirmed the
+ * stored value parses, and by then afristream_license_meta() has already
+ * reformatted it to d/m/Y for display — so d/m/Y is the only shape that ever
+ * arrives here. The round-trip check below still guards it directly rather
+ * than trusting the caller, so this function stays correct even if a future
+ * caller feeds it something unchecked.
  *
- * @param string $expiry_date Date in one of the accepted formats.
+ * @param string $expiry_date Date in d/m/Y, as returned by afristream_license_meta().
  * @return int|false
  */
 function afristream_portal_license_expiry_timestamp( $expiry_date ) {
 	if ( empty( $expiry_date ) ) {
 		return false;
 	}
-	$formats = array( 'd/m/Y', 'Y-m-d', 'Ymd', 'm/d/Y' );
-	foreach ( $formats as $format ) {
-		$date = DateTime::createFromFormat( $format, $expiry_date );
-		if ( $date && $date->format( $format ) === $expiry_date ) {
-			$date->setTime( 0, 0, 0 );
-			return $date->getTimestamp();
-		}
+	$date = DateTime::createFromFormat( 'd/m/Y', $expiry_date );
+	if ( $date && $date->format( 'd/m/Y' ) === $expiry_date ) {
+		$date->setTime( 0, 0, 0 );
+		return $date->getTimestamp();
 	}
-	$fallback = strtotime( $expiry_date );
-	return $fallback ? $fallback : false;
+	return false;
 }
 
 /**
@@ -202,13 +206,10 @@ function afristream_portal_render_license_columns( $column, $post_id ) {
 			return;
 		}
 
+		// afristream_license_expiry_is_readable() has already confirmed the stored
+		// value parses, so this always returns a real timestamp, never false.
 		$timestamp   = afristream_portal_license_expiry_timestamp( $expiry_date );
 		$today_start = strtotime( gmdate( 'Y-m-d', current_time( 'timestamp' ) ) );
-
-		if ( ! $timestamp ) {
-			echo '<span>' . esc_html( $expiry_date ) . '</span>';
-			return;
-		}
 
 		$is_expired = $timestamp < $today_start;
 		$label      = $is_expired ? __( 'Expired', 'bluegroup-project-afristream' ) : __( 'Active', 'bluegroup-project-afristream' );

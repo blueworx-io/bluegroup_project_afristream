@@ -16,16 +16,17 @@ $GLOBALS['af_store'] = array();
 
 function af_reset_store() {
 	$GLOBALS['af_store'] = array(
-		'postmeta'     => array(),
-		'usermeta'     => array(),
-		'options'      => array(),
-		'transients'   => array(),
-		'posts'        => array(),
-		'users'        => array(),
-		'filters'      => array(),
-		'actions'      => array(),
-		'now'          => 1785024000, // 2026-07-26 08:00 UTC, fixed so date tests are stable.
-		'capabilities' => null, // null means permissive — see current_user_can() below.
+		'postmeta'        => array(),
+		'usermeta'        => array(),
+		'options'         => array(),
+		'transients'      => array(),
+		'posts'           => array(),
+		'users'           => array(),
+		'filters'         => array(),
+		'actions'         => array(),
+		'now'             => 1785024000, // 2026-07-26 08:00 UTC, fixed so date tests are stable.
+		'capabilities'    => null, // null means permissive — see current_user_can() below.
+		'current_user_id' => 0, // 0 means logged out — see is_user_logged_in() below.
 	);
 }
 af_reset_store();
@@ -594,5 +595,17 @@ function current_user_can( $capability, ...$args ) {
 	return ! empty( $caps[ $capability ] );
 }
 function wp_get_current_user() { return (object) array( 'ID' => 0, 'display_name' => 'system' ); }
-function get_current_user_id() { return 0; }
-function is_user_logged_in() { return false; }
+
+/**
+ * Logged-out by default, the same as before this stub was made settable, so
+ * no existing test's behaviour changes. af_set_current_user() switches both
+ * this and is_user_logged_in() together, the way a real WordPress session
+ * would, and af_reset_store() clears back to logged-out before every test.
+ *
+ * @param int $user_id 0 for logged out, a truthy ID for logged in.
+ */
+function af_set_current_user( $user_id ) {
+	$GLOBALS['af_store']['current_user_id'] = (int) $user_id;
+}
+function get_current_user_id() { return $GLOBALS['af_store']['current_user_id']; }
+function is_user_logged_in() { return 0 !== $GLOBALS['af_store']['current_user_id']; }
