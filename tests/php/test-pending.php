@@ -238,24 +238,39 @@ af_test( 'the surplus named is the one most recently acquired, not the lowest ID
 } );
 
 af_test( 'a SureCart event naming no user leaves a trace', function () {
-	afristream_autoassign_from_surecart( (object) array( 'nothing' => 1 ) );
+	// AF_Fake_SureCart_Model, not a stdClass: its attributes are private behind
+	// __get/ArrayAccess, exactly like the real SureCart models, so this actually
+	// exercises the accessor the diagnostic depends on rather than the
+	// get_object_vars() path a plain object would take instead. customer_id
+	// with no user_id and no customer is the shape of a webhook carrying a bare
+	// customer reference instead of an embedded object — unresolved, but with
+	// something to show for it.
+	afristream_autoassign_from_surecart( new AF_Fake_SureCart_Model( array( 'customer_id' => 'cus_123' ) ) );
 
 	$events = afristream_unresolved_events();
 	af_assert_same( 1, count( $events ), 'recorded rather than dropped' );
-	af_assert_same( array( 'nothing' ), $events[0]['keys'], 'with the shape that arrived, so a renamed field is visible' );
+	af_assert_same( 'AF_Fake_SureCart_Model', $events[0]['type'], 'the class is recorded' );
+	af_assert_same(
+		array( 'user_id: missing', 'customer: missing', 'customer_id: present', 'id: missing' ),
+		$events[0]['keys'],
+		'probed one name at a time, so a private attribute still shows up'
+	);
 	af_assert_same( 1785024000, $events[0]['time'], 'and when' );
 } );
 
-af_test( 'the status says so plainly when nothing is listening for SureCart events', function () {
+af_test( 'a wrong hook name reads the same as genuine silence, and the status says so', function () {
 	af_seed_post( 10, 'alpha' );
 
 	// af_reset_store() has wiped what auto-assign.php registered at load, which
-	// is exactly the shape of the failure being checked for: the hook names
-	// being wrong on the live site.
+	// is exactly the shape of the failure this message has to cover — the hook
+	// names being wrong on the live site. Nothing here checks has_action(): this
+	// file registers its own hooks, so that would only ever prove the plugin
+	// loaded, not that SureCart is actually calling them. The only thing that
+	// can tell the two states apart is a recent assignment, and there isn't one.
 	$status = afristream_autoassign_status();
 
-	af_assert_same( 'off', $status['state'], 'not healthy' );
-	af_assert( false !== strpos( $status['label'], 'Nothing is listening' ), 'and it names the reason' );
+	af_assert_same( 'unknown', $status['state'], 'not a false all-clear' );
+	af_assert( false !== strpos( $status['label'], 'hook names being wrong' ), 'and it names a wrong hook name plainly, not just "hooks never firing"' );
 } );
 
 af_test( 'free stock on its own is never reported as healthy', function () {

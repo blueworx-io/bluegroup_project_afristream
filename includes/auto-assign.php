@@ -144,6 +144,38 @@ function afristream_entitlement( $user_id ) {
 }
 
 /**
+ * Force the next read of these licences' owner to hit the store rather than
+ * whatever this request already has cached.
+ *
+ * WordPress caches post meta per request — no persistent object cache plugin
+ * needed for that. afristream_user_license_ids() and afristream_available_licenses()
+ * both read every candidate's owner earlier in the same call that eventually
+ * recounts, so without this the recount goes on answering with what it read
+ * the first time even after a rival really has claimed one of these in
+ * between. afristream_claim_license_row() only busts the cache for the licence
+ * it itself writes, which does nothing for a candidate a rival claimed instead.
+ *
+ * Scoped to the candidates a caller is actually working through rather than
+ * every licence on the site, so this stays a cache invalidation and not a
+ * query of its own — the query only happens if and when the recount that
+ * follows actually reads one of these.
+ *
+ * Note for whoever runs the tests: the in-memory store in tests/php/bootstrap.php
+ * has no meta cache in front of it — wp_cache_delete() is a no-op stub there —
+ * so nothing in the suite exercises this function or can catch its absence.
+ * This is written from reading WordPress's caching behaviour, not from a
+ * failing test.
+ *
+ * @param int[] $license_ids Candidate licence IDs.
+ * @return void
+ */
+function afristream_bust_license_owner_cache( $license_ids ) {
+	foreach ( $license_ids as $license_id ) {
+		wp_cache_delete( (int) $license_id, 'post_meta' );
+	}
+}
+
+/**
  * Bring a user up to their entitlement, as far as stock allows.
  *
  * Two things about the loop are load-bearing, and both exist because two
@@ -153,7 +185,14 @@ function afristream_entitlement( $user_id ) {
  * than tracked from what this call has handed out. A rival request working on
  * the same customer can land a claim in between, and a loop counting only its
  * own successes cannot see that — it would hand out a licence the customer has
- * already been given by somebody else.
+ * already been given by somebody else. That is only true once the recount is
+ * actually fresh, though: a rival's claim is a real database write, but this
+ * process may already have this candidate's owner cached from reading it
+ * earlier in this same call, and would otherwise go on reporting the value it
+ * read then. afristream_bust_license_owner_cache() is what keeps the recount
+ * honest, and is called on the same candidate list this loop draws from —
+ * see that function for why a persistent object cache is not what makes this
+ * necessary.
  *
  * A refused lock ends the loop instead of moving to the next candidate. The
  * lock is refused before afristream_assign_license() reaches its "already
@@ -207,7 +246,14 @@ function afristream_topup_user( $user_id, $context = 'auto-assign' ) {
 	// Ask for more candidates than needed: another request may claim one between
 	// this list being built and the assignment being attempted, and a licence
 	// lost that way should cost a retry rather than the whole top-up.
-	foreach ( afristream_available_licenses( $wanted + 3 ) as $license_id ) {
+	$candidates = afristream_available_licenses( $wanted + 3 );
+
+	foreach ( $candidates as $license_id ) {
+		// See afristream_bust_license_owner_cache(): without this, a rival's
+		// claim on one of these candidates since this call started would not
+		// be visible to the recount just below.
+		afristream_bust_license_owner_cache( $candidates );
+
 		if ( count( afristream_user_license_ids( $user_id ) ) >= $entitled ) {
 			break;
 		}
@@ -224,6 +270,7 @@ function afristream_topup_user( $user_id, $context = 'auto-assign' ) {
 		}
 	}
 
+	afristream_bust_license_owner_cache( $candidates );
 	$held = count( afristream_user_license_ids( $user_id ) );
 
 	return array(
@@ -430,8 +477,18 @@ function afristream_autoassign_for_user( $user_id, $context = 'auto-assign' ) {
 /** SureCart events that arrived but could not be matched to a WordPress user. */
 define( 'AFRISTREAM_UNRESOLVED_OPTION', 'afristream_unresolved_events' );
 
-/** How many of those to keep. Enough to see a pattern, small enough to be a row. */
+/** How many unresolved events to keep. Enough to see a pattern, small enough
+ * to be a row. */
 define( 'AFRISTREAM_UNRESOLVED_CAP', 20 );
+
+/**
+ * How many attribute names to keep per stored event. Deliberately a separate
+ * constant from AFRISTREAM_UNRESOLVED_CAP above, which caps how many events
+ * are kept — not what is recorded about each one. Only bites for a plain
+ * array payload, which can carry far more fields than are worth storing; a
+ * probed object always produces the same short, fixed list.
+ */
+define( 'AFRISTREAM_UNRESOLVED_KEYS_CAP', 20 );
 
 /**
  * Record a SureCart event this plugin could not turn into a user.
@@ -439,19 +496,41 @@ define( 'AFRISTREAM_UNRESOLVED_CAP', 20 );
  * Dropping it silently is what makes a wrong assumption invisible: if SureCart
  * ever renames the field the user ID hangs off, every event still fires, every
  * one resolves to nobody, and the only symptom is that customers stop getting
- * licences. What is stored is the shape — the class and the attribute names —
- * not the payload, because the payload is a customer's personal data and the
- * shape is the whole of what a person needs to see what changed.
+ * licences. What is stored is the shape, not the payload, because the payload
+ * is a customer's personal data.
+ *
+ * "The shape" means different things for the two forms this can arrive in. A
+ * plain array exposes its keys directly, so every one of them is recorded — a
+ * renamed field is visible whatever it was renamed to. A real SureCart model
+ * is not like that: its attributes sit behind __get, private, which is the
+ * whole reason afristream_affiliate_prop() exists, and get_object_vars() —
+ * what this used to read the keys with — answers empty for a model shaped
+ * that way, for every model, always. There is no way to list "every attribute"
+ * of something like that from outside it. What is possible instead is to ask,
+ * one name at a time through afristream_affiliate_prop(), for the handful of
+ * attributes afristream_user_id_from_surecart() actually reads plus their
+ * obvious neighbours, and record which of those were there. That cannot show
+ * a field renamed to something nobody anticipated, but it does show that none
+ * of the expected ones were — which is the failure this exists to catch.
  *
  * @param mixed $object Whatever the hook handed over.
  * @return void
  */
 function afristream_record_unresolved_event( $object ) {
 	$keys = array();
+
 	if ( is_array( $object ) ) {
 		$keys = array_keys( $object );
 	} elseif ( is_object( $object ) ) {
-		$keys = array_keys( get_object_vars( $object ) );
+		// user_id and customer are what afristream_user_id_from_surecart() itself
+		// reads. customer_id and id are their obvious neighbours: a payload that
+		// carries a bare customer reference instead of an embedded object, or
+		// whose own id would help identify which record this was, in the admin
+		// screen that lists these.
+		foreach ( array( 'user_id', 'customer', 'customer_id', 'id' ) as $probe ) {
+			$present = null !== afristream_affiliate_prop( $object, $probe, null );
+			$keys[]  = $probe . ( $present ? ': present' : ': missing' );
+		}
 	}
 
 	$stored = get_option( AFRISTREAM_UNRESOLVED_OPTION, array() );
@@ -462,7 +541,7 @@ function afristream_record_unresolved_event( $object ) {
 	$stored[] = array(
 		'time' => (int) current_time( 'timestamp' ),
 		'type' => is_object( $object ) ? get_class( $object ) : gettype( $object ),
-		'keys' => array_slice( array_map( 'strval', $keys ), 0, AFRISTREAM_UNRESOLVED_CAP ),
+		'keys' => array_slice( array_map( 'strval', $keys ), 0, AFRISTREAM_UNRESOLVED_KEYS_CAP ),
 	);
 
 	if ( count( $stored ) > AFRISTREAM_UNRESOLVED_CAP ) {
@@ -682,9 +761,13 @@ function afristream_last_autoassignment() {
  * assigned, nobody new ever reaches the queue — a drain only revisits people
  * already in it — and a status keyed on free licences would read
  * "Active, N licences available" at exactly the moment zero were being handed
- * out. Every green answer below therefore rests on something that would differ
- * if assignment were silently dead: that the hooks are registered at all, and
- * that something has actually been assigned by them recently.
+ * out. Whether the hooks are registered proves nothing, and is not checked
+ * here: this file registers them itself a few lines below, so has_action()
+ * would answer true even after a SureCart update renamed the event and
+ * nothing has fired since. What actually distinguishes a healthy install is
+ * that something has been assigned automatically and recently — the unknown
+ * state below is what covers a wrong hook name, by saying plainly that it
+ * cannot be told apart from silence.
  *
  * Silence is not treated as failure either, because a site nobody has bought
  * from this month is genuinely silent. It is reported as not knowing, in those
@@ -698,13 +781,6 @@ function afristream_autoassign_status() {
 		return array(
 			'state' => 'off',
 			'label' => __( 'SureCart inactive — nothing is assigned automatically', 'bluegroup-project-afristream' ),
-		);
-	}
-
-	if ( ! has_action( 'surecart/purchase_created' ) || ! has_action( 'surecart/subscription_created' ) ) {
-		return array(
-			'state' => 'off',
-			'label' => __( 'Nothing is listening for SureCart purchases — no licence can be assigned automatically', 'bluegroup-project-afristream' ),
 		);
 	}
 
@@ -741,7 +817,7 @@ function afristream_autoassign_status() {
 		'state' => 'unknown',
 		/* translators: %d: number of days without an automatic assignment. */
 		'label' => sprintf(
-			__( 'Nothing has been assigned automatically in %d days. That is normal if nobody has subscribed, but it is indistinguishable from the SureCart hooks never firing — this cannot tell the two apart. Make a test purchase to confirm.', 'bluegroup-project-afristream' ),
+			__( 'Nothing has been assigned automatically in %d days. That is normal if nobody has subscribed, but it reads exactly the same as the SureCart hook names being wrong or missing — this cannot tell the two apart. Make a test purchase to confirm.', 'bluegroup-project-afristream' ),
 			(int) ( AFRISTREAM_ASSIGN_SILENCE / DAY_IN_SECONDS )
 		),
 	);
