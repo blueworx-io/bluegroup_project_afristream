@@ -345,10 +345,21 @@ function afristream_license_selection_diff( $current, $submitted ) {
  * relationship query filter did, except that now it is a property of how the
  * options are built rather than a filter that has to be remembered.
  *
+ * Gated on edit_users — plural — with no exception for a user's own profile.
+ * WordPress's map_meta_cap() reduces the singular edit_user capability to read
+ * whenever the target is the current user, so a Subscriber editing themselves
+ * would pass an edit_user check, or an "or it's their own profile" escape
+ * hatch, and be able to render this field against their own account. edit_users
+ * is the capability that does not collapse that way; only an administrator
+ * holds it. Hiding the field this way is not itself the security boundary —
+ * afristream_save_user_license_field() enforces the same capability
+ * independently — but a field that never renders also never mints the nonce a
+ * forged request would need.
+ *
  * @param WP_User $user User being edited.
  */
 function afristream_render_user_license_field( $user ) {
-	if ( ! current_user_can( 'edit_users' ) && get_current_user_id() !== $user->ID ) {
+	if ( ! current_user_can( 'edit_users' ) ) {
 		return;
 	}
 
@@ -410,6 +421,18 @@ add_action( 'edit_user_profile', 'afristream_render_user_license_field' );
  * now shows, so every refusal — on either side of the diff — is collected and
  * handed to afristream_license_refused_notice() instead of being dropped.
  *
+ * This is the check that actually authorizes the save — hiding the field in
+ * afristream_render_user_license_field() only stops the nonce from being
+ * minted, it is not itself authorization, so this must independently refuse a
+ * request that reaches it by any other means. It is checked against
+ * edit_users, not the singular edit_user, for the same reason the render
+ * guard is: WordPress's map_meta_cap() reduces edit_user to read when the
+ * target is the current user, so current_user_can( 'edit_user', $user_id )
+ * would pass for any logged-in user editing themselves and let a customer
+ * assign themselves a licence — the thing they are supposed to buy — even
+ * though the licence itself happened to be free. edit_users does not collapse
+ * that way; only an administrator holds it.
+ *
  * @param int $user_id User being saved.
  */
 function afristream_save_user_license_field( $user_id ) {
@@ -419,7 +442,7 @@ function afristream_save_user_license_field( $user_id ) {
 	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['afristream_user_license_nonce'] ) ), 'afristream_save_user_licenses' ) ) {
 		return;
 	}
-	if ( ! current_user_can( 'edit_user', $user_id ) ) {
+	if ( ! current_user_can( 'edit_users' ) ) {
 		return;
 	}
 
@@ -436,7 +459,12 @@ function afristream_save_user_license_field( $user_id ) {
 	foreach ( $diff['remove'] as $license_id ) {
 		$result = afristream_unassign_license( $license_id, 'profile' );
 		if ( is_wp_error( $result ) ) {
-			$not_removed[] = get_the_title( $license_id ) . ' — ' . $result->get_error_message();
+			$not_removed[] = sprintf(
+				/* translators: 1: licence title, 2: reason the removal was refused. */
+				__( '%1$s — %2$s', 'bluegroup-project-afristream' ),
+				get_the_title( $license_id ),
+				$result->get_error_message()
+			);
 		}
 	}
 
@@ -448,7 +476,12 @@ function afristream_save_user_license_field( $user_id ) {
 	foreach ( $diff['add'] as $license_id ) {
 		$result = afristream_assign_license( $license_id, $user_id, 'profile' );
 		if ( is_wp_error( $result ) ) {
-			$not_added[] = get_the_title( $license_id ) . ' — ' . $result->get_error_message();
+			$not_added[] = sprintf(
+				/* translators: 1: licence title, 2: reason the assignment was refused. */
+				__( '%1$s — %2$s', 'bluegroup-project-afristream' ),
+				get_the_title( $license_id ),
+				$result->get_error_message()
+			);
 		}
 	}
 

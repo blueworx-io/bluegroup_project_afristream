@@ -141,3 +141,64 @@ af_test( 'a save with nothing refused leaves no notice behind', function () {
 
 	af_assert_same( '', $html, 'nothing was refused, so nothing is printed' );
 } );
+
+/**
+ * afristream_save_user_license_field() is gated on edit_users, not the
+ * singular edit_user — see the doc comment on the function itself for why:
+ * edit_user collapses to read for a user's own account under WordPress's
+ * map_meta_cap(), which would otherwise let any logged-in user assign
+ * themselves a licence. These two tests pin that gate down directly, with a
+ * request that is otherwise entirely well-formed — valid nonce, a genuinely
+ * free licence being selected — so a regression back to edit_user would still
+ * pass every other test in this file (they never restrict capabilities) but
+ * fail here.
+ */
+
+af_test( 'a user without edit_users cannot save a licence selection, even with an otherwise well-formed request', function () {
+	af_seed_user( 7 );
+	af_seed_post( 10, 'alpha' ); // free — nothing about the licence itself would block this claim.
+
+	af_set_capabilities( array( 'edit_users' => false ) );
+
+	$_POST = array(
+		'afristream_user_license_nonce' => 'nonce',
+		'afristream_active_license'     => array( '10' ),
+	);
+	afristream_save_user_license_field( 7 );
+	unset( $_POST );
+
+	af_assert_same( 0, afristream_license_owner( 10 ), 'no assignment happened without edit_users, valid nonce notwithstanding' );
+
+	ob_start();
+	afristream_license_refused_notice();
+	$html = ob_get_clean();
+
+	af_assert_same( '', $html, 'the save returned before it ever reached the refusal-collecting code, so nothing is queued to report' );
+} );
+
+af_test( 'a user with edit_users can still save, both on their own profile and on someone else\'s', function () {
+	af_seed_user( 7 );
+	af_seed_user( 9 );
+	af_seed_post( 10, 'alpha' );
+	af_seed_post( 11, 'beta' );
+
+	af_set_capabilities( array( 'edit_users' => true ) );
+
+	// personal_options_update: the profile being saved is the acting user's own.
+	$_POST = array(
+		'afristream_user_license_nonce' => 'nonce',
+		'afristream_active_license'     => array( '10' ),
+	);
+	afristream_save_user_license_field( 7 );
+	unset( $_POST );
+	af_assert_same( 7, afristream_license_owner( 10 ), 'an administrator holding edit_users can still save their own profile' );
+
+	// edit_user_profile_update: the profile being saved belongs to someone else.
+	$_POST = array(
+		'afristream_user_license_nonce' => 'nonce',
+		'afristream_active_license'     => array( '11' ),
+	);
+	afristream_save_user_license_field( 9 );
+	unset( $_POST );
+	af_assert_same( 9, afristream_license_owner( 11 ), 'and can still save a different user\'s profile' );
+} );

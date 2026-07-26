@@ -16,15 +16,16 @@ $GLOBALS['af_store'] = array();
 
 function af_reset_store() {
 	$GLOBALS['af_store'] = array(
-		'postmeta'   => array(),
-		'usermeta'   => array(),
-		'options'    => array(),
-		'transients' => array(),
-		'posts'      => array(),
-		'users'      => array(),
-		'filters'    => array(),
-		'actions'    => array(),
-		'now'        => 1785024000, // 2026-07-26 08:00 UTC, fixed so date tests are stable.
+		'postmeta'     => array(),
+		'usermeta'     => array(),
+		'options'      => array(),
+		'transients'   => array(),
+		'posts'        => array(),
+		'users'        => array(),
+		'filters'      => array(),
+		'actions'      => array(),
+		'now'          => 1785024000, // 2026-07-26 08:00 UTC, fixed so date tests are stable.
+		'capabilities' => null, // null means permissive — see current_user_can() below.
 	);
 }
 af_reset_store();
@@ -51,6 +52,23 @@ function af_seed_user( $id, $login = '', $registered = '2026-01-01 00:00:00' ) {
 
 function af_set_now( $timestamp ) {
 	$GLOBALS['af_store']['now'] = $timestamp;
+}
+
+/**
+ * Restricts what current_user_can() answers for the rest of the current test.
+ *
+ * Only the capabilities named here are honoured; anything not listed reads as
+ * refused, the same as a real WordPress role that was never granted it — a
+ * stub that fell back to "true" for an unlisted capability would be more
+ * permissive than WordPress itself for exactly the checks a test is trying to
+ * pin down. af_reset_store() clears this back to the permissive default
+ * (null) before every test, so a test that never calls this helper sees the
+ * same always-true behaviour every other test always has.
+ *
+ * @param array<string,bool> $caps Capability name => whether it is held.
+ */
+function af_set_capabilities( array $caps ) {
+	$GLOBALS['af_store']['capabilities'] = $caps;
 }
 
 // -- Meta ---------------------------------------------------------------------
@@ -558,7 +576,23 @@ function rest_url( $path = '' ) { return '/wp-json/' . ltrim( (string) $path, '/
 function add_query_arg( $key, $value, $url = '' ) { return $url . '?' . $key . '=' . $value; }
 function plugin_dir_path( $file ) { return dirname( $file ) . '/'; }
 function plugin_basename( $file ) { return basename( dirname( $file ) ) . '/' . basename( $file ); }
-function current_user_can() { return true; }
+/**
+ * Permissive by default (af_store['capabilities'] === null), the same as
+ * before this stub was made settable, so no existing test's behaviour
+ * changes. A test that calls af_set_capabilities() switches this to an
+ * allow-list: a capability not present in it is refused, matching a real
+ * WordPress role that was simply never granted it. The object-id argument
+ * some callers pass (e.g. current_user_can( 'edit_post', $post_id )) is
+ * deliberately not modelled — this stub answers only by capability name — so
+ * it must not be used to fake map_meta_cap()'s per-object reductions.
+ */
+function current_user_can( $capability, ...$args ) {
+	$caps = $GLOBALS['af_store']['capabilities'];
+	if ( null === $caps ) {
+		return true;
+	}
+	return ! empty( $caps[ $capability ] );
+}
 function wp_get_current_user() { return (object) array( 'ID' => 0, 'display_name' => 'system' ); }
 function get_current_user_id() { return 0; }
 function is_user_logged_in() { return false; }
