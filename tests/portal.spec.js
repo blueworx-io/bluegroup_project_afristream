@@ -22,6 +22,19 @@ test('profile section renders credentials with working copy feedback', async ({ 
   await expect(page.getByText('BabyBlue-TV')).toBeVisible();
 });
 
+test('a customer holding two licences gets a profile tab for each', async ({ page }) => {
+  // Two licences is the case the old ACF field could not express — it was
+  // capped at one — so both tabs existing together, each with its own
+  // exclusive set of credentials, is the case worth pinning down.
+  await expect(page.getByRole('button', { name: 'Profile 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Profile 2' })).toBeVisible();
+
+  await expect(page.getByText('BabyBlue123')).toBeVisible();
+  await page.getByRole('button', { name: 'Profile 2' }).click();
+  await expect(page.getByText('BabyBlue-TV')).toBeVisible();
+  await expect(page.getByText('BabyBlue123')).toBeHidden();
+});
+
 test('on mobile the top bar is a horizontally scrollable tab list', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');

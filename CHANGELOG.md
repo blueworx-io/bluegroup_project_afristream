@@ -4,43 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.20.1] - 2026-07-26
-
-### Fixed
-
-- **The ACF readiness panel no longer says "safe" while ACF's own field groups and post types are still on the site.** Deleting them was already advised, but only underneath the green "safe" sentence, where it read as a footnote. Their presence now produces its own state — `cleanup_needed` — distinct from a genuine dependency, because the fix is different: delete these, rather than go investigate a plugin.
-- **A database failure with an empty `last_error` no longer reads as a clean site.** `$wpdb->ready` being false lets `get_results()` return `null` without ever setting `last_error`. The audit now also checks for `null` directly, regardless of what `last_error` says.
-- **A PCRE engine failure on a large or pathological file no longer reads as "this file is clean".** `preg_match()` returning `false` — a backtrack or recursion-limit error — is now told apart from a genuine zero-match result and marks the scan incomplete.
-- **Third-party ACF add-ons (e.g. `advanced-custom-fields-multilingual`) are no longer silently skipped from the scan.** The skip list matched by prefix, which also caught unrelated plugins that depend on ACF and would break when it goes. It now matches ACF's own two plugin folders exactly.
-- **The cached "safe to deactivate" answer is now dropped when a plugin is activated, a plugin is deactivated, or the theme is switched** — the three events most likely to make a stale "safe" verdict wrong. The Configurations page also gained a nonce-guarded "Recheck now" link for forcing a fresh answer on demand.
-- **A directory entry that exists but could not be `stat`'d is no longer treated the same as one that was never there.** `is_file()`/`is_dir()` answer identically for both; the scan now also checks whether the entry is listed in its parent directory before calling it missing.
-- **A site with many ACF-related matches no longer renders an unbounded list into one paragraph.** Elementor content, ACF's own posts, and flagged post content are each capped for display, and the panel now says when more were found than are shown.
-
 ## [0.20.0] - 2026-07-26
-
-### Fixed
-
-- **The ACF readiness panel can now say it does not know.** Every way the check could fail used to come back looking identical to a clean site: a database query that timed out returned nothing and was read as nothing found; a file scan that gave up at its own eight-hundred-file cap returned "no ACF here" rather than "I stopped early". Someone reading the panel would deactivate ACF on the strength of it and take every Elementor page using an ACF dynamic tag down with it. The audit now answers with three states rather than two, and the third — **undetermined** — is rendered as its own cautious panel that lists exactly which checks did not finish. `safe` is reported only when every check ran to completion and every one of them came back empty.
-
-- **A single-file plugin such as `hello.php` no longer points the scan at every plugin on the site.** `dirname( 'hello.php' )` is `.`, so the scan walked the whole plugins directory, found ACF's own source, and reported `hello.php` as the reason ACF could not be retired — while burning the file cap that would have caught the real culprit. Single-file plugins are now scanned as the one file they are.
-
-- **An unreadable subdirectory no longer takes the Configurations page down with it.** The directory walk is caught, and a directory it could not read is counted as unknown rather than as clean.
-
-- **Elementor revisions no longer produce a row each.** One page saved a dozen times read as a dozen problems.
-
-- **A licence in the events table that has since been deleted no longer renders an empty link.**
 
 ### Added
 
-- **The scan looks in the places it was missing.** The parent theme as well as the child (near-universal alongside Elementor, and where the template code usually lives), the must-use plugins directory, and on multisite the network-activated plugins, which never appear in a site's own `active_plugins`.
+- **A Configurations page.** A new top-level menu listing everything the plugin adds to the site — every shortcode, REST route, admin column, licence field, hook and integration — with a live status against each: how many licences are free, whether TMDB is connected, whether anyone is waiting for a licence. It is read-only, and the list is built by each file declaring its own entries rather than being written on the page, so it cannot drift from the code the way a hand-maintained list does the first time a feature is added in a hurry.
 
-- **It also detects the usage it was blind to.** `the_sub_field`, `get_fields`, `get_field_object`, `update_field`, `add_row`, `acf_form` and their neighbours, references to ACF's own `acf/*` filters and actions, and — with nothing to do with Elementor — ACF blocks and `[acf]` shortcodes saved into post content.
+- **An ACF readiness check that can say it doesn't know.** Before Advanced Custom Fields can safely be switched off, the Configurations page scans the site for anything that still depends on it — Elementor dynamic tags, other plugins' code, ACF blocks and `[acf]` shortcodes saved into content, and direct calls such as `the_sub_field` and `get_fields` — and answers with three states rather than two: **safe**, **needs cleanup** (ACF's own field groups and post type are still sitting on the site, which is a tidy-up rather than a real dependency, and is now called out on its own instead of buried under a "safe" verdict), or **undetermined**, when a check could not finish, naming exactly which one rather than reading as a clean site by default. The scan also covers the parent theme, must-use plugins and network-activated plugins on multisite, not only the active theme and per-site plugins, and no longer mistakes a third-party plugin that merely depends on ACF for ACF itself. The result is cached per site and dropped automatically the moment a plugin is activated or deactivated or the theme is switched, with a manual "Recheck now" link for forcing a fresh answer on demand.
 
-- **The result is cached**, keyed per site so a network install cannot serve one site's answer to another. A clean result is held for six hours because it is the expensive one to produce; an undetermined one for five minutes, because it is a report of a check that did not finish and the reasons for that are usually passing.
+- **Licences are assigned automatically when someone pays.** A customer gets one licence per active subscription, taken from the stock closest to expiring. If nothing is free they are queued rather than quietly missed, flagged on every admin screen, and served the moment a licence is published or freed. The routine tops up to the entitlement instead of granting per event, so a repeated or replayed payment webhook cannot hand out a second licence.
+
+- **A history on every licence.** Assigned, unassigned, created, updated — each with the date, the customer, and who or what did it. Shown on the licence editor, as a Last Assigned column on the licence list, and as a recent-events feed on the Configurations page. It exists for the moment a licence needs reassigning by hand and the question is who had it last.
+
+- **Customers can hold more than one licence.** The old field was capped at one; each licence a customer holds now becomes its own profile in the portal.
 
 ### Changed
 
-- A status of **"cannot tell"** now has a colour of its own instead of the grey used for "switched off", which told the reader the opposite of what it meant. An unrecognised status reads the same way rather than being guessed at as off.
+- **Advanced Custom Fields is no longer required.** The licence post type, its four fields and the customer's licence assignment all belong to the plugin now. Nothing moved in the database — the same meta keys hold the same values in the same formats — so the change is invisible to anyone using the site.
+
+- **A licence records who holds it, rather than each customer recording which licences they hold.** The old arrangement kept assignments as a list on the customer, which two simultaneous changes could silently overwrite and which allowed the same licence to appear against two people. A licence now names its own holder, so one licence can only ever have one owner, and the customer-side list is rebuilt from it for anything that still reads the old shape.
+
+- The Connected User column reads the holder off the licence instead of searching every user on the site for it.
+
+### Fixed
+
+- Two customers checking out at the same moment can no longer be handed the same licence.
 
 ## [0.19.0] - 2026-07-23
 
