@@ -31,6 +31,44 @@ function af_cap_acf_scan( $limit ) {
 	);
 }
 
+/**
+ * Lower the display cap, so truncation of a matched-row list can be exercised
+ * without seeding fifty-odd posts.
+ *
+ * @param int $limit Rows to show per list.
+ */
+function af_cap_acf_audit_display( $limit ) {
+	add_filter(
+		'afristream_acf_audit_display_limit',
+		function () use ( $limit ) {
+			return $limit;
+		}
+	);
+}
+
+/**
+ * A snapshot of what configurations.php wired up at require time, taken here
+ * because af_run_tests() calls af_reset_store() before every single test and
+ * would otherwise wipe it before any test body could observe it — the same
+ * pattern used in test-license-admin.php and test-pending.php.
+ */
+$GLOBALS['af_acf_audit_wiring_snapshot'] = array(
+	'activated_plugin'   => af_registered_actions( 'activated_plugin' ),
+	'deactivated_plugin' => af_registered_actions( 'deactivated_plugin' ),
+	'switch_theme'       => af_registered_actions( 'switch_theme' ),
+);
+
+/**
+ * Put the invalidation hooks back after af_reset_store() has wiped them, so a
+ * test about the invalidation itself can dispatch a real do_action() and see
+ * the effect, not just read the snapshot above.
+ */
+function af_register_acf_audit_invalidation_hooks() {
+	add_action( 'activated_plugin', 'afristream_acf_audit_invalidate' );
+	add_action( 'deactivated_plugin', 'afristream_acf_audit_invalidate' );
+	add_action( 'switch_theme', 'afristream_acf_audit_invalidate' );
+}
+
 // -- A query that fails is never a clean site ---------------------------------
 
 af_test( 'a failed Elementor query is undetermined, not safe', function () {
@@ -87,14 +125,30 @@ af_test( 'a query that failed is not silently mistaken for an empty result', fun
 			 WHERE m.meta_key = '_elementor_data'
 			   AND m.meta_value LIKE %s
 			   AND p.post_status != 'trash'
-			   AND p.post_type != 'revision'",
-			'%' . $wpdb->esc_like( 'acf-' ) . '%'
+			   AND p.post_type != 'revision'
+			 LIMIT %d",
+			'%' . $wpdb->esc_like( 'acf-' ) . '%',
+			51
 		)
 	);
 
 	af_assert_same( null, $rows, 'null, the way the real one answers' );
 	af_assert_same( array(), (array) $rows, 'which casts to the same empty array a clean site gives' );
 	af_assert( '' !== $wpdb->last_error, 'so last_error is the only thing that tells them apart' );
+} );
+
+af_test( 'a query that never ran is undetermined even when last_error stays empty', function () {
+	// $wpdb->ready being false makes query() return before it ever reaches the
+	// code that sets last_error, so get_results() hands back null — the same
+	// "nothing happened yet" signal a query that was never issued would give —
+	// while last_error still reads as if everything were fine. Checking
+	// last_error alone, as the audit used to, read this as a clean site.
+	af_wpdb_fail_silently( 'elementor' );
+
+	$audit = afristream_acf_audit();
+
+	af_assert_same( 'undetermined', $audit['state'], 'null from get_results() is enough on its own, without last_error' );
+	af_assert_same( false, $audit['safe'], 'never safe' );
 } );
 
 // -- A scan that stopped early is never a clean scan ---------------------------
@@ -302,16 +356,37 @@ af_test( "ACF's own code and this plugin's are not scanned", function () {
 	af_assert( isset( $targets['clean-plugin/clean-plugin.php'] ), 'everything else is' );
 } );
 
+af_test( 'an ACF add-on is scanned, not swept up by the prefix ACF itself is skipped by', function () {
+	// "advanced-custom-fields-multilingual" starts with "advanced-custom-fields"
+	// the same way ACF's own folder names do, but it is a separate plugin that
+	// genuinely depends on ACF and would break — a prefix match used to skip it
+	// silently, which is worse than not knowing: it looked checked and was not.
+	af_assert_same( false, afristream_acf_scan_skips( 'advanced-custom-fields-multilingual/acfml.php' ), 'not skipped' );
+	af_assert_same( true, afristream_acf_scan_skips( 'advanced-custom-fields/acf.php' ), 'ACF itself still is' );
+	af_assert_same( true, afristream_acf_scan_skips( 'advanced-custom-fields-pro/acf.php' ), 'and so is the pro edition' );
+} );
+
 // -- ACF's own posts -----------------------------------------------------------
 
-af_test( "ACF's field groups are listed as work to do without being called unsafe", function () {
+af_test( "ACF's field groups get their own verdict, distinct from a genuine dependency", function () {
 	af_seed_post( 46, 'Licence fields', 'publish', 'acf-field-group' );
 
 	$audit = afristream_acf_audit();
 
 	af_assert_same( 1, count( $audit['acf_posts'] ), 'the group is listed' );
 	af_assert_same( 'Licence fields', $audit['acf_posts'][0]['title'], 'by name' );
-	af_assert_same( true, $audit['safe'], 'deleting them is the step being advised, not a reason not to take it' );
+	af_assert_same( 'cleanup_needed', $audit['state'], 'not "unsafe" — the fix is deleting these, not investigating a dependency' );
+	af_assert_same( false, $audit['safe'], 'and not safe either — this is the case that used to slip through as safe' );
+} );
+
+af_test( 'a genuine ACF dependency outranks ACF\'s own leftover posts', function () {
+	af_seed_post( 46, 'Licence fields', 'publish', 'acf-field-group' );
+	update_option( 'active_plugins', array( 'acf-plugin/acf-plugin.php' ) );
+
+	$audit = afristream_acf_audit();
+
+	af_assert_same( 'unsafe', $audit['state'], 'a real dependency is the more urgent problem' );
+	af_assert_same( false, $audit['safe'], 'not safe' );
 } );
 
 // -- Caching -------------------------------------------------------------------
@@ -342,6 +417,113 @@ af_test( 'an undetermined result is held for far less time than a clean one', fu
 	af_assert( $undetermined < $clean, 'a check that did not finish is retried soon, not held for hours' );
 	af_assert( $undetermined <= $unsafe, 'and it is the shortest-lived of the three' );
 	af_assert_same( 6 * HOUR_IN_SECONDS, $clean, 'a clean answer is the expensive one and is held longest' );
+} );
+
+af_test( 'configurations.php wires the cache to drop on activation, deactivation and a theme switch', function () {
+	af_assert( in_array( 'afristream_acf_audit_invalidate', $GLOBALS['af_acf_audit_wiring_snapshot']['activated_plugin'], true ), 'activating a plugin drops it' );
+	af_assert( in_array( 'afristream_acf_audit_invalidate', $GLOBALS['af_acf_audit_wiring_snapshot']['deactivated_plugin'], true ), 'deactivating one drops it too' );
+	af_assert( in_array( 'afristream_acf_audit_invalidate', $GLOBALS['af_acf_audit_wiring_snapshot']['switch_theme'], true ), 'and switching the theme' );
+} );
+
+af_test( 'the cache is dropped when a plugin is activated', function () {
+	af_register_acf_audit_invalidation_hooks();
+
+	$first = afristream_acf_audit();
+	af_assert_same( true, $first['safe'], 'clean to start with' );
+	af_assert( is_array( get_transient( afristream_acf_audit_cache_key() ) ), 'and cached' );
+
+	do_action( 'activated_plugin', 'something/something.php' );
+
+	af_assert_same( false, get_transient( afristream_acf_audit_cache_key() ), 'the stale "safe" answer cannot be read straight back' );
+} );
+
+af_test( 'the cache is dropped when a plugin is deactivated', function () {
+	af_register_acf_audit_invalidation_hooks();
+
+	afristream_acf_audit();
+	do_action( 'deactivated_plugin', 'something/something.php' );
+
+	af_assert_same( false, get_transient( afristream_acf_audit_cache_key() ), 'dropped' );
+} );
+
+af_test( 'the cache is dropped when the active theme is switched', function () {
+	af_register_acf_audit_invalidation_hooks();
+
+	afristream_acf_audit();
+	do_action( 'switch_theme' );
+
+	af_assert_same( false, get_transient( afristream_acf_audit_cache_key() ), 'dropped' );
+} );
+
+// -- A PCRE failure is a gap in the scan, not a clean file ---------------------
+
+af_test( 'a PCRE failure while scanning a file is incomplete, never clean', function () {
+	// preg_match() answers false, not 0, when the regex engine itself gives up
+	// — a backtrack or recursion limit on a large or pathological file. false
+	// is falsy exactly like "0 matches", so the old code could not tell a
+	// failed scan from a clean one.
+	add_filter(
+		'afristream_acf_source_pattern',
+		function () {
+			return '/(/'; // An unterminated group: guaranteed to make preg_match() fail.
+		}
+	);
+	update_option( 'active_plugins', array( 'clean-plugin/clean-plugin.php' ) );
+
+	$audit = afristream_acf_audit();
+
+	af_assert_same( 'undetermined', $audit['state'], 'not clean — the scan could not evaluate the file it read' );
+	af_assert_same( false, $audit['safe'], 'never safe' );
+} );
+
+af_test( 'a PCRE failure is incomplete at the single-file level too', function () {
+	add_filter(
+		'afristream_acf_source_pattern',
+		function () {
+			return '/(/';
+		}
+	);
+
+	$verdict = afristream_file_uses_acf( WP_PLUGIN_DIR . '/hello.php' );
+
+	af_assert_same( 'incomplete', $verdict, 'not clean' );
+} );
+
+// -- A path that exists but cannot be stat'd is not the same as nothing there --
+
+af_test( 'a directory entry present in its parent listing is not "missing" just because is_file()/is_dir() cannot resolve it', function () {
+	// is_file() and is_dir() both answer false identically for "not there at
+	// all" and for "there, but PHP could not stat it" — a permissions problem
+	// or a filesystem hiccup causes the second one, and only listing the
+	// parent directory (which does not require stat'ing the entry itself)
+	// tells the two apart.
+	$dir = WP_PLUGIN_DIR . '/clean-plugin';
+
+	af_assert_same( true, afristream_path_exists_but_unreadable( $dir . '/clean-plugin.php' ), 'a real entry in a real parent directory is detected' );
+	af_assert_same( false, afristream_path_exists_but_unreadable( $dir . '/does-not-exist.php' ), 'a name absent from that listing is not' );
+	af_assert_same( false, afristream_path_exists_but_unreadable( WP_PLUGIN_DIR . '/no-such-directory/anything.php' ), 'nor is one whose parent does not exist either' );
+} );
+
+// -- A truncated list still says how many were really found --------------------
+
+af_test( 'a truncated list of ACF field groups still discloses the true total exists', function () {
+	af_cap_acf_audit_display( 2 );
+	af_seed_post( 50, 'Group A', 'publish', 'acf-field-group' );
+	af_seed_post( 51, 'Group B', 'publish', 'acf-field-group' );
+	af_seed_post( 52, 'Group C', 'publish', 'acf-field-group' );
+
+	$audit = afristream_acf_audit();
+
+	af_assert_same( 2, count( $audit['acf_posts'] ), 'the list itself is bounded' );
+	af_assert_same( true, $audit['acf_posts_more'], 'and the truncation is disclosed rather than the third one silently vanishing' );
+} );
+
+af_test( 'a list that does not reach the display cap is not reported as truncated', function () {
+	af_seed_post( 46, 'Licence fields', 'publish', 'acf-field-group' );
+
+	$audit = afristream_acf_audit();
+
+	af_assert_same( false, $audit['acf_posts_more'], 'one result, well under any reasonable cap' );
 } );
 
 // -- Status pills --------------------------------------------------------------

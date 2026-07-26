@@ -770,6 +770,21 @@ class AF_Fake_WPDB {
 	}
 
 	/**
+	 * Make a modelled SELECT fail the way $wpdb->ready being false does: null
+	 * back from get_results(), but last_error left empty, because query() never
+	 * ran far enough to set it. Deliberately distinct from af_fail_query(),
+	 * which always leaves a message behind — this is the shape that used to be
+	 * indistinguishable from "nothing found" because last_error was the only
+	 * thing the audit checked.
+	 *
+	 * @param string $which elementor, acf_posts, content, or '*' for all.
+	 */
+	public function af_fail_query_silently( $which = '*' ) {
+		$this->fail_query   = (string) $which;
+		$this->fail_message = '';
+	}
+
+	/**
 	 * Substitute %s and %d exactly as many times as there are arguments. A
 	 * mismatch is a bug in the caller and is raised as one: silently ignoring a
 	 * spare argument is how an unbound placeholder reaches a real database.
@@ -905,19 +920,25 @@ class AF_Fake_WPDB {
 		}
 
 		if ( 'elementor' === $query['name'] ) {
-			return $this->rows_elementor( $query['like'][0] );
+			$rows = $this->rows_elementor( $query['like'][0] );
+		} elseif ( 'acf_posts' === $query['name'] ) {
+			$rows = $this->rows_acf_posts( $query['types'] );
+		} else {
+			$rows = $this->rows_content( $query['like'] );
 		}
-		if ( 'acf_posts' === $query['name'] ) {
-			return $this->rows_acf_posts( $query['types'] );
-		}
-		return $this->rows_content( $query['like'] );
+
+		// The real statements all carry a LIMIT now, the same as MySQL would
+		// enforce one: this stub returns at most that many rows, so a test can
+		// seed more matches than the display cap and see the truncation the
+		// audit is supposed to disclose.
+		return array_slice( $rows, 0, $query['limit'] );
 	}
 
 	/**
 	 * Which of the three modelled SELECTs this is, with its bound values.
 	 *
 	 * @param string $sql Prepared SQL.
-	 * @return array{name:string,like:string[],types:string[]}
+	 * @return array{name:string,like:string[],types:string[],limit:int}
 	 */
 	private function identify( $sql ) {
 		// Collapsed to single spaces first: the plugin writes these across
@@ -934,22 +955,25 @@ class AF_Fake_WPDB {
 			. " WHERE m\.meta_key = '_elementor_data'"
 			. ' AND m\.meta_value LIKE ' . $quoted
 			. " AND p\.post_status != 'trash'"
-			. " AND p\.post_type != 'revision'$/";
+			. " AND p\.post_type != 'revision'"
+			. ' LIMIT (\d+)$/';
 
 		if ( preg_match( $elementor, $q, $m ) ) {
-			return array( 'name' => 'elementor', 'like' => array( stripslashes( $m[1] ) ), 'types' => array() );
+			return array( 'name' => 'elementor', 'like' => array( stripslashes( $m[1] ) ), 'types' => array(), 'limit' => (int) $m[2] );
 		}
 
 		$acf_posts = '/^SELECT ID, post_title, post_type'
 			. ' FROM ' . $posts
 			. ' WHERE post_type IN \( ' . $quoted . ', ' . $quoted . ', ' . $quoted . ' \)'
-			. " AND post_status != 'trash'$/";
+			. " AND post_status != 'trash'"
+			. ' LIMIT (\d+)$/';
 
 		if ( preg_match( $acf_posts, $q, $m ) ) {
 			return array(
 				'name'  => 'acf_posts',
 				'like'  => array(),
 				'types' => array( stripslashes( $m[1] ), stripslashes( $m[2] ), stripslashes( $m[3] ) ),
+				'limit' => (int) $m[4],
 			);
 		}
 
@@ -957,13 +981,15 @@ class AF_Fake_WPDB {
 			. ' FROM ' . $posts
 			. " WHERE post_status != 'trash'"
 			. " AND post_type != 'revision'"
-			. ' AND \( post_content LIKE ' . $quoted . ' OR post_content LIKE ' . $quoted . ' \)$/';
+			. ' AND \( post_content LIKE ' . $quoted . ' OR post_content LIKE ' . $quoted . ' \)'
+			. ' LIMIT (\d+)$/';
 
 		if ( preg_match( $content, $q, $m ) ) {
 			return array(
 				'name'  => 'content',
 				'like'  => array( stripslashes( $m[1] ), stripslashes( $m[2] ) ),
 				'types' => array(),
+				'limit' => (int) $m[3],
 			);
 		}
 
@@ -1118,6 +1144,16 @@ function af_wpdb_fail( $which = '*', $message = 'MySQL server has gone away' ) {
 	$GLOBALS['wpdb']->af_fail_query( $which, $message );
 }
 
+/**
+ * Arm a modelled SELECT to fail the way $wpdb->ready being false does: null
+ * back, last_error left empty. See AF_Fake_WPDB::af_fail_query_silently().
+ *
+ * @param string $which elementor, acf_posts, content, or '*' for all of them.
+ */
+function af_wpdb_fail_silently( $which = '*' ) {
+	$GLOBALS['wpdb']->af_fail_query_silently( $which );
+}
+
 // Admin-only functions the includes call at load time but tests never exercise.
 function is_admin() { return false; }
 function add_meta_box() {}
@@ -1133,7 +1169,26 @@ function wp_register_script() {}
 function wp_register_style() {}
 function wp_nonce_field() {}
 function wp_verify_nonce() { return true; }
-function wp_create_nonce() { return 'nonce'; }
+function wp_create_nonce( $action = -1 ) { return 'nonce'; }
+/**
+ * Always honours the nonce, the same permissive default as wp_verify_nonce()
+ * above. The ACF-readiness "Recheck now" link is never followed by a test —
+ * there is no request cycle here to drive it through — so this exists only so
+ * requiring configurations.php does not leave the function undefined; it is
+ * not meant to exercise WordPress's real CSRF behaviour.
+ */
+function check_admin_referer( $action = -1, $query_arg = '_wpnonce' ) { return true; }
+/**
+ * @param string $actionurl URL to append the nonce to.
+ * @param int|string $action Nonce action.
+ * @param string $name Query arg name for the nonce.
+ * @return string
+ */
+function wp_nonce_url( $actionurl, $action = -1, $name = '_wpnonce' ) {
+	$actionurl = str_replace( '&amp;', '&', (string) $actionurl );
+	$sep       = false !== strpos( $actionurl, '?' ) ? '&' : '?';
+	return $actionurl . $sep . $name . '=' . wp_create_nonce( $action );
+}
 function selected( $a, $b, $echo = true ) { return $a === $b ? ' selected' : ''; }
 function checked( $a, $b, $echo = true ) { return $a === $b ? ' checked' : ''; }
 function plugins_url( $path = '', $file = '' ) { return '/wp-content/plugins/' . ltrim( (string) $path, '/' ); }

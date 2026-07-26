@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-07-26
+
+### Fixed
+
+- **The ACF readiness panel no longer says "safe" while ACF's own field groups and post types are still on the site.** Deleting them was already advised, but only underneath the green "safe" sentence, where it read as a footnote. Their presence now produces its own state — `cleanup_needed` — distinct from a genuine dependency, because the fix is different: delete these, rather than go investigate a plugin.
+- **A database failure with an empty `last_error` no longer reads as a clean site.** `$wpdb->ready` being false lets `get_results()` return `null` without ever setting `last_error`. The audit now also checks for `null` directly, regardless of what `last_error` says.
+- **A PCRE engine failure on a large or pathological file no longer reads as "this file is clean".** `preg_match()` returning `false` — a backtrack or recursion-limit error — is now told apart from a genuine zero-match result and marks the scan incomplete.
+- **Third-party ACF add-ons (e.g. `advanced-custom-fields-multilingual`) are no longer silently skipped from the scan.** The skip list matched by prefix, which also caught unrelated plugins that depend on ACF and would break when it goes. It now matches ACF's own two plugin folders exactly.
+- **The cached "safe to deactivate" answer is now dropped when a plugin is activated, a plugin is deactivated, or the theme is switched** — the three events most likely to make a stale "safe" verdict wrong. The Configurations page also gained a nonce-guarded "Recheck now" link for forcing a fresh answer on demand.
+- **A directory entry that exists but could not be `stat`'d is no longer treated the same as one that was never there.** `is_file()`/`is_dir()` answer identically for both; the scan now also checks whether the entry is listed in its parent directory before calling it missing.
+- **A site with many ACF-related matches no longer renders an unbounded list into one paragraph.** Elementor content, ACF's own posts, and flagged post content are each capped for display, and the panel now says when more were found than are shown.
+
 ## [0.20.0] - 2026-07-26
 
 ### Fixed

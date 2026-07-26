@@ -143,15 +143,19 @@ function afristream_license_stock() {
  * tag, and there is no way to tell from this repo alone. This looks at the
  * live site.
  *
- * It answers with three states, not two, and the third one is the reason this
+ * It answers with four states, not two, and the extra two are the reason this
  * function is worth trusting. An audit that cannot fail is worse than no audit:
  * every way this check can go wrong — a query that times out, a directory it
- * cannot read, a file scan that gives up at its own cap — used to come back
- * indistinguishable from "nothing found", and somebody would deactivate ACF on
- * the strength of it and take the site's Elementor pages down. So each failure
- * path lands in 'undetermined' instead, naming what went unchecked, and
- * 'safe' => true is returned only when every check ran to completion and every
- * one of them came back empty.
+ * cannot read, a file scan that gives up at its own cap or hits a PCRE error
+ * partway through — used to come back indistinguishable from "nothing found",
+ * and somebody would deactivate ACF on the strength of it and take the site's
+ * Elementor pages down. So each failure path lands in 'undetermined' instead,
+ * naming what went unchecked. ACF's own field groups, post types and
+ * taxonomies still existing get a state of their own too — 'cleanup_needed' —
+ * because the remedy is different from either of the others: delete these,
+ * rather than investigate a dependency or wait and retry. 'safe' => true is
+ * returned only when every check ran to completion, every one of them came
+ * back empty, and none of ACF's own posts remain either.
  *
  * WHAT IT LOOKS AT
  * - ACF's own field groups, post types and taxonomies, as posts.
@@ -175,13 +179,18 @@ function afristream_license_stock() {
  * - Field *values* read straight out of postmeta with get_post_meta(). Those
  *   are deliberately not looked for: the rows stay in the database when ACF
  *   goes, so that code keeps working, and flagging it would bury the real hits.
- * - Non-PHP files, and any PHP file the scan skipped for being too large.
+ * - Non-PHP files, any PHP file the scan skipped for being too large, and any
+ *   file that made the regex engine itself fail partway through — all three
+ *   leave the scan incomplete, not clean.
+ * - Elementor content, ACF's own posts and flagged post content are each
+ *   listed up to a display cap. Past that cap, more may exist than are shown —
+ *   that is disclosed on the page, not silently dropped.
  *
  * A hit here is strong evidence. A clean result is weaker evidence, and it is
  * only ever offered when nothing at all was left unread.
  *
- * @return array{state:string,elementor:array<int,array{id:int,title:string,type:string}>,plugins:string[],acf_posts:array<int,array{id:int,title:string,type:string}>,content:array<int,array{id:int,title:string,type:string}>,undetermined:string[],safe:bool}
- *         state is one of clean, unsafe, undetermined.
+ * @return array{state:string,elementor:array<int,array{id:int,title:string,type:string}>,elementor_more:bool,plugins:string[],acf_posts:array<int,array{id:int,title:string,type:string}>,acf_posts_more:bool,content:array<int,array{id:int,title:string,type:string}>,content_more:bool,undetermined:string[],safe:bool}
+ *         state is one of clean, cleanup_needed, unsafe, undetermined.
  */
 function afristream_acf_audit() {
 	global $wpdb;
@@ -192,17 +201,24 @@ function afristream_acf_audit() {
 		return $cached;
 	}
 
-	$elementor    = array();
-	$acf_posts    = array();
-	$content      = array();
-	$plugins      = array();
-	$undetermined = array();
+	$elementor      = array();
+	$elementor_more = false;
+	$acf_posts      = array();
+	$acf_posts_more = false;
+	$content        = array();
+	$content_more   = false;
+	$plugins        = array();
+	$undetermined   = array();
+	$display_limit  = afristream_acf_audit_display_limit();
 
 	// Elementor stores its tree as JSON in _elementor_data; an ACF dynamic tag
 	// appears in it as an "acf-" prefixed name. Revisions are excluded because
 	// every save leaves another copy of the same tree and the list would read
 	// as a dozen problems where there is one. The only interpolation into the
-	// SQL is $wpdb's own table names; the search term is bound.
+	// SQL is $wpdb's own table names; the search term and the row cap are
+	// bound. One extra row is asked for beyond the display cap purely so a
+	// full page of results can be told apart from one that happened to stop
+	// exactly at the edge.
 	$rows = $wpdb->get_results(
 		$wpdb->prepare(
 			"SELECT p.ID, p.post_title, p.post_type
@@ -211,15 +227,20 @@ function afristream_acf_audit() {
 			 WHERE m.meta_key = '_elementor_data'
 			   AND m.meta_value LIKE %s
 			   AND p.post_status != 'trash'
-			   AND p.post_type != 'revision'",
-			'%' . $wpdb->esc_like( 'acf-' ) . '%'
+			   AND p.post_type != 'revision'
+			 LIMIT %d",
+			'%' . $wpdb->esc_like( 'acf-' ) . '%',
+			$display_limit + 1
 		)
 	);
 	// A leading-wildcard LIKE over postmeta is a full table scan, which is
 	// exactly the query that times out on a site big enough to have something
-	// to lose. null back from get_results() is that failure, and casting it to
-	// an empty array would report the most dangerous case as the safest one.
-	if ( '' !== (string) $wpdb->last_error ) {
+	// to lose. null back from get_results() is that failure — whether or not
+	// last_error was set, since $wpdb->ready being false leaves last_error
+	// empty too and hands back a stale, usually-empty last_result — and
+	// casting either one to an empty array would report the most dangerous
+	// case as the safest one.
+	if ( '' !== (string) $wpdb->last_error || null === $rows ) {
 		$undetermined[] = __( 'Elementor content could not be searched — the database query failed or timed out. Any page using an ACF dynamic tag is still unaccounted for.', 'bluegroup-project-afristream' );
 	} else {
 		foreach ( (array) $rows as $row ) {
@@ -229,18 +250,29 @@ function afristream_acf_audit() {
 				'type'  => (string) $row->post_type,
 			);
 		}
+		if ( count( $elementor ) > $display_limit ) {
+			$elementor_more = true;
+			$elementor      = array_slice( $elementor, 0, $display_limit );
+		}
 	}
 
 	// ACF's own field groups, post types and taxonomies. These must be deleted
 	// before ACF is deactivated, or ACF and this plugin both register the
-	// licence post type and the editor shows two of every field.
+	// licence post type and the editor shows two of every field. Found rows
+	// here get their own 'cleanup_needed' verdict below rather than counting
+	// toward 'unsafe' — the fix is deleting these, not investigating a
+	// dependency, and folding the two together would bury that difference.
 	$acf_rows = $wpdb->get_results(
-		"SELECT ID, post_title, post_type
-		 FROM {$wpdb->posts}
-		 WHERE post_type IN ( 'acf-field-group', 'acf-post-type', 'acf-taxonomy' )
-		   AND post_status != 'trash'"
+		$wpdb->prepare(
+			"SELECT ID, post_title, post_type
+			 FROM {$wpdb->posts}
+			 WHERE post_type IN ( 'acf-field-group', 'acf-post-type', 'acf-taxonomy' )
+			   AND post_status != 'trash'
+			 LIMIT %d",
+			$display_limit + 1
+		)
 	);
-	if ( '' !== (string) $wpdb->last_error ) {
+	if ( '' !== (string) $wpdb->last_error || null === $acf_rows ) {
 		$undetermined[] = __( "ACF's own field groups, post types and taxonomies could not be listed — the database query failed. Deleting them first is a required step and it cannot be confirmed as done.", 'bluegroup-project-afristream' );
 	} else {
 		foreach ( (array) $acf_rows as $row ) {
@@ -249,6 +281,10 @@ function afristream_acf_audit() {
 				'title' => (string) $row->post_title,
 				'type'  => (string) $row->post_type,
 			);
+		}
+		if ( count( $acf_posts ) > $display_limit ) {
+			$acf_posts_more = true;
+			$acf_posts      = array_slice( $acf_posts, 0, $display_limit );
 		}
 	}
 
@@ -261,12 +297,14 @@ function afristream_acf_audit() {
 			 FROM {$wpdb->posts}
 			 WHERE post_status != 'trash'
 			   AND post_type != 'revision'
-			   AND ( post_content LIKE %s OR post_content LIKE %s )",
+			   AND ( post_content LIKE %s OR post_content LIKE %s )
+			 LIMIT %d",
 			'%' . $wpdb->esc_like( '<!-- wp:acf/' ) . '%',
-			'%' . $wpdb->esc_like( '[acf' ) . '%'
+			'%' . $wpdb->esc_like( '[acf' ) . '%',
+			$display_limit + 1
 		)
 	);
-	if ( '' !== (string) $wpdb->last_error ) {
+	if ( '' !== (string) $wpdb->last_error || null === $content_rows ) {
 		$undetermined[] = __( 'Post content could not be searched — the database query failed or timed out. ACF blocks and [acf…] shortcodes are still unaccounted for.', 'bluegroup-project-afristream' );
 	} else {
 		foreach ( (array) $content_rows as $row ) {
@@ -275,6 +313,10 @@ function afristream_acf_audit() {
 				'title' => (string) $row->post_title,
 				'type'  => (string) $row->post_type,
 			);
+		}
+		if ( count( $content ) > $display_limit ) {
+			$content_more = true;
+			$content      = array_slice( $content, 0, $display_limit );
 		}
 	}
 
@@ -303,11 +345,14 @@ function afristream_acf_audit() {
 
 	// Precedence: a hit is decisive and is reported as such even when some other
 	// check did not finish, because the answer — do not deactivate ACF — is the
-	// same either way and is more use stated plainly. Only when nothing was
-	// found does an unfinished check decide the state, and it decides it against
-	// "clean" every time.
+	// same either way and is more use stated plainly. ACF's own posts are a hit
+	// too, just one with a different remedy, so they outrank an unfinished check
+	// the same way. Only when nothing was found at all does an unfinished check
+	// decide the state, and it decides it against "clean" every time.
 	if ( $found ) {
 		$state = 'unsafe';
+	} elseif ( ! empty( $acf_posts ) ) {
+		$state = 'cleanup_needed';
 	} elseif ( ! empty( $undetermined ) ) {
 		$state = 'undetermined';
 	} else {
@@ -315,19 +360,43 @@ function afristream_acf_audit() {
 	}
 
 	$result = array(
-		'state'        => $state,
-		'elementor'    => $elementor,
-		'plugins'      => $plugins,
-		'acf_posts'    => $acf_posts,
-		'content'      => $content,
-		'undetermined' => $undetermined,
-		'safe'         => 'clean' === $state,
+		'state'          => $state,
+		'elementor'      => $elementor,
+		'elementor_more' => $elementor_more,
+		'plugins'        => $plugins,
+		'acf_posts'      => $acf_posts,
+		'acf_posts_more' => $acf_posts_more,
+		'content'        => $content,
+		'content_more'   => $content_more,
+		'undetermined'   => $undetermined,
+		'safe'           => 'clean' === $state,
 	);
 
 	set_transient( $cache_key, $result, afristream_acf_audit_ttl( $state ) );
 
 	return $result;
 }
+
+/**
+ * Drop the cached audit so a change that can make a 'safe' answer wrong does
+ * not go on being read as safe for hours.
+ *
+ * Hooked to plugin activation, plugin deactivation and a theme switch — the
+ * three events after which something that was not there before could now be
+ * calling ACF, or something that was could now be gone. It only ever deletes
+ * the transient; the next read recomputes it, the same as the very first one.
+ * Also called directly from the Configurations page when someone follows the
+ * "Recheck now" link there, which is a deliberate, nonce-guarded action and
+ * not something a page load triggers by itself — this page stays read-only
+ * about the site's actual configuration, and clearing a stale diagnostic is
+ * not the same thing as flipping a feature off.
+ */
+function afristream_acf_audit_invalidate() {
+	delete_transient( afristream_acf_audit_cache_key() );
+}
+add_action( 'activated_plugin', 'afristream_acf_audit_invalidate' );
+add_action( 'deactivated_plugin', 'afristream_acf_audit_invalidate' );
+add_action( 'switch_theme', 'afristream_acf_audit_invalidate' );
 
 /**
  * Where the cached audit is kept.
@@ -356,7 +425,7 @@ function afristream_acf_audit_cache_key() {
  * as a clean result would leave a site stuck looking broken for hours after it
  * had recovered, which teaches people to ignore the panel.
  *
- * @param string $state clean, unsafe or undetermined.
+ * @param string $state clean, cleanup_needed, unsafe or undetermined.
  * @return int Seconds.
  */
 function afristream_acf_audit_ttl( $state ) {
@@ -366,7 +435,26 @@ function afristream_acf_audit_ttl( $state ) {
 	if ( 'unsafe' === $state ) {
 		return 15 * MINUTE_IN_SECONDS;
 	}
+	// clean and cleanup_needed both mean every check ran to completion — the
+	// expensive part — so both are held the same, long way. A cleanup_needed
+	// result does not go stale on its own the way unsafe or undetermined can;
+	// it waits on someone deleting ACF's posts, and the "Recheck now" link on
+	// the page is what that person is expected to use afterwards.
 	return 6 * HOUR_IN_SECONDS;
+}
+
+/**
+ * How many rows of any one kind — Elementor pages, ACF's own posts, flagged
+ * post content — the audit will put into a single paragraph before it stops.
+ *
+ * Filterable for the same reason the file-scan cap is: a site that genuinely
+ * has hundreds of hits can raise it, and the truncation path can be exercised
+ * in a test without seeding hundreds of posts.
+ *
+ * @return int
+ */
+function afristream_acf_audit_display_limit() {
+	return max( 1, (int) apply_filters( 'afristream_acf_audit_display_limit', 50 ) );
 }
 
 /**
@@ -415,20 +503,33 @@ function afristream_acf_scan_targets() {
 }
 
 /**
- * Whether a plugin is one of the two there is no point scanning.
+ * Whether a plugin is one there is no point scanning.
  *
  * ACF's own code is full of ACF calls, and so is this plugin's — it replaced
  * ACF, so it names the same functions in its migration and audit code. Either
  * one would report itself as the reason ACF cannot be retired.
+ *
+ * Matched by exact folder name, not by prefix. ACF ships as
+ * "advanced-custom-fields" (free) or "advanced-custom-fields-pro"; a prefix
+ * match also swallows "advanced-custom-fields-multilingual" and
+ * "advanced-custom-fields-table-field", which are separate add-on plugins
+ * that genuinely depend on ACF and would break exactly like any other ACF
+ * dependency once it goes. Skipping them silently would hide a real
+ * dependency rather than merely omitting it from the "what this cannot see"
+ * list — so it is not skipped at all.
  *
  * @param string $plugin Plugin file, relative to the plugins directory.
  * @return bool
  */
 function afristream_acf_scan_skips( $plugin ) {
 	$plugin = (string) $plugin;
+	$folder = strtolower( dirname( str_replace( '\\', '/', $plugin ) ) );
 
-	return 0 === strpos( $plugin, 'advanced-custom-fields' )
-		|| 0 === strpos( $plugin, 'bluegroup-project-afristream' );
+	if ( in_array( $folder, array( 'advanced-custom-fields', 'advanced-custom-fields-pro' ), true ) ) {
+		return true;
+	}
+
+	return 0 === strpos( $plugin, 'bluegroup-project-afristream' );
 }
 
 /**
@@ -458,11 +559,18 @@ function afristream_active_plugin_path( $plugin ) {
  * Whether the PHP at a path calls ACF, for a path that may be either a single
  * file or a directory.
  *
- * A path that is neither is reported as nothing to scan rather than as a
- * failure. An active plugin whose file has been deleted is not loaded by
+ * A path that is genuinely neither is reported as nothing to scan rather than
+ * as a failure. An active plugin whose file has been deleted is not loaded by
  * WordPress, so it cannot be calling ACF, and a must-use directory that does
  * not exist holds no code — treating those as unknown would put a permanent
  * warning on a healthy site and teach people to skip past it.
+ *
+ * But "is_file() and is_dir() both say no" is not by itself proof of that —
+ * they answer identically for "nothing here" and for "something here that PHP
+ * could not stat", which a permissions problem or a filesystem hiccup can
+ * both cause. afristream_path_exists_but_unreadable() is the one place that
+ * tells those two apart, and only when it agrees nothing is there does this
+ * report 'missing'.
  *
  * @param string $path Absolute path.
  * @return string found, clean, incomplete, or missing.
@@ -474,7 +582,38 @@ function afristream_path_uses_acf( $path ) {
 	if ( is_dir( $path ) ) {
 		return afristream_dir_uses_acf( $path );
 	}
+	if ( afristream_path_exists_but_unreadable( $path ) ) {
+		return 'incomplete';
+	}
 	return 'missing';
+}
+
+/**
+ * Whether something is sitting at a path that neither is_file() nor is_dir()
+ * could make sense of.
+ *
+ * Both of those answer identically — false — for a path with nothing there at
+ * all and for a path PHP could not stat because of a permissions problem or a
+ * filesystem hiccup; neither function distinguishes "not there" from "there,
+ * but unreadable". Listing the parent directory does, because reading a
+ * directory's own entries does not require stat'ing each one individually —
+ * so a name that shows up in that listing but that is_file()/is_dir() could
+ * not resolve is something real that went unread, not nothing.
+ *
+ * @param string $path Absolute path that already failed both is_file() and is_dir().
+ * @return bool
+ */
+function afristream_path_exists_but_unreadable( $path ) {
+	$parent = dirname( (string) $path );
+	$name   = basename( (string) $path );
+
+	if ( '' === $name || ! is_dir( $parent ) || ! is_readable( $parent ) ) {
+		return false;
+	}
+
+	$entries = @scandir( $parent ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_read_scandir
+
+	return is_array( $entries ) && in_array( $name, $entries, true );
 }
 
 /**
@@ -535,7 +674,17 @@ function afristream_dir_uses_acf( $dir ) {
 				$skipped = true;
 				continue;
 			}
-			if ( preg_match( afristream_acf_source_pattern(), $contents ) ) {
+
+			$matched = preg_match( afristream_acf_source_pattern(), $contents );
+			// preg_match() itself can fail — a backtrack or recursion limit on a
+			// large or pathological file — and answers false when it does, which
+			// is falsy exactly like "0 matches" unless checked for by identity.
+			// A regex engine that gave up is not the same as a file read clean.
+			if ( false === $matched ) {
+				$skipped = true;
+				continue;
+			}
+			if ( $matched ) {
 				$found = true;
 				break;
 			}
@@ -568,7 +717,14 @@ function afristream_file_uses_acf( $file ) {
 		return 'incomplete';
 	}
 
-	return preg_match( afristream_acf_source_pattern(), $contents ) ? 'found' : 'clean';
+	$matched = preg_match( afristream_acf_source_pattern(), $contents );
+	// Same distinction as the directory walk: preg_match() returning false is a
+	// PCRE failure, not a clean read that happened to match nothing.
+	if ( false === $matched ) {
+		return 'incomplete';
+	}
+
+	return $matched ? 'found' : 'clean';
 }
 
 /**
@@ -641,7 +797,13 @@ function afristream_acf_source_pattern() {
 		'acf_form', 'acf_form_head', 'acf_shortcode',
 	);
 
-	return '/(?:\b(?:' . implode( '|', $functions ) . ')\s*\()|(?:[\'"]acf\/[a-z0-9_\/-]+[\'"])/i';
+	$pattern = '/(?:\b(?:' . implode( '|', $functions ) . ')\s*\()|(?:[\'"]acf\/[a-z0-9_\/-]+[\'"])/i';
+
+	// Filterable so a test can hand back a pattern PCRE itself cannot evaluate
+	// — the only practical way to exercise "the scan engine failed partway
+	// through" without crafting a real multi-megabyte pathological file to
+	// trigger a genuine backtrack-limit error.
+	return apply_filters( 'afristream_acf_source_pattern', $pattern );
 }
 
 /**
@@ -700,6 +862,17 @@ function afristream_status_pill( $status ) {
 function afristream_render_configurations_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
+	}
+
+	// The one deliberate write this read-only page makes: following the
+	// "Recheck now" link clears the cached ACF audit before it is read below,
+	// so the page that requested a fresh answer is the one that gets it
+	// rather than the transient it just asked to be dropped. Nonce-guarded so
+	// a crawler or a cached copy of the link cannot fire it on every visit —
+	// clearing a diagnostic cache cannot break anything, but it still should
+	// only happen because someone clicked it.
+	if ( isset( $_GET['afristream_recheck_acf'] ) && check_admin_referer( 'afristream_recheck_acf' ) ) {
+		afristream_acf_audit_invalidate();
 	}
 
 	$stock     = afristream_license_stock();
@@ -791,9 +964,30 @@ function afristream_render_configurations_page() {
 		<?php endif; ?>
 
 		<h2><?php esc_html_e( 'ACF readiness', 'bluegroup-project-afristream' ); ?></h2>
+		<p>
+			<a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=afristream-configurations&afristream_recheck_acf=1' ), 'afristream_recheck_acf' ) ); ?>">
+				<?php esc_html_e( 'Recheck now', 'bluegroup-project-afristream' ); ?>
+			</a>
+			<?php esc_html_e( 'The result below can be up to a few hours old — use this after activating, deactivating or deleting something.', 'bluegroup-project-afristream' ); ?>
+		</p>
 		<?php if ( 'clean' === $audit['state'] ) : ?>
-			<p><?php esc_html_e( 'Every check finished and none of them found anything outside this plugin using ACF. It is safe to delete ACF\'s field groups and post types and deactivate it.', 'bluegroup-project-afristream' ); ?></p>
+			<p><?php esc_html_e( 'Every check finished and none of them found anything outside this plugin using ACF. It is safe to deactivate it.', 'bluegroup-project-afristream' ); ?></p>
 			<p class="description"><?php esc_html_e( 'This searched Elementor content, post content, and the PHP of the active plugins, must-use plugins and the active theme and its parent. It cannot see ACF called through a variable function name, other page builders, JavaScript, or code in plugins and themes that are not active.', 'bluegroup-project-afristream' ); ?></p>
+		<?php elseif ( 'cleanup_needed' === $audit['state'] ) : ?>
+			<div class="notice notice-warning inline"><p>
+				<strong><?php esc_html_e( 'Not yet safe to deactivate ACF — its own field groups, post types or taxonomies are still here.', 'bluegroup-project-afristream' ); ?></strong><br>
+				<?php esc_html_e( 'Nothing else on the site was found to depend on ACF. But while ACF is active, it and this plugin both register the licence post type and the editor shows every field twice, and once ACF is deactivated these simply stop working. Delete them, then use "Recheck now" above:', 'bluegroup-project-afristream' ); ?>
+				<?php
+				$titles = array();
+				foreach ( $audit['acf_posts'] as $item ) {
+					$titles[] = $item['title'] . ' (' . $item['type'] . ')';
+				}
+				echo esc_html( implode( ', ', $titles ) );
+				?>
+				<?php if ( ! empty( $audit['acf_posts_more'] ) ) : ?>
+					<?php echo esc_html( sprintf( __( ' — showing the first %d; more than that were found.', 'bluegroup-project-afristream' ), count( $audit['acf_posts'] ) ) ); ?>
+				<?php endif; ?>
+			</p></div>
 		<?php elseif ( 'unsafe' === $audit['state'] ) : ?>
 			<div class="notice notice-error inline"><p>
 				<strong><?php esc_html_e( 'Something still uses ACF — do not deactivate it yet.', 'bluegroup-project-afristream' ); ?></strong><br>
@@ -805,7 +999,11 @@ function afristream_render_configurations_page() {
 						$titles[] = $item['title'] . ' (' . $item['type'] . ')';
 					}
 					echo esc_html( implode( ', ', $titles ) );
-					?><br>
+					?>
+					<?php if ( ! empty( $audit['elementor_more'] ) ) : ?>
+						<?php echo esc_html( sprintf( __( ' — showing the first %d; more than that were found.', 'bluegroup-project-afristream' ), count( $audit['elementor'] ) ) ); ?>
+					<?php endif; ?>
+					<br>
 				<?php endif; ?>
 				<?php if ( ! empty( $audit['content'] ) ) : ?>
 					<?php esc_html_e( 'Content with ACF blocks or [acf] shortcodes:', 'bluegroup-project-afristream' ); ?>
@@ -815,7 +1013,11 @@ function afristream_render_configurations_page() {
 						$titles[] = $item['title'] . ' (' . $item['type'] . ')';
 					}
 					echo esc_html( implode( ', ', $titles ) );
-					?><br>
+					?>
+					<?php if ( ! empty( $audit['content_more'] ) ) : ?>
+						<?php echo esc_html( sprintf( __( ' — showing the first %d; more than that were found.', 'bluegroup-project-afristream' ), count( $audit['content'] ) ) ); ?>
+					<?php endif; ?>
+					<br>
 				<?php endif; ?>
 				<?php if ( ! empty( $audit['plugins'] ) ) : ?>
 					<?php esc_html_e( 'Plugins or themes calling ACF:', 'bluegroup-project-afristream' ); ?>
@@ -842,7 +1044,7 @@ function afristream_render_configurations_page() {
 				<?php echo esc_html( implode( ' ', $audit['undetermined'] ) ); ?>
 			</p>
 		<?php endif; ?>
-		<?php if ( ! empty( $audit['acf_posts'] ) ) : ?>
+		<?php if ( 'cleanup_needed' !== $audit['state'] && ! empty( $audit['acf_posts'] ) ) : ?>
 			<p class="description">
 				<?php esc_html_e( 'ACF still defines these, and they must be deleted before it is deactivated or the licence editor will show every field twice:', 'bluegroup-project-afristream' ); ?>
 				<?php
@@ -852,6 +1054,9 @@ function afristream_render_configurations_page() {
 				}
 				echo esc_html( implode( ', ', $titles ) );
 				?>
+				<?php if ( ! empty( $audit['acf_posts_more'] ) ) : ?>
+					<?php echo esc_html( sprintf( __( ' — showing the first %d; more than that were found.', 'bluegroup-project-afristream' ), count( $audit['acf_posts'] ) ) ); ?>
+				<?php endif; ?>
 			</p>
 		<?php endif; ?>
 
