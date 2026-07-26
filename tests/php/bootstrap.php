@@ -117,7 +117,15 @@ function get_user_meta( $user_id, $key = '', $single = false ) {
 	return $single ? $all[ $key ] : array( $all[ $key ] );
 }
 
+/**
+ * Fires the real 'update_user_meta' action WordPress itself fires before
+ * saving, the same way update_post_meta() above fires 'updated_post_meta'.
+ * Modelled for the same reason: it is the one honest way, with no threads to
+ * hand, to stand a rival's own write up between this write being decided and
+ * it landing on the store.
+ */
 function update_user_meta( $user_id, $key, $value ) {
+	do_action( 'update_user_meta', 0, $user_id, $key, $value );
 	$GLOBALS['af_store']['usermeta'][ $user_id ][ $key ] = $value;
 	return true;
 }

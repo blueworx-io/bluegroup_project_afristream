@@ -521,11 +521,18 @@ function afristream_with_lock( $fn ) {
  * holding '0'. add_post_meta() with $unique = true is a no-op when the row is
  * already there, so this is safe to run on every claim. It is itself a
  * check-then-act inside WordPress, so two requests racing the very first claim
- * of a licence could in principle insert two rows; the UPDATE would then change
- * both together rather than letting two claimers each match one, so the outcome
- * is still a single owner. A licence whose owner row has been hand-edited to an
- * empty string is not repaired here: it simply fails to claim, which refuses an
- * assignment rather than risking one being taken from underneath somebody.
+ * of a licence can each find no row and each insert their own: not one row
+ * moved between two claimants, but two separate rows, one per caller. Each
+ * caller's UPDATE then matches only the row it just inserted, so both read a
+ * changed count of 1 and both believe they claimed the licence. get_post_meta()
+ * always returns the lowest meta_id, so only one of those rows is ever visible
+ * to anyone else — the other caller's write is real but orphaned, and that
+ * caller has to be told it lost despite its own row count. That confirmation
+ * is what afristream_assign_license() does immediately after a successful
+ * claim, rather than trusting the row count alone. A licence whose owner row
+ * has been hand-edited to an empty string is not repaired here: it simply
+ * fails to claim, which refuses an assignment rather than risking one being
+ * taken from underneath somebody.
  *
  * Rows changed, not rows matched. MySQL reports rows actually changed, so a swap
  * whose target equals the value it matched would report zero and read as a lost
@@ -605,6 +612,27 @@ function afristream_rebuild_user_mirror( $user_id ) {
 
 	$ids = array_map( 'strval', afristream_user_license_ids( $user_id ) );
 	update_user_meta( $user_id, AFRISTREAM_USER_LICENSE_META, $ids );
+
+	// Two rebuilds for the same user can interleave so the later write carries
+	// the older derivation: this call derives [10], a rival derives [10, 11]
+	// and writes first, and this call's write then lands on top of it and
+	// takes the mirror back down to [10]. The licence rows themselves stay
+	// correct throughout — only this derived copy goes stale — so re-deriving
+	// right after the write and comparing catches it: if the truth right now
+	// differs from what was just written, something changed underneath this
+	// call, and the fresher value replaces it.
+	//
+	// One retry, not a loop. The mirror is derived data whose only job is to
+	// agree with the licences it comes from, and it is read only as a
+	// convenience mirror, never as an authority — afristream_user_license_ids()
+	// is that. Converging a little late, on whichever rebuild happens to run
+	// next, is acceptable for something nothing trusts on its own; spinning
+	// here would only keep racing the same rival with no better odds, in
+	// exchange for turning a bounded write into an unbounded one.
+	$fresh = array_map( 'strval', afristream_user_license_ids( $user_id ) );
+	if ( $fresh !== $ids ) {
+		update_user_meta( $user_id, AFRISTREAM_USER_LICENSE_META, $fresh );
+	}
 }
 
 /**
@@ -741,6 +769,37 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
 				return new WP_Error(
 					'afristream_license_unclaimed',
 					__( 'That licence could not be claimed just now. Please try again.', 'bluegroup-project-afristream' )
+				);
+			}
+
+			// The row-level claim just reported success, but that is not
+			// quite proof this caller is the licence's one true owner: see
+			// the note on afristream_claim_license_row() about two owner
+			// rows landing for the same licence when neither existed yet.
+			// Each caller's UPDATE then matches only its own row, so a
+			// caller can read a changed count of 1 while the row anyone
+			// else will ever see names somebody different. Confirming
+			// against the authoritative read is what catches that before
+			// this caller is told, and logged, as the winner.
+			$owner_now = afristream_license_owner( $license_id );
+
+			if ( $owner_now !== $user_id ) {
+				// This caller genuinely changed a row — it is not the
+				// ordinary lost race above — but it is not the row anyone
+				// else will ever read back. Both mirrors have to agree
+				// with the truth: the real holder's, in case this caller's
+				// stray write is the reason theirs is now stale too, and
+				// this caller's own, so it does not go on listing a
+				// licence it does not hold. No log entry is written,
+				// because nothing was actually assigned to this caller.
+				if ( $owner_now ) {
+					afristream_rebuild_user_mirror( $owner_now );
+				}
+				afristream_rebuild_user_mirror( $user_id );
+
+				return new WP_Error(
+					'afristream_license_taken',
+					__( 'That licence is already assigned to another user.', 'bluegroup-project-afristream' )
 				);
 			}
 

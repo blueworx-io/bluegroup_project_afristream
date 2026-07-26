@@ -98,6 +98,36 @@ function af_after_claim( $fn ) {
 }
 
 /**
+ * Run $fn once, immediately before a user's mirror is written — a rival
+ * landing in the exact gap afristream_rebuild_user_mirror() cannot close on
+ * its own: after it has derived what to write, before that write lands.
+ *
+ * Hooks the real 'update_user_meta' action WordPress fires before saving,
+ * the same seam af_before_claim()/af_after_claim() use on the claim side of
+ * a race, extended here to the mirror-write side rather than building a
+ * second mechanism for it.
+ *
+ * @param int      $user_id Mirror this rival is scoped to.
+ * @param callable $fn      Rival's body.
+ * @return void
+ */
+function af_before_mirror_write( $user_id, $fn ) {
+	$fired = false;
+	add_action(
+		'update_user_meta',
+		function ( $meta_id, $object_id, $meta_key, $meta_value ) use ( $user_id, $fn, &$fired ) {
+			if ( $fired || (int) $object_id !== (int) $user_id || AFRISTREAM_USER_LICENSE_META !== $meta_key ) {
+				return;
+			}
+			$fired = true;
+			call_user_func( $fn );
+		},
+		10,
+		4
+	);
+}
+
+/**
  * Age the lock in place until it is stale. The TTL is measured in real seconds
  * now, which no test can fast-forward, so the lock's own expiry is pushed into
  * the past instead — the same state a request that died holding it leaves behind.
@@ -533,4 +563,70 @@ af_test( 'the mirror can be rebuilt from the licences alone', function () {
 
 	afristream_rebuild_user_mirror( 7 );
 	af_assert_same( array( '10' ), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'rebuilt from truth' );
+} );
+
+af_test( 'a claim that succeeds at the row level but is not the resulting owner is refused, not credited', function () {
+	af_seed_user( 7 );
+	af_seed_user( 8 );
+	af_seed_post( 10, 'alpha' );
+	$GLOBALS['af_log'] = array();
+
+	// Stand in for the duplicate-row window described on
+	// afristream_claim_license_row(): this caller's own UPDATE genuinely
+	// changes a row and truthfully reports success, but the row
+	// get_post_meta() surfaces afterwards names somebody else, because it was
+	// a different row — inserted by another caller — that won the race to be
+	// the one anyone reads back. The fake store holds one row per meta_key,
+	// so it cannot model two owner rows directly; this reproduces the
+	// observable result instead, by making the authoritative read disagree
+	// with the row this caller just changed.
+	af_after_claim( function ( $post_id, $from, $to, $changed ) {
+		if ( $changed ) {
+			update_post_meta( $post_id, AFRISTREAM_LICENSE_OWNER_META, '8' );
+		}
+	} );
+
+	$result = afristream_assign_license( 10, 7, 'test' );
+
+	af_assert( is_wp_error( $result ), 'the caller is told it did not get the licence' );
+	af_assert_same(
+		'afristream_license_taken',
+		is_wp_error( $result ) ? $result->get_error_code() : 'assignment reported success',
+		'the same code an already-owned licence gives'
+	);
+	af_assert_same( 0, count( $GLOBALS['af_log'] ), 'no assigned entry is written for a caller that did not really win' );
+	af_assert_same( array(), afristream_user_license_ids( 7 ), 'the caller does not truly hold it' );
+	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'nor does its own mirror list it' );
+	af_assert_same( array( '10' ), get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'the real holder\'s mirror agrees with the licence' );
+} );
+
+af_test( 'a mirror rebuild that is overtaken mid-derivation converges to the complete list rather than the stale one', function () {
+	af_seed_user( 7 );
+	af_seed_post( 10, 'alpha' );
+	af_seed_post( 11, 'beta' );
+
+	// Licence 10 is already truly held by user 7; the mirror has not been
+	// rebuilt to say so yet.
+	update_post_meta( 10, AFRISTREAM_LICENSE_OWNER_META, '7' );
+
+	// The instant this rebuild is about to write what it derived — [10]
+	// only, since licence 11 is not yet assigned as far as it read — a rival
+	// finishes assigning licence 11 to the same user and writes the complete
+	// mirror first. The delayed, stale write this call already had in hand
+	// then lands on top of it, exactly the clobber the fix has to catch.
+	af_before_mirror_write( 7, function () {
+		update_post_meta( 11, AFRISTREAM_LICENSE_OWNER_META, '7' );
+		update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '10', '11' ) );
+	} );
+
+	afristream_rebuild_user_mirror( 7 );
+
+	// Without the bounded re-check this would read back ['10'] — the value
+	// this call itself wrote over the rival's complete one — even though the
+	// licence rows agree the user holds both.
+	af_assert_same(
+		array( '10', '11' ),
+		get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ),
+		'the stale write is caught and corrected rather than left standing'
+	);
 } );
