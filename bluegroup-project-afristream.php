@@ -960,16 +960,16 @@ function afristream_portal_register_rest_routes() {
 }
 
 /**
- * The current user's app credentials, one entry per assigned license, for the
+ * The current user's app credentials, one entry per assigned licence, for the
  * portal's Profile tab. Returns source:"fallback" with an empty list when no
- * license is assigned (or ACF is unavailable), so the front-end can show a
- * clear "no profile assigned" state instead of stale placeholders.
+ * licence is assigned, so the front-end can show a clear "no profile assigned"
+ * state instead of stale placeholders.
  */
 function afristream_portal_credentials_data() {
 	$profiles = afristream_portal_user_credentials();
 	return rest_ensure_response(
 		array(
-			'source'   => $profiles ? 'acf' : 'fallback',
+			'source'   => $profiles ? 'assigned' : 'fallback',
 			'profiles' => $profiles,
 		)
 	);

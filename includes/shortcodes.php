@@ -3,12 +3,18 @@
  * Legacy shortcodes ported from the "afristream code snippets" plugin so it can
  * be retired without breaking pages that still reference these tags:
  *
- *   [user_acf_fields]      — the logged-in user's app credentials (ACF-backed)
+ *   [user_acf_fields]      — the logged-in user's app credentials
  *   [troubleshooting_guide] — the detailed troubleshooting accordion
  *
+ * The acf in [user_acf_fields] is now only a name. The fields it shows belong
+ * to this plugin (see includes/fields.php); the tag keeps its old spelling
+ * because pages in the wild reference it and renaming it would break them.
+ *
  * Both are restyled in the AfriStream brand colours. The portal's own Profile
- * and Troubleshooting tabs now cover the same ground, so these are kept purely
- * for backward compatibility.
+ * tab is the primary surface for this data — these exist for pages built before
+ * it and for anyone embedding the details on their own page.
+ *
+ * @package bluegroup-project-afristream
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
