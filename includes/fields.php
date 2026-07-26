@@ -805,9 +805,7 @@ function afristream_assign_license( $license_id, $user_id, $context = '' ) {
 
 			afristream_rebuild_user_mirror( $user_id );
 
-			if ( function_exists( 'afristream_license_log_add' ) ) {
-				afristream_license_log_add( $license_id, 'assigned', $user_id, $context );
-			}
+			afristream_license_log_add( $license_id, 'assigned', $user_id, $context );
 
 			return true;
 		}
@@ -876,9 +874,7 @@ function afristream_unassign_license( $license_id, $context = '' ) {
 
 			afristream_rebuild_user_mirror( $owner );
 
-			if ( function_exists( 'afristream_license_log_add' ) ) {
-				afristream_license_log_add( $license_id, 'unassigned', $owner, $context );
-			}
+			afristream_license_log_add( $license_id, 'unassigned', $owner, $context );
 
 			return true;
 		}

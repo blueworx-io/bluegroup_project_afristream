@@ -1,17 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/fields.php';
-
-/**
- * The licence log module does not exist yet — fields.php calls it behind a
- * function_exists() so it can be added later. Standing it in here is what gives
- * "the loser logs nothing" any force: without it the assertion would pass just
- * as happily against code that never logs anything at all.
- */
-if ( ! function_exists( 'afristream_license_log_add' ) ) {
-	function afristream_license_log_add( $license_id, $event, $user_id, $context = '' ) {
-		$GLOBALS['af_log'][] = array( (int) $license_id, $event, (int) $user_id, $context );
-	}
-}
+require_once __DIR__ . '/../../includes/license-log.php';
 
 /**
  * A competing request that got past the lock and is claiming the same licence.
@@ -393,14 +382,13 @@ af_test( 'losing the race leaves neither user appearing to hold the licence', fu
 } );
 
 af_test( 'the loser of a race logs nothing', function () {
-	$GLOBALS['af_log'] = array();
 	af_seed_user( 7 );
 	af_seed_user( 8 );
 	af_seed_post( 10, 'alpha' );
 	af_seed_post( 11, 'beta' );
 
 	afristream_assign_license( 11, 7, 'test' );
-	af_assert_same( 1, count( $GLOBALS['af_log'] ), 'a claim that wins is logged, so an unchanged count means something' );
+	af_assert_same( 1, count( afristream_license_log_get( 11 ) ), 'a claim that wins is logged, so an unchanged count means something' );
 
 	af_before_claim( function () {
 		af_rival_claim( 10, 8 );
@@ -409,7 +397,7 @@ af_test( 'the loser of a race logs nothing', function () {
 
 	// A logged 'assigned' here would be a permanent record of user 7 being given a
 	// licence user 8 holds — the audit trail contradicting the licence itself.
-	af_assert_same( 1, count( $GLOBALS['af_log'] ), 'the loser adds no entry' );
+	af_assert_same( 0, count( afristream_license_log_get( 10 ) ), 'the loser adds no entry' );
 } );
 
 af_test( 'breaking a stale lock cannot break the live lock that replaced it', function () {
@@ -569,7 +557,6 @@ af_test( 'a claim that succeeds at the row level but is not the resulting owner 
 	af_seed_user( 7 );
 	af_seed_user( 8 );
 	af_seed_post( 10, 'alpha' );
-	$GLOBALS['af_log'] = array();
 
 	// Stand in for the duplicate-row window described on
 	// afristream_claim_license_row(): this caller's own UPDATE genuinely
@@ -594,7 +581,7 @@ af_test( 'a claim that succeeds at the row level but is not the resulting owner 
 		is_wp_error( $result ) ? $result->get_error_code() : 'assignment reported success',
 		'the same code an already-owned licence gives'
 	);
-	af_assert_same( 0, count( $GLOBALS['af_log'] ), 'no assigned entry is written for a caller that did not really win' );
+	af_assert_same( 0, count( afristream_license_log_get( 10 ) ), 'no assigned entry is written for a caller that did not really win' );
 	af_assert_same( array(), afristream_user_license_ids( 7 ), 'the caller does not truly hold it' );
 	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'nor does its own mirror list it' );
 	af_assert_same( array( '10' ), get_user_meta( 8, AFRISTREAM_USER_LICENSE_META, true ), 'the real holder\'s mirror agrees with the licence' );
