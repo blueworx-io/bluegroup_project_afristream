@@ -304,3 +304,180 @@ function afristream_register_license_post_type() {
 	}
 }
 add_action( 'init', 'afristream_register_license_post_type', 5 );
+
+/** Transient key guarding a licence claim. */
+define( 'AFRISTREAM_LOCK_KEY', 'afristream_assign_lock' );
+
+/** How long a claim may hold the lock before it is assumed abandoned. */
+define( 'AFRISTREAM_LOCK_TTL', 10 );
+
+/**
+ * Run a callback with the assignment lock held.
+ *
+ * Claims are short — read an owner, write an owner — so a single global lock
+ * costs nothing and removes a whole class of interleaving. A caller that cannot
+ * take the lock is told so rather than proceeding without it, because
+ * proceeding is exactly how two checkouts end up claiming the same licence.
+ *
+ * The TTL means a request that dies mid-claim releases the lock on its own
+ * within ten seconds instead of wedging assignment until someone notices.
+ *
+ * @param callable $fn Body to run while holding the lock.
+ * @return mixed The callback's return value, or WP_Error when the lock is held.
+ */
+function afristream_with_lock( $fn ) {
+	if ( get_transient( AFRISTREAM_LOCK_KEY ) ) {
+		return new WP_Error(
+			'afristream_locked',
+			__( 'Another licence assignment is in progress. Please try again.', 'bluegroup-project-afristream' )
+		);
+	}
+
+	set_transient( AFRISTREAM_LOCK_KEY, 1, AFRISTREAM_LOCK_TTL );
+
+	try {
+		return call_user_func( $fn );
+	} finally {
+		delete_transient( AFRISTREAM_LOCK_KEY );
+	}
+}
+
+/**
+ * Rewrite a user's usermeta mirror from the licences that point at them.
+ *
+ * The values are written as strings, not integers, because that is what ACF
+ * wrote and what the Connected User column's LIKE '"10"' query matches: a
+ * serialized integer is i:10; and would never be found.
+ *
+ * @param int $user_id User ID.
+ * @return void
+ */
+function afristream_rebuild_user_mirror( $user_id ) {
+	$user_id = (int) $user_id;
+	if ( ! $user_id ) {
+		return;
+	}
+
+	$ids = array_map( 'strval', afristream_user_license_ids( $user_id ) );
+	update_user_meta( $user_id, AFRISTREAM_USER_LICENSE_META, $ids );
+}
+
+/**
+ * The licence IDs recorded in a user's mirror.
+ *
+ * Only for checking the mirror against the truth — never for deciding what
+ * someone holds. afristream_user_license_ids() is the answer to that.
+ *
+ * @param int $user_id User ID.
+ * @return int[]
+ */
+function afristream_user_mirror_ids( $user_id ) {
+	$raw = get_user_meta( (int) $user_id, AFRISTREAM_USER_LICENSE_META, true );
+	if ( empty( $raw ) ) {
+		return array();
+	}
+	if ( ! is_array( $raw ) ) {
+		$raw = array( $raw );
+	}
+
+	$ids = array();
+	foreach ( $raw as $entry ) {
+		$id = is_object( $entry ) ? (int) $entry->ID : (int) $entry;
+		if ( $id ) {
+			$ids[] = $id;
+		}
+	}
+
+	sort( $ids );
+	return $ids;
+}
+
+/**
+ * Give a licence to a user.
+ *
+ * The availability check happens inside the lock, immediately before the write,
+ * so a licence that was free when the caller looked but taken by the time it
+ * acted is refused rather than quietly stolen.
+ *
+ * @param int    $license_id Licence post ID.
+ * @param int    $user_id    User to give it to.
+ * @param string $context    Why, for the log: 'auto-assign', 'profile', 'backfill'.
+ * @return true|WP_Error
+ */
+function afristream_assign_license( $license_id, $user_id, $context = '' ) {
+	$license_id = (int) $license_id;
+	$user_id    = (int) $user_id;
+
+	if ( ! $license_id || ! $user_id ) {
+		return new WP_Error( 'afristream_bad_args', __( 'A licence and a user are both required.', 'bluegroup-project-afristream' ) );
+	}
+
+	return afristream_with_lock(
+		function () use ( $license_id, $user_id, $context ) {
+			$owner = afristream_license_owner( $license_id );
+
+			// Already theirs. Saying so is more useful than an error, because it
+			// makes a repeated webhook harmless.
+			if ( $owner === $user_id ) {
+				return true;
+			}
+
+			if ( $owner ) {
+				return new WP_Error(
+					'afristream_license_taken',
+					__( 'That licence is already assigned to another user.', 'bluegroup-project-afristream' )
+				);
+			}
+
+			if ( ! afristream_license_is_available( $license_id ) ) {
+				return new WP_Error(
+					'afristream_license_unavailable',
+					__( 'That licence is expired or not published.', 'bluegroup-project-afristream' )
+				);
+			}
+
+			update_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META, $user_id );
+			afristream_rebuild_user_mirror( $user_id );
+
+			if ( function_exists( 'afristream_license_log_add' ) ) {
+				afristream_license_log_add( $license_id, 'assigned', $user_id, $context );
+			}
+
+			return true;
+		}
+	);
+}
+
+/**
+ * Take a licence back.
+ *
+ * @param int    $license_id Licence post ID.
+ * @param string $context    Why, for the log.
+ * @return bool True if a holder was removed, false if it was already free.
+ */
+function afristream_unassign_license( $license_id, $context = '' ) {
+	$license_id = (int) $license_id;
+	if ( ! $license_id ) {
+		return false;
+	}
+
+	$result = afristream_with_lock(
+		function () use ( $license_id, $context ) {
+			$owner = afristream_license_owner( $license_id );
+			if ( ! $owner ) {
+				return false;
+			}
+
+			delete_post_meta( $license_id, AFRISTREAM_LICENSE_OWNER_META );
+			afristream_rebuild_user_mirror( $owner );
+
+			if ( function_exists( 'afristream_license_log_add' ) ) {
+				afristream_license_log_add( $license_id, 'unassigned', $owner, $context );
+			}
+
+			return true;
+		}
+	);
+
+	return true === $result;
+}
