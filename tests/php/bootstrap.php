@@ -20,10 +20,16 @@ function af_reset_store() {
 		'usermeta'        => array(),
 		'options'         => array(),
 		'transients'      => array(),
+		'autoload'        => array(),
 		'posts'           => array(),
 		'users'           => array(),
 		'filters'         => array(),
 		'actions'         => array(),
+		'surecart'        => array(
+			'customers'     => array(),
+			'subscriptions' => array(),
+			'errors'        => array(),
+		),
 		'now'             => 1785024000, // 2026-07-26 08:00 UTC, fixed so date tests are stable.
 		'capabilities'    => null, // null means permissive — see current_user_can() below.
 		'current_user_id' => 0, // 0 means logged out — see is_user_logged_in() below.
@@ -70,6 +76,114 @@ function af_set_now( $timestamp ) {
  */
 function af_set_capabilities( array $caps ) {
 	$GLOBALS['af_store']['capabilities'] = $caps;
+}
+
+// -- SureCart --------------------------------------------------------------
+
+/**
+ * The fake \SureCart\Models\Customer and \SureCart\Models\Subscription the
+ * entitlement lookup queries.
+ *
+ * In their own file only because PHP will not accept a namespace declaration in
+ * a file that already has code outside one, and wrapping this entire bootstrap
+ * in a braced global namespace to gain two small classes would reindent every
+ * line in it. They are part of the harness, not a separate concern, and are
+ * seeded through the af_* helpers directly below.
+ */
+require_once __DIR__ . '/surecart-fakes.php';
+
+/**
+ * Give a WordPress user a SureCart customer record.
+ *
+ * @param int    $user_id     WordPress user the customer belongs to.
+ * @param string $customer_id SureCart's own ID for them.
+ */
+function af_seed_surecart_customer( $user_id, $customer_id ) {
+	$GLOBALS['af_store']['surecart']['customers'][] = array(
+		'user_id' => (int) $user_id,
+		'id'      => (string) $customer_id,
+	);
+}
+
+/**
+ * Give a SureCart customer a subscription in a given status.
+ *
+ * @param string $customer_id SureCart customer ID.
+ * @param string $status      active, trialing, canceled, past_due …
+ */
+function af_seed_surecart_subscription( $customer_id, $status ) {
+	$GLOBALS['af_store']['surecart']['subscriptions'][] = array(
+		'customer' => (string) $customer_id,
+		'status'   => (string) $status,
+	);
+}
+
+/**
+ * Make one of the two SureCart queries answer with a WP_Error, the way a
+ * timeout or an expired API key does on the live site.
+ *
+ * @param string $which 'customers' or 'subscriptions'.
+ * @param bool   $on    False to stop failing again.
+ */
+function af_surecart_fail( $which, $on = true ) {
+	$GLOBALS['af_store']['surecart']['errors'][ $which ] = (bool) $on;
+}
+
+/**
+ * What \SureCart\Models\Customer::where() answers.
+ *
+ * Honours user_ids, because a stub that handed every caller every customer
+ * would make the join meaningless.
+ *
+ * @param array $args Query arguments.
+ * @return array|WP_Error
+ */
+function af_surecart_customers( $args ) {
+	if ( ! empty( $GLOBALS['af_store']['surecart']['errors']['customers'] ) ) {
+		return new WP_Error( 'surecart_unavailable', 'SureCart could not be reached.' );
+	}
+
+	$wanted = isset( $args['user_ids'] ) ? array_map( 'intval', (array) $args['user_ids'] ) : array();
+	$out    = array();
+
+	foreach ( $GLOBALS['af_store']['surecart']['customers'] as $customer ) {
+		if ( $wanted && ! in_array( $customer['user_id'], $wanted, true ) ) {
+			continue;
+		}
+		$out[] = new AF_Fake_SureCart_Model( $customer );
+	}
+
+	return $out;
+}
+
+/**
+ * What \SureCart\Models\Subscription::where() answers.
+ *
+ * Honours customer_ids and deliberately ignores the status filter. The code
+ * under test re-checks each subscription's status in PHP precisely because the
+ * API's filter is not something to take on trust, and a stub that pre-filtered
+ * would make that re-check untestable — it would pass whether it was there or
+ * not.
+ *
+ * @param array $args Query arguments.
+ * @return array|WP_Error
+ */
+function af_surecart_subscriptions( $args ) {
+	if ( ! empty( $GLOBALS['af_store']['surecart']['errors']['subscriptions'] ) ) {
+		return new WP_Error( 'surecart_unavailable', 'SureCart could not be reached.' );
+	}
+
+	$wanted = isset( $args['customer_ids'] ) ? array_map( 'strval', (array) $args['customer_ids'] ) : array();
+	$out    = array();
+
+	foreach ( $GLOBALS['af_store']['surecart']['subscriptions'] as $subscription ) {
+		if ( $wanted && ! in_array( $subscription['customer'], $wanted, true ) ) {
+			continue;
+		}
+		$out[] = new AF_Fake_SureCart_Model( $subscription );
+	}
+
+	return $out;
 }
 
 // -- Meta ---------------------------------------------------------------------
@@ -176,18 +290,38 @@ function add_option( $key, $value = '', $deprecated = '', $autoload = 'yes' ) {
 	if ( array_key_exists( $key, $GLOBALS['af_store']['options'] ) ) {
 		return false;
 	}
-	$GLOBALS['af_store']['options'][ $key ] = $value;
+	$GLOBALS['af_store']['options'][ $key ]  = $value;
+	$GLOBALS['af_store']['autoload'][ $key ] = $autoload;
 	return true;
 }
 
-function update_option( $key, $value ) {
+/**
+ * $autoload is recorded rather than ignored, because whether an option is
+ * loaded on every single front-end request is a property of the write and there
+ * is nowhere else a test could observe it. Omitting it leaves whatever the
+ * option already had, which is what real WordPress does with a null $autoload.
+ */
+function update_option( $key, $value, $autoload = null ) {
 	$GLOBALS['af_store']['options'][ $key ] = $value;
+	if ( null !== $autoload ) {
+		$GLOBALS['af_store']['autoload'][ $key ] = $autoload;
+	}
 	return true;
 }
 
 function delete_option( $key ) {
-	unset( $GLOBALS['af_store']['options'][ $key ] );
+	unset( $GLOBALS['af_store']['options'][ $key ], $GLOBALS['af_store']['autoload'][ $key ] );
 	return true;
+}
+
+/**
+ * The autoload setting the last write to this option asked for.
+ *
+ * @param string $key Option name.
+ * @return string|bool|null Whatever was passed, or null if it was never set.
+ */
+function af_option_autoload( $key ) {
+	return isset( $GLOBALS['af_store']['autoload'][ $key ] ) ? $GLOBALS['af_store']['autoload'][ $key ] : null;
 }
 
 function get_transient( $key ) {
