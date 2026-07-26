@@ -301,3 +301,219 @@ function afristream_log_license_created( $new_status, $old_status, $post ) {
 	afristream_license_log_add( $post->ID, 'created', 0, 'admin' );
 }
 add_action( 'transition_post_status', 'afristream_log_license_created', 10, 3 );
+
+/**
+ * What changed between the licences a user holds and the ones just submitted.
+ *
+ * Separated out and returned rather than acted on so it can be tested, and so
+ * the save path touches only what actually changed. Re-saving a profile without
+ * altering the selection must write nothing — otherwise every profile save
+ * would churn the licence log with events that did not happen.
+ *
+ * @param int[] $current   Licences the user holds now.
+ * @param int[] $submitted Licences chosen in the form.
+ * @return array{add:int[],remove:int[]}
+ */
+function afristream_license_selection_diff( $current, $submitted ) {
+	$current = array_values( array_unique( array_map( 'intval', (array) $current ) ) );
+
+	$clean = array();
+	foreach ( (array) $submitted as $id ) {
+		$id = (int) $id;
+		if ( $id > 0 && ! in_array( $id, $clean, true ) ) {
+			$clean[] = $id;
+		}
+	}
+
+	$add    = array_values( array_diff( $clean, $current ) );
+	$remove = array_values( array_diff( $current, $clean ) );
+
+	sort( $add );
+	sort( $remove );
+
+	return array(
+		'add'    => $add,
+		'remove' => $remove,
+	);
+}
+
+/**
+ * The Active License field on a user's profile.
+ *
+ * A multi-select of the licences this user holds plus every free one. A licence
+ * held by somebody else is simply not in the list — which is what ACF's
+ * relationship query filter did, except that now it is a property of how the
+ * options are built rather than a filter that has to be remembered.
+ *
+ * @param WP_User $user User being edited.
+ */
+function afristream_render_user_license_field( $user ) {
+	if ( ! current_user_can( 'edit_users' ) && get_current_user_id() !== $user->ID ) {
+		return;
+	}
+
+	$held      = afristream_user_license_ids( $user->ID );
+	$available = afristream_available_licenses();
+	$options   = array_values( array_unique( array_merge( $held, $available ) ) );
+	sort( $options );
+
+	wp_nonce_field( 'afristream_save_user_licenses', 'afristream_user_license_nonce' );
+	?>
+	<h2><?php esc_html_e( 'AfriStream Licence', 'bluegroup-project-afristream' ); ?></h2>
+	<table class="form-table" role="presentation">
+		<tr>
+			<th scope="row"><label for="afristream-active-license"><?php esc_html_e( 'Active License', 'bluegroup-project-afristream' ); ?></label></th>
+			<td>
+				<?php if ( empty( $options ) ) : ?>
+					<p><?php esc_html_e( 'No licences are available and this user holds none.', 'bluegroup-project-afristream' ); ?></p>
+				<?php else : ?>
+					<select id="afristream-active-license" name="afristream_active_license[]" multiple size="<?php echo esc_attr( min( 10, max( 3, count( $options ) ) ) ); ?>" style="min-width:340px;">
+						<?php foreach ( $options as $license_id ) : ?>
+							<?php
+							$expiry = afristream_license_meta( $license_id, 'expiry_date' );
+							$label  = get_the_title( $license_id );
+							if ( '' !== $expiry ) {
+								$label .= ' — expires ' . $expiry;
+							}
+							?>
+							<option value="<?php echo esc_attr( $license_id ); ?>" <?php selected( in_array( $license_id, $held, true ) ); ?>>
+								<?php echo esc_html( $label ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description">
+						<?php esc_html_e( 'Hold Ctrl (Cmd on a Mac) to select more than one. Licences held by another user are not listed. Each one the user holds becomes a profile in the portal.', 'bluegroup-project-afristream' ); ?>
+					</p>
+				<?php endif; ?>
+			</td>
+		</tr>
+	</table>
+	<?php
+}
+add_action( 'show_user_profile', 'afristream_render_user_license_field' );
+add_action( 'edit_user_profile', 'afristream_render_user_license_field' );
+
+/**
+ * Save the licence selection.
+ *
+ * Every claim goes through afristream_assign_license() and every release goes
+ * through afristream_unassign_license(); both take the same assignment lock, so
+ * a licence that was free (or held) when the form rendered but has changed
+ * hands by the time it is submitted is refused rather than mishandled.
+ *
+ * Both functions can refuse to act rather than returning a plain bool — the
+ * lock can be held by an overlapping request, an addition can lose a race for
+ * the licence, or a release can find the licence already moved to somebody
+ * else — and each refusal comes back as a WP_Error. Ignoring that and moving
+ * on would leave the administrator believing the save fully succeeded while
+ * the customer's actual licences quietly disagree with what the profile screen
+ * now shows, so every refusal — on either side of the diff — is collected and
+ * handed to afristream_license_refused_notice() instead of being dropped.
+ *
+ * @param int $user_id User being saved.
+ */
+function afristream_save_user_license_field( $user_id ) {
+	if ( ! isset( $_POST['afristream_user_license_nonce'] ) ) {
+		return;
+	}
+	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['afristream_user_license_nonce'] ) ), 'afristream_save_user_licenses' ) ) {
+		return;
+	}
+	if ( ! current_user_can( 'edit_user', $user_id ) ) {
+		return;
+	}
+
+	$submitted = isset( $_POST['afristream_active_license'] )
+		? array_map( 'intval', (array) wp_unslash( $_POST['afristream_active_license'] ) )
+		: array();
+
+	$diff = afristream_license_selection_diff( afristream_user_license_ids( $user_id ), $submitted );
+
+	// A refused removal leaves the licence still assigned to this user, which
+	// disagrees with what the just-saved form shows — a different problem from
+	// a refused addition, and reported separately rather than lumped in with it.
+	$not_removed = array();
+	foreach ( $diff['remove'] as $license_id ) {
+		$result = afristream_unassign_license( $license_id, 'profile' );
+		if ( is_wp_error( $result ) ) {
+			$not_removed[] = get_the_title( $license_id ) . ' — ' . $result->get_error_message();
+		}
+	}
+
+	// afristream_assign_license() distinguishes several ways a claim can fail —
+	// taken, unavailable, locked, bad arguments — and its own message already
+	// says which one this is, so that message is used rather than guessing at a
+	// single reason that will be wrong for the other codes.
+	$not_added = array();
+	foreach ( $diff['add'] as $license_id ) {
+		$result = afristream_assign_license( $license_id, $user_id, 'profile' );
+		if ( is_wp_error( $result ) ) {
+			$not_added[] = get_the_title( $license_id ) . ' — ' . $result->get_error_message();
+		}
+	}
+
+	if ( ! empty( $not_added ) || ! empty( $not_removed ) ) {
+		set_transient(
+			'afristream_license_refused_' . get_current_user_id(),
+			array(
+				'not_added'   => $not_added,
+				'not_removed' => $not_removed,
+			),
+			60
+		);
+	}
+}
+add_action( 'personal_options_update', 'afristream_save_user_license_field' );
+add_action( 'edit_user_profile_update', 'afristream_save_user_license_field' );
+
+/**
+ * Tell the admin when a save did not do everything the form showed.
+ *
+ * A refused addition and a refused removal are told apart rather than folded
+ * into one generic warning: a licence that stayed with its previous holder is a
+ * different, less alarming problem than one that stayed assigned to somebody
+ * else, and each licence's own line carries the specific reason
+ * afristream_assign_license() or afristream_unassign_license() gave for it.
+ * Silently dropping either would look like the save fully worked, which is
+ * worse than the refusal itself.
+ */
+function afristream_license_refused_notice() {
+	$key     = 'afristream_license_refused_' . get_current_user_id();
+	$refused = get_transient( $key );
+	if ( empty( $refused ) ) {
+		return;
+	}
+	delete_transient( $key );
+
+	$not_added   = isset( $refused['not_added'] ) ? (array) $refused['not_added'] : array();
+	$not_removed = isset( $refused['not_removed'] ) ? (array) $refused['not_removed'] : array();
+
+	if ( empty( $not_added ) && empty( $not_removed ) ) {
+		return;
+	}
+
+	echo '<div class="notice notice-error is-dismissible">';
+
+	if ( ! empty( $not_added ) ) {
+		echo '<p>';
+		printf(
+			/* translators: %s: licence names, each followed by the reason it could not be assigned. */
+			esc_html__( 'These licences could not be assigned: %s', 'bluegroup-project-afristream' ),
+			esc_html( implode( '; ', $not_added ) )
+		);
+		echo '</p>';
+	}
+
+	if ( ! empty( $not_removed ) ) {
+		echo '<p>';
+		printf(
+			/* translators: %s: licence names, each followed by the reason it could not be removed. */
+			esc_html__( 'These licences could not be removed: %s', 'bluegroup-project-afristream' ),
+			esc_html( implode( '; ', $not_removed ) )
+		);
+		echo '</p>';
+	}
+
+	echo '</div>';
+}
+add_action( 'admin_notices', 'afristream_license_refused_notice' );
