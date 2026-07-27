@@ -774,6 +774,38 @@ function af_settings_errors() {
 	return isset( $GLOBALS['af_store']['settings_errors'] ) ? $GLOBALS['af_store']['settings_errors'] : array();
 }
 
+/**
+ * Run $fn with one expected PHP warning swallowed.
+ *
+ * A test that deliberately feeds bad input to a PHP function gets that
+ * function's warning printed into the suite's output, where it reads like a
+ * defect in the code under test. Worse, it teaches whoever runs the suite to
+ * scroll past warnings — which is precisely how a real one goes unnoticed.
+ *
+ * Only warnings whose message contains $needle are suppressed, and only for the
+ * duration of the call, so anything unexpected still surfaces.
+ *
+ * @param string   $needle Substring identifying the expected warning.
+ * @param callable $fn     The call that raises it.
+ * @return mixed Whatever $fn returns.
+ */
+function af_with_expected_warning( $needle, callable $fn ) {
+	set_error_handler(
+		function ( $errno, $errstr ) use ( $needle ) {
+			// false lets PHP's normal handler run, which is what an unexpected
+			// warning should do.
+			return false !== strpos( $errstr, $needle );
+		},
+		E_WARNING | E_USER_WARNING
+	);
+
+	try {
+		return $fn();
+	} finally {
+		restore_error_handler();
+	}
+}
+
 function wp_unslash( $value ) {
 	return is_array( $value ) ? array_map( 'wp_unslash', $value ) : stripslashes( (string) $value );
 }

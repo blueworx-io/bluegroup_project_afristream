@@ -470,7 +470,15 @@ af_test( 'a PCRE failure while scanning a file is incomplete, never clean', func
 	);
 	update_option( 'active_plugins', array( 'clean-plugin/clean-plugin.php' ) );
 
-	$audit = afristream_acf_audit();
+	// PCRE's own compilation warning is the point of this test, not a symptom of
+	// anything wrong — swallowed so it does not read as a failure in the suite's
+	// output. The shipped pattern is well-formed; only this filter is not.
+	$audit = af_with_expected_warning(
+		'Compilation failed',
+		function () {
+			return afristream_acf_audit();
+		}
+	);
 
 	af_assert_same( 'undetermined', $audit['state'], 'not clean — the scan could not evaluate the file it read' );
 	af_assert_same( false, $audit['safe'], 'never safe' );
@@ -484,7 +492,12 @@ af_test( 'a PCRE failure is incomplete at the single-file level too', function (
 		}
 	);
 
-	$verdict = afristream_file_uses_acf( WP_PLUGIN_DIR . '/hello.php' );
+	$verdict = af_with_expected_warning(
+		'Compilation failed',
+		function () {
+			return afristream_file_uses_acf( WP_PLUGIN_DIR . '/hello.php' );
+		}
+	);
 
 	af_assert_same( 'incomplete', $verdict, 'not clean' );
 } );

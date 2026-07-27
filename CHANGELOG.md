@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.1] - 2026-07-27
+
+### Fixed
+
+- The PHP test run no longer prints `preg_match(): Compilation failed` on every
+  invocation. Two ACF-audit tests deliberately feed the scanner an invalid
+  pattern to prove it reports "undetermined" rather than "clean" when PCRE
+  gives up, and PCRE's warning about that was being printed as though
+  something were wrong. The shipped pattern was never malformed. The warning is
+  now suppressed for those two calls only, so a real one still stands out —
+  which is the actual risk: output nobody reads is where a genuine warning goes
+  to hide.
+
+### Changed
+
+- The testimonials constant no longer carries a "replace before this goes
+  public" warning. The quotes are real.
+
 ## [0.23.0] - 2026-07-27
 
 ### Added
