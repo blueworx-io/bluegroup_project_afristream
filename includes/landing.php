@@ -216,18 +216,85 @@ function afristream_landing_page_field() {
 function afristream_landing_body() {
 	return '<div class="as-landing">'
 		. afristream_landing_header()
-		. afristream_landing_stand_in_hero()
+		. afristream_landing_hero()
+		. afristream_landing_integrations()
 		. afristream_landing_footer()
 		. '</div>';
 }
 
+const AFRISTREAM_LANDING_PLATFORMS = array(
+	'Netflix',
+	'Showmax',
+	'Amazon Prime Video',
+	'Disney+',
+	'Apple TV+',
+	'Hulu',
+	'HBO Max',
+	'Paramount+',
+	'YouTube Premium',
+	'SuperSport',
+	'Sky Sports',
+	'BBC',
+	'BT Sport',
+);
+
 /**
- * Stand-in for the hero Task 2 builds. Keeps the page at exactly one <h1>
- * until the real section lands; mirrors preview/landing.html's placeholder
- * verbatim so the plugin's real output and the local preview agree.
+ * The hero. The handoff's animated constellation is a lot of markup for one
+ * decorative panel, so it is drawn in CSS from a short list of tiles rather
+ * than hand-written per tile.
  */
-function afristream_landing_stand_in_hero() {
-	return '<h1 style="max-width:1120px;margin:0 auto;padding:40px clamp(20px,5vw,40px)">Every stream. One app.</h1>';
+function afristream_landing_hero() {
+	$proof = array(
+		'20 000+ live channels',
+		'Films, series & sport in one app',
+		'Works on the stick you already own',
+	);
+	$tiles = array( 'Netflix', 'Showmax', 'SuperSport', 'Prime Video', 'Disney+', 'Apple TV+' );
+
+	$proof_html = '';
+	foreach ( $proof as $item ) {
+		$proof_html .= '<span class="as-proof" data-proof>' . esc_html( $item ) . '</span>';
+	}
+
+	$tiles_html = '';
+	foreach ( $tiles as $i => $tile ) {
+		$tiles_html .= '<span class="as-tile as-tile-' . (int) ( $i + 1 ) . '">' . esc_html( $tile ) . '</span>';
+	}
+
+	return '
+<section id="top" class="as-hero" data-testid="landing-hero">
+  <div class="as-hero-in">
+    <span class="as-eyebrow as-eyebrow-dot">20 000+ feeds, live now</span>
+    <h1>Every stream. One app.</h1>
+    <p class="as-lede">Save thousands with AfriStream. We collect and display thousands of movies, series and live TV channels from all your favourite streams.</p>
+    <div class="as-hero-cta">
+      <a class="as-btn as-btn-primary" href="#calculate">Calculate Savings</a>
+      <a class="as-btn as-btn-ghost" href="#pricing">View Pricing</a>
+    </div>
+    <div class="as-proofs">' . $proof_html . '</div>
+    <div class="as-stage" aria-hidden="true">
+      <div class="as-stage-glow"></div>
+      ' . $tiles_html . '
+      <span class="as-hub"></span>
+      <span class="as-wordmark">AfriStream<small>Every platform. One app.</small></span>
+    </div>
+  </div>
+</section>';
+}
+
+function afristream_landing_integrations() {
+	$run = '';
+	// Listed twice: the marquee translates by half its width, so the second
+	// copy is what makes the restart invisible.
+	foreach ( array_merge( AFRISTREAM_LANDING_PLATFORMS, AFRISTREAM_LANDING_PLATFORMS ) as $platform ) {
+		$run .= '<span data-platform>' . esc_html( $platform ) . '</span>';
+	}
+
+	return '
+<section id="integrations" class="as-integrations" data-testid="landing-ticker">
+  <span class="as-eyebrow as-eyebrow-muted as-integrations-label">Integrations</span>
+  <div class="as-marquee"><div class="as-marquee-run">' . $run . '</div></div>
+</section>';
 }
 
 /**

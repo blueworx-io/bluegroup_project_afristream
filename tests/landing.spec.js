@@ -47,3 +47,23 @@ test('the desktop nav is not rendered as a burger', async ({ page }) => {
   await expect(page.getByTestId('landing-nav')).toBeVisible();
   await expect(page.getByTestId('landing-burger')).toBeHidden();
 });
+
+test('the hero leads with the headline, two CTAs and three proof points', async ({ page }) => {
+  const hero = page.getByTestId('landing-hero');
+  await expect(hero.getByText('20 000+ feeds, live now')).toBeVisible();
+  await expect(hero.locator('h1')).toContainText('Every stream. One app.');
+  await expect(hero).toContainText('Save thousands with AfriStream');
+
+  await expect(hero.getByRole('link', { name: 'Calculate Savings' })).toHaveAttribute('href', '#calculate');
+  await expect(hero.getByRole('link', { name: 'View Pricing' })).toHaveAttribute('href', '#pricing');
+  await expect(hero.locator('[data-proof]')).toHaveCount(3);
+});
+
+test('the integrations ticker lists the platforms twice, for a seamless loop', async ({ page }) => {
+  const ticker = page.getByTestId('landing-ticker');
+  await expect(ticker).toContainText('Netflix');
+  await expect(ticker).toContainText('SuperSport');
+  // Thirteen platforms, doubled: the second copy is what lets the marquee
+  // restart without a visible jump.
+  await expect(ticker.locator('[data-platform]')).toHaveCount(26);
+});
