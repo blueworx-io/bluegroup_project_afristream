@@ -22,6 +22,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- **The newsletter signup is now a call to action.** The closing section asked
+  for an email address; it asks for the sale instead, with a single "Get
+  AfriStream for R1599" button. The SureContact embed and the third-party
+  script it loaded are gone.
+- Settings → AfriStream Portal gains a **Get Started URL** — a checkout, order
+  form, WhatsApp or mailto link — which that button follows. Left empty it
+  scrolls to the pricing section, so the button every other "Get Started" on
+  the page leads to is never inert. Only http, https, mailto and tel links are
+  accepted, and a rejected value keeps the previous one rather than silently
+  clearing the field.
 - The page background is one continuous field rather than a glow per section.
   Each section used to carry its own radial gradient, which reached full
   strength inside the section and stopped at its edge, so every join showed as

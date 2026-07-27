@@ -41,26 +41,12 @@ function afristream_landing_register_assets() {
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
-	// The newsletter embed. Registered here so the inline render call below can
-	// be attached to it, which guarantees the call runs after the library.
-	wp_register_script(
-		'surecontact-forms',
-		'https://app.surecontact.com/embed/forms.js',
-		array(),
-		null,
-		true
-	);
 }
 add_action( 'wp_enqueue_scripts', 'afristream_landing_register_assets' );
 
 function afristream_landing_enqueue() {
 	wp_enqueue_style( 'afristream-landing' );
 	wp_enqueue_script( 'afristream-landing' );
-	wp_enqueue_script( 'surecontact-forms' );
-	wp_add_inline_script(
-		'surecontact-forms',
-		"SureContactForms.render({formId:'6e6876be-416c-4cd4-b109-3a603af6be79',container:'#surecontact-form-afristream-newsletter-sign-up'});"
-	);
 }
 
 /**
@@ -122,15 +108,14 @@ function afristream_landing_template( $template ) {
 		return $template;
 	}
 
-	// Not called directly: wp_head(), printed below, is what fires
+	// Hooked, not called directly. wp_head(), printed below, is what fires
 	// wp_enqueue_scripts — which is also what runs
 	// afristream_landing_register_assets() (hooked to the same action, at the
 	// default priority, added at file load so it runs first). Calling
-	// afristream_landing_enqueue() here, before that has ever fired, used to
-	// mean 'surecontact-forms' was not registered yet when this reached
-	// wp_add_inline_script() below — which fails silently against an
-	// unregistered handle — so the newsletter embed never rendered. Hooking
-	// it onto the same action guarantees registration has already run.
+	// afristream_landing_enqueue() here would run it before any of those
+	// handles were registered. Today that would only lose the stylesheet;
+	// it previously also silently dropped an inline script attached to an
+	// unregistered handle, which is the failure that put this comment here.
 	add_action( 'wp_enqueue_scripts', 'afristream_landing_enqueue' );
 
 	// Printed here rather than returned: this IS the document.
@@ -187,6 +172,16 @@ function afristream_landing_register_settings() {
 		'bluegroup-project-afristream'
 	);
 
+	register_setting(
+		'afristream_portal',
+		AFRISTREAM_LANDING_CTA_OPTION,
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'afristream_landing_sanitize_cta_url',
+			'default'           => '',
+		)
+	);
+
 	add_settings_field(
 		'afristream_portal_page_id',
 		__( 'Portal page', 'bluegroup-project-afristream' ),
@@ -195,8 +190,69 @@ function afristream_landing_register_settings() {
 		'afristream_landing',
 		array( 'label_for' => 'afristream_portal_page_id' )
 	);
+
+	add_settings_field(
+		AFRISTREAM_LANDING_CTA_OPTION,
+		__( 'Get Started URL', 'bluegroup-project-afristream' ),
+		'afristream_landing_cta_field',
+		'bluegroup-project-afristream',
+		'afristream_landing',
+		array( 'label_for' => AFRISTREAM_LANDING_CTA_OPTION )
+	);
 }
 add_action( 'admin_init', 'afristream_landing_register_settings' );
+
+/** Where the Get Started destination is stored. */
+const AFRISTREAM_LANDING_CTA_OPTION = 'afristream_landing_cta_url';
+
+/** Where every Get Started button points until that setting is filled in. */
+const AFRISTREAM_LANDING_CTA_FALLBACK = '#pricing';
+
+/**
+ * Reject anything that is not an http(s), mailto or tel link.
+ *
+ * esc_url() alone would let through a javascript: URL by stripping it to an
+ * empty string, which reads as "cleared the setting" rather than "refused it",
+ * so the protocol list is explicit and a rejected value keeps the old one.
+ */
+function afristream_landing_sanitize_cta_url( $value ) {
+	$value = trim( (string) $value );
+	if ( '' === $value ) {
+		return '';
+	}
+
+	$clean = esc_url_raw( $value, array( 'http', 'https', 'mailto', 'tel' ) );
+	if ( '' === $clean ) {
+		add_settings_error(
+			AFRISTREAM_LANDING_CTA_OPTION,
+			'afristream_landing_cta_url',
+			__( 'The Get Started URL was not saved: it must be a http, https, mailto or tel link.', 'bluegroup-project-afristream' )
+		);
+		return (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' );
+	}
+
+	return $clean;
+}
+
+/**
+ * Where the page's Get Started buttons point.
+ *
+ * Falls back to the pricing section rather than to nothing: an empty setting
+ * must not leave the page's main call to action inert.
+ */
+function afristream_landing_cta_url() {
+	$url = trim( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) );
+	return '' !== $url ? $url : AFRISTREAM_LANDING_CTA_FALLBACK;
+}
+
+function afristream_landing_cta_field() {
+	printf(
+		'<input type="url" class="regular-text" name="%1$s" id="%1$s" value="%2$s" placeholder="https://">',
+		esc_attr( AFRISTREAM_LANDING_CTA_OPTION ),
+		esc_attr( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) )
+	);
+	echo '<p class="description">' . esc_html__( 'Where the landing page\'s "Get Started" buttons send people — your checkout, order form or WhatsApp link. Left empty, they scroll to the pricing section instead.', 'bluegroup-project-afristream' ) . '</p>';
+}
 
 function afristream_landing_sanitize_page_id( $value ) {
 	// A changed choice should take effect at once, not wait out the cache.
@@ -848,8 +904,12 @@ function afristream_landing_faq() {
 }
 
 /**
- * Signup. The form itself is SureContact's embed — the container is ours, the
- * markup inside it is theirs, so the CSS reaches only as far as the wrapper.
+ * The closing call to action, and the page's last section.
+ *
+ * This held a newsletter embed until 0.23.0. It asks for the sale directly now,
+ * so the destination comes from the Get Started URL setting — and falls back to
+ * the pricing section, never to nothing, because this button is what every
+ * other "Get Started" on the page leads to.
  */
 function afristream_landing_signup() {
 	return '
@@ -861,8 +921,8 @@ function afristream_landing_signup() {
 			'Stop guessing what to watch! Thousands of movies, series and live TV — all in one platform.'
 		) . '
     <div class="as-signup">
-      <div id="surecontact-form-afristream-newsletter-sign-up" data-testid="surecontact-container"></div>
-      <span class="as-fine">14 Day Money Back Guarantee. No spam, ever.</span>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) AFRISTREAM_LANDING_PRICE . '</a>
+      <span class="as-fine">14 Day Money Back Guarantee.</span>
     </div>
   </div>
 </section>';

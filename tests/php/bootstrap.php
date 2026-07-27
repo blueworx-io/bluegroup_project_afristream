@@ -37,6 +37,7 @@ function af_reset_store() {
 		'site_options'    => array(),
 		'transients'      => array(),
 		'scheduled'       => array(),
+		'settings_errors' => array(),
 		'autoload'        => array(),
 		'posts'           => array(),
 		'users'           => array(),
@@ -726,6 +727,53 @@ function esc_url( $url ) {
 	return (string) $url;
 }
 
+/**
+ * Unlike esc_url() above, this one is NOT a passthrough.
+ *
+ * The protocol allow-list is the entire point of calling it: WordPress returns
+ * an empty string for a scheme outside the list, and code that treats an empty
+ * return as "the field was cleared" will happily blank a working setting when a
+ * bad value is submitted. A passthrough stub would let that bug through while
+ * the test appeared to cover it.
+ *
+ * @param string   $url        URL to sanitise.
+ * @param string[] $protocols  Allowed schemes.
+ * @return string The URL, or '' when its scheme is not allowed.
+ */
+function esc_url_raw( $url, $protocols = null ) {
+	$url       = trim( (string) $url );
+	$protocols = null === $protocols ? array( 'http', 'https' ) : $protocols;
+
+	if ( '' === $url ) {
+		return '';
+	}
+	// A scheme-relative or root-relative URL carries no scheme to check.
+	if ( '/' === $url[0] || '#' === $url[0] ) {
+		return $url;
+	}
+	if ( ! preg_match( '#^([a-z][a-z0-9+.-]*):#i', $url, $m ) ) {
+		return '';
+	}
+	return in_array( strtolower( $m[1] ), $protocols, true ) ? $url : '';
+}
+
+/**
+ * Settings errors are recorded rather than displayed; a test can read them to
+ * check a refusal was reported instead of happening silently.
+ */
+function add_settings_error( $setting, $code, $message, $type = 'error' ) {
+	$GLOBALS['af_store']['settings_errors'][] = array(
+		'setting' => (string) $setting,
+		'code'    => (string) $code,
+		'message' => (string) $message,
+		'type'    => (string) $type,
+	);
+}
+
+function af_settings_errors() {
+	return isset( $GLOBALS['af_store']['settings_errors'] ) ? $GLOBALS['af_store']['settings_errors'] : array();
+}
+
 function wp_unslash( $value ) {
 	return is_array( $value ) ? array_map( 'wp_unslash', $value ) : stripslashes( (string) $value );
 }
@@ -1401,6 +1449,14 @@ function wp_enqueue_script( $handle, $src = '', $deps = array(), $ver = false, $
 function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false, $media = 'all' ) {
 	$GLOBALS['af_store']['styles_enqueued'][] = $handle;
 	return true;
+}
+
+function af_wp_style_enqueued( $handle ) {
+	return in_array( $handle, $GLOBALS['af_store']['styles_enqueued'], true );
+}
+
+function af_wp_script_enqueued( $handle ) {
+	return in_array( $handle, $GLOBALS['af_store']['scripts_enqueued'], true );
 }
 
 /**

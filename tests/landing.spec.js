@@ -345,11 +345,23 @@ test('the FAQ opens with the first answer showing and toggles the rest', async (
   await expect(third.locator('[data-faq-answer]')).toBeHidden();
 });
 
-test('the signup section hosts the newsletter embed', async ({ page }) => {
+test('the closing section asks for the sale rather than for an email address', async ({ page }) => {
   const signup = page.getByTestId('landing-signup');
   await expect(signup).toContainText('Unlock the power of AfriStream today');
-  await expect(signup.locator('#surecontact-form-afristream-newsletter-sign-up')).toHaveCount(1);
   await expect(signup).toContainText('14 Day Money Back Guarantee');
+
+  const cta = page.getByTestId('signup-cta');
+  await expect(cta).toBeVisible();
+  await expect(cta).toHaveText(/Get AfriStream for R1599/);
+
+  // Every "Get Started" on the page leads here, so this button must never be
+  // the one that goes nowhere.
+  const href = await cta.getAttribute('href');
+  expect(href).toBeTruthy();
+  expect(href).not.toBe('#signup');
+
+  // The newsletter embed is gone: no form controls left in this section.
+  await expect(signup.locator('input, form, textarea')).toHaveCount(0);
 });
 
 test('every call to action on the page resolves to a section that exists', async ({ page }) => {

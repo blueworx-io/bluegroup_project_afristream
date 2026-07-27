@@ -332,14 +332,10 @@
       <p>Stop guessing what to watch! Thousands of movies, series and live TV — all in one platform.</p>
     </div>
     <div class="as-signup">
-      <!-- The plugin loads SureContact's forms.js and calls
-           SureContactForms.render() to populate this container. The mirror
-           deliberately does not load that script: the tests assert the
-           container exists, not that a third-party embed ran, and a live
-           network call here would make the suite fail offline or when the
-           vendor is slow. Do not add the script tag. -->
-      <div id="surecontact-form-afristream-newsletter-sign-up" data-testid="surecontact-container"></div>
-      <span class="as-fine">14 Day Money Back Guarantee. No spam, ever.</span>
+      <!-- The plugin renders this href from the Get Started URL setting. The
+           mirror hardcodes the empty-setting fallback, #pricing. -->
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="#pricing">Get AfriStream for R1599</a>
+      <span class="as-fine">14 Day Money Back Guarantee.</span>
     </div>
   </div>
 </section>

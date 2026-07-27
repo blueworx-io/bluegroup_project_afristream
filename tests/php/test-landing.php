@@ -9,6 +9,10 @@ require_once __DIR__ . '/../../includes/landing.php';
 // pulls the plugin in, and stubbing it would test the stub anyway.
 require_once __DIR__ . '/../../bluegroup-project-afristream.php';
 
+// Captured at require time: af_reset_store() wipes the actions array before
+// every test, taking the registrations the files above made at load with it.
+$GLOBALS['af_landing_boot_actions'] = af_registered_actions( 'wp_enqueue_scripts' );
+
 /**
  * The rest of the suite for this page — tests/landing.spec.js — runs against
  * preview/landing.html, a hand-maintained mirror, never against the PHP that
@@ -225,45 +229,71 @@ af_test( 'the visible text matches the preview mirror', function () {
 	);
 } );
 
-// -- The enqueue-order regression (Critical 1) -------------------------------
+// -- Enqueue order -----------------------------------------------------------
 
-af_test( 'enqueuing before the assets are registered attaches nothing — the bug that shipped', function () {
-	// This reproduces exactly what afristream_landing_template() used to do:
-	// call afristream_landing_enqueue() directly, before wp_enqueue_scripts —
-	// and therefore afristream_landing_register_assets(), hooked onto it — had
-	// ever run. wp_add_inline_script() silently drops a call against a handle
-	// nobody has registered yet, so the newsletter embed never rendered and
-	// nothing anywhere raised an error about it.
-	afristream_landing_enqueue();
+af_test( 'the template hooks its enqueue rather than calling it, so registration runs first', function () {
+	// A landing page shipped once with the stylesheet's enqueue running before
+	// anything had registered it, because afristream_landing_template() called
+	// afristream_landing_enqueue() directly from template_include — earlier than
+	// wp_enqueue_scripts, which is what runs the registration. This asserts the
+	// wiring itself, not just the outcome: the direct call is what regressed.
+	af_assert(
+		in_array( 'afristream_landing_register_assets', $GLOBALS['af_landing_boot_actions'], true ),
+		'registration is hooked to wp_enqueue_scripts at load'
+	);
 
-	af_assert_same( array(), af_wp_inline_scripts( 'surecontact-forms' ), 'no inline script attaches without registration first' );
-} );
-
-af_test( 'registering first attaches the newsletter render call to the right form and container', function () {
-	// The fixed order: afristream_landing_register_assets() is hooked to
-	// wp_enqueue_scripts at file load, and afristream_landing_template() now
-	// hooks afristream_landing_enqueue() onto the same action instead of
-	// calling it directly — so registration has always run by the time this
-	// runs, on both the template path and the shortcode path.
 	afristream_landing_register_assets();
 	afristream_landing_enqueue();
 
-	$calls = af_wp_inline_scripts( 'surecontact-forms' );
-	af_assert_same( 1, count( $calls ), 'exactly one inline script attached to the embed' );
-	af_assert( false !== strpos( $calls[0]['data'], "formId:'6e6876be-416c-4cd4-b109-3a603af6be79'" ), 'wired to the newsletter form id' );
-	af_assert( false !== strpos( $calls[0]['data'], "container:'#surecontact-form-afristream-newsletter-sign-up'" ), 'wired to the container the signup section renders' );
+	af_assert( af_wp_style_enqueued( 'afristream-landing' ), 'the stylesheet is enqueued once registration has run' );
+	af_assert( af_wp_script_enqueued( 'afristream-landing' ), 'and so is the script' );
 } );
 
-af_test( 'the shortcode path enqueues and registers directly, unaffected by the template fix', function () {
-	// afristream_landing_shortcode() calls afristream_landing_enqueue()
-	// straight from the_content, which runs after wp_enqueue_scripts has
-	// already fired — this path was never broken, and stays a direct call.
+af_test( 'the shortcode path enqueues directly, since the_content runs after wp_enqueue_scripts', function () {
 	afristream_landing_register_assets();
 
 	$body = afristream_landing_shortcode();
 
-	af_assert( false !== strpos( $body, 'id="surecontact-form-afristream-newsletter-sign-up"' ), 'the shortcode still renders the signup container' );
-	af_assert_same( 1, count( af_wp_inline_scripts( 'surecontact-forms' ) ), 'and the render call still attaches' );
+	af_assert( false !== strpos( $body, 'data-testid="signup-cta"' ), 'the shortcode renders the closing CTA' );
+	af_assert( af_wp_style_enqueued( 'afristream-landing' ), 'and its stylesheet' );
+} );
+
+// -- The Get Started URL -----------------------------------------------------
+
+af_test( 'an unset Get Started URL falls back to the pricing section, never to nothing', function () {
+	delete_option( AFRISTREAM_LANDING_CTA_OPTION );
+
+	af_assert_same( '#pricing', afristream_landing_cta_url(), 'the fallback' );
+	af_assert(
+		false !== strpos( afristream_landing_signup(), 'href="#pricing"' ),
+		'the CTA every other Get Started button leads to is never inert'
+	);
+} );
+
+af_test( 'a configured Get Started URL is what the CTA points at', function () {
+	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
+
+	af_assert_same( 'https://pay.example.test/afristream', afristream_landing_cta_url(), 'the configured URL' );
+	af_assert(
+		false !== strpos( afristream_landing_signup(), 'href="https://pay.example.test/afristream"' ),
+		'and the section renders it'
+	);
+} );
+
+af_test( 'mailto and tel links are accepted; javascript: is refused and keeps the old value', function () {
+	af_assert_same( 'mailto:sales@example.test', afristream_landing_sanitize_cta_url( 'mailto:sales@example.test' ), 'mailto' );
+	af_assert_same( 'tel:+27110000000', afristream_landing_sanitize_cta_url( 'tel:+27110000000' ), 'tel' );
+
+	// A javascript: URL must not read as "the user cleared the field": esc_url()
+	// strips it to an empty string, which would silently blank a working link.
+	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
+	af_assert_same(
+		'https://pay.example.test/afristream',
+		afristream_landing_sanitize_cta_url( 'javascript:alert(1)' ),
+		'a refused value leaves the stored one alone'
+	);
+
+	af_assert_same( '', afristream_landing_sanitize_cta_url( '   ' ), 'but clearing it really does clear it' );
 } );
 
 // -- Teasers -------------------------------------------------------------

@@ -26,8 +26,11 @@ carrying `[afristream_portal]` — the landing page's header and footer
 "Dashboard" links point at it. Left on "Detect automatically" it finds the
 first published page containing that shortcode.
 
-The newsletter signup section hosts SureContact's own embedded form; the
-plugin only provides the container it renders into.
+Set **Get Started URL** on the same settings screen to whatever should take an
+order — a checkout, an order form, a WhatsApp or mailto link. Every "Get
+Started" button on the landing page leads to the closing call to action, and
+that button follows this URL. Left empty it scrolls to the pricing section
+instead, so the page never has a dead button.
 
 ## Live "What to Watch" data
 

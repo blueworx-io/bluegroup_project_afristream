@@ -1218,31 +1218,14 @@ body.afristream-landing-page {
   text-align: center;
 }
 
-/* The embed owns its own markup; this reaches the wrapper and the plain
-   controls inside it, and stops there. */
-.as-landing .as-signup > div { width: 100%; }
-
-.as-landing .as-signup input[type='email'],
-.as-landing .as-signup input[type='text'] {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--hairline);
-  border-radius: 100px;
-  background: rgba(4, 2, 7, 0.6);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 15px;
-  padding: 13px 20px;
+/* The closing CTA. Bigger than the inline buttons in the header — this is the
+   one the whole page has been leading to — but not full width: stretched
+   across 520px it would read as a banner rather than a button. */
+.as-landing .as-signup-cta {
+  font-size: 16px;
+  padding: 15px 34px;
 }
 
-.as-landing .as-signup button {
-  border: none;
-  border-radius: 100px;
-  background: var(--accent);
-  color: #0d0713;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 13px 26px;
-  cursor: pointer;
-}
+/* The input and button rules that used to live here styled the newsletter
+   embed's own controls. The embed is gone as of 0.23.0 and nothing else in
+   this section renders a form control, so they went with it. */
