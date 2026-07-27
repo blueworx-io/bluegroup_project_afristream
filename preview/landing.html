@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AfriStream — Local Preview</title>
+<!-- Local stand-in for the plugin's page template. Mirrors what
+     afristream_landing_body() prints, and loads the same assets the plugin
+     enqueues. Keep the two in step by hand. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/assets/landing.css">
+</head>
+<body class="afristream-landing-page">
+<div class="as-landing">
+
+<header class="as-head" data-testid="landing-header">
+  <div class="as-head-in">
+    <a class="as-brand" href="#top"><img src="/assets/afristream-icon.svg" alt="AfriStream" width="26" height="27">AfriStream</a>
+    <nav class="as-nav-full" data-testid="landing-nav">
+      <a href="#features">Features</a>
+      <a href="#integrations">Integrations</a>
+      <a href="#calculate">Calculate</a>
+      <a href="#pricing">Pricing<span class="as-sale">SALE</span></a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="as-head-cta">
+      <a class="as-dash" href="/portal/">Dashboard</a>
+      <a class="as-btn as-btn-primary" href="#signup">Get Started</a>
+    </div>
+    <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-label="Menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+    </button>
+  </div>
+  <div class="as-menu" data-testid="landing-menu" hidden>
+    <a href="#features">Features</a>
+    <a href="#integrations">Integrations</a>
+    <a href="#calculate">Calculate</a>
+    <a href="#pricing">Pricing<span class="as-sale">SALE</span></a>
+    <a href="#faq">FAQ</a>
+    <a href="/portal/">Dashboard</a>
+    <a class="as-btn as-btn-primary" href="#signup">Get Started</a>
+  </div>
+</header>
+
+<h1 style="max-width:1120px;margin:0 auto;padding:40px clamp(20px,5vw,40px)">Every stream. One app.</h1>
+
+<footer class="as-foot" data-testid="landing-footer">
+  <div class="as-foot-in">
+    <div class="as-foot-brand">
+      <span class="as-brand"><img src="/assets/afristream-icon.svg" alt="" width="24" height="25">AfriStream</span>
+      <span class="as-muted">Save time, money and effort with AfriStream.</span>
+      <span class="as-fine">© 2026 AfriStream</span>
+    </div>
+    <div class="as-foot-col">
+      <span class="as-eyebrow as-eyebrow-muted">Company</span>
+      <a href="#features">Features</a><a href="#integrations">Integrations</a><a href="#pricing">Pricing</a>
+    </div>
+    <div class="as-foot-col">
+      <span class="as-eyebrow as-eyebrow-muted">Help</span>
+      <a href="#faq">FAQ</a><a href="mailto:support@afristream.io">support@afristream.io</a><a href="/portal/">Dashboard</a>
+    </div>
+  </div>
+</footer>
+
+</div>
+<script src="/assets/landing.js"></script>
+</body>
+</html>

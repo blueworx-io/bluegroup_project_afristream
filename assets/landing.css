@@ -1,0 +1,242 @@
+/* AfriStream landing page. Dark, self-contained: the page template renders the
+   whole document, so nothing here has to survive a theme's stylesheet. */
+
+.as-landing {
+  --page: #0b0510;
+  --canvas: #0d0713;
+  --card: #120a1a;
+  --royal: #65009F;
+  --accent: #cd2df5;
+  --text: #fcfcfc;
+  --text-2: #c4bece;
+  --text-3: #8b8595;
+  --hairline: #2c2138;
+  --mono: 'Space Mono', ui-monospace, Menlo, monospace;
+
+  background: var(--page);
+  color: var(--text);
+  font-family: 'Geist', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.afristream-landing-page {
+  margin: 0;
+  background: #0b0510;
+}
+
+.as-landing a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.as-landing a:hover {
+  text-decoration: underline;
+}
+
+.as-landing :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.as-landing .as-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(4, 2, 7, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.as-landing .as-head-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 8px clamp(16px, 4vw, 40px);
+  display: flex;
+  align-items: center;
+  gap: 12px 24px;
+  min-height: 56px;
+}
+
+.as-landing .as-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  flex: none;
+}
+
+.as-landing .as-brand:hover {
+  text-decoration: none;
+}
+
+.as-landing .as-nav-full {
+  display: flex;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 1;
+}
+
+.as-landing .as-nav-full a,
+.as-landing .as-head-cta .as-dash {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.as-landing .as-sale {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+  margin-left: 6px;
+}
+
+.as-landing .as-head-cta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex: none;
+}
+
+.as-landing .as-burger {
+  display: none;
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  background: rgba(205, 45, 245, 0.06);
+  cursor: pointer;
+  flex: none;
+}
+
+.as-landing .as-menu {
+  border-top: 1px solid var(--hairline);
+  background: rgba(4, 2, 7, 0.96);
+  padding: 12px clamp(16px, 4vw, 40px) 20px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.as-landing .as-menu[hidden] {
+  display: none;
+}
+
+.as-landing .as-menu a {
+  color: var(--text);
+  font-size: 16px;
+  padding: 13px 0;
+}
+
+@media (max-width: 859px) {
+  .as-landing .as-nav-full,
+  .as-landing .as-head-cta {
+    display: none;
+  }
+  .as-landing .as-burger {
+    display: flex;
+  }
+  .as-landing .as-menu:not([hidden]) {
+    display: flex;
+  }
+}
+
+@media (min-width: 860px) {
+  /* The panel is markup-present at every width so a resize cannot strand it
+     open; above the breakpoint the full nav is the only navigation shown. */
+  .as-landing .as-menu {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.as-landing .as-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 100px;
+  padding: 12px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.as-landing .as-btn:hover {
+  text-decoration: none;
+}
+
+.as-landing .as-btn-primary {
+  background: var(--accent);
+  color: #0d0713;
+  font-weight: 600;
+}
+
+.as-landing .as-btn-ghost {
+  background: transparent;
+  border-color: var(--hairline);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------- footer */
+
+.as-landing .as-foot {
+  background: #060309;
+  border-top: 1px solid var(--hairline);
+}
+
+.as-landing .as-foot-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px clamp(20px, 5vw, 40px) 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 32px;
+}
+
+.as-landing .as-foot-brand,
+.as-landing .as-foot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-landing .as-foot a {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.as-landing .as-muted {
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.as-landing .as-fine {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 16px;
+}
+
+.as-landing .as-eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.72px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.as-landing .as-eyebrow-muted {
+  color: var(--text-3);
+}
