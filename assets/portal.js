@@ -2090,7 +2090,7 @@
       ${navItems().map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}" data-testid="nav-${n.id}">${esc(n.label)}</button>`).join('')}
     </div>
     <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:10px;flex:none">
-      ${props.homeUrl ? `<a href="${esc(props.homeUrl)}" data-testid="header-home" style="display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;text-decoration:none;white-space:nowrap">Home</a>` : ''}
+      ${props.homeUrl ? `<a href="${esc(props.homeUrl)}" data-testid="header-home" style="display:flex;align-items:center;gap:5px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;text-decoration:none;white-space:nowrap">Home<span aria-hidden="true" style="font-size:11px;line-height:1;opacity:.75">↗</span></a>` : ''}
       <span style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap">
         <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
       </span>
