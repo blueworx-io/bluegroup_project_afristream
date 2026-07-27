@@ -1287,12 +1287,20 @@
       return state.setupDone ? 'done' : 'steps';
     }
 
-    // The screen currently on show, clamped so a stale index can never read off
-    // the end of a shorter device's list.
-    function setupScreenOf() {
-      const device = setupDeviceOf();
+    // state.setupScreen clamped against this device's screen count, so a stale
+    // index — left over from a longer device before "Change device" — can never
+    // read off the end of a shorter one. Computed once per render in
+    // setupSection() and threaded through to every reader below, so none of
+    // them can see an index the others can't.
+    function setupScreenIndex(device) {
+      if (!device || !device.screens) return 0;
+      return Math.min(state.setupScreen, device.screens.length - 1);
+    }
+
+    // The screen currently on show, from an already-clamped index.
+    function setupScreenOf(device, idx) {
       if (!device || !device.screens) return null;
-      return device.screens[Math.min(state.setupScreen, device.screens.length - 1)] || null;
+      return device.screens[idx] || null;
     }
 
     // Line icons rather than photographs: they ship in the plugin, need no
@@ -1312,11 +1320,9 @@
 
     // Eyebrow, title and sub for the stage on show. Steps count from 2 because
     // choosing the device was step 1.
-    function setupHeading() {
-      const stage = setupStage();
-      const screen = setupScreenOf();
+    function setupHeading(stage, idx, screen) {
       if (stage === 'steps' && screen) {
-        return ['Step ' + (state.setupScreen + 2) + ' of 4', screen.title, screen.sub];
+        return ['Step ' + (idx + 2) + ' of 4', screen.title, screen.sub];
       }
       if (stage === 'support') {
         return ['Step 1 of 4', 'We set this one up for you', 'This device cannot install the app on its own, so the profile is created at our end.'];
@@ -1327,14 +1333,13 @@
       return ['Step 1 of 4', 'Which of these do you have?', 'Pick the device you will be watching on and we will show you only the steps that apply to it. Nothing here needs any technical know-how.'];
     }
 
-    function setupProgress() {
-      const stage = setupStage();
+    function setupProgress(stage, idx) {
       const pct = stage === 'device' ? '12%'
-        : stage === 'steps' ? (['40%', '68%', '96%'][state.setupScreen] || '40%')
+        : stage === 'steps' ? (['40%', '68%', '96%'][idx] || '40%')
           : '100%';
       const active = stage === 'device' || stage === 'support' ? 0
         : stage === 'done' ? 3
-          : state.setupScreen + 1;
+          : idx + 1;
       return `
   <div data-testid="setup-progress" style="display:flex;flex-direction:column;gap:11px;margin:0 2px 24px">
     <div style="height:4px;border-radius:999px;background:rgba(11,21,51,.1);overflow:hidden">
@@ -1405,7 +1410,7 @@
       const open = !!state.setupHelpOpen;
       return `
   <div data-testid="setup-buying" style="margin:20px 2px 0;border-radius:18px;border:1px solid rgba(11,21,51,.08);background:#fff;box-shadow:0 1px 2px rgba(11,21,51,.04);padding:20px 21px">
-    <button data-act="setup-help" aria-expanded="${open ? 'true' : 'false'}" style="display:block;width:100%;text-align:left;background:transparent;border:none;padding:0;font-family:inherit;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533;cursor:pointer">${open ? '–' : '+'} Buying a device? What to look for</button>
+    <button data-act="setup-help" aria-expanded="${open ? 'true' : 'false'}" style="display:block;width:100%;text-align:left;background:transparent;border:none;padding:0;font-family:inherit;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533;cursor:pointer"><span aria-hidden="true">${open ? '–' : '+'} </span>Buying a device? What to look for</button>
     ${open ? `
     <ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
       ${SETUP_BUYING_BULLETS.map((b) => `
@@ -1472,8 +1477,8 @@
   </div>`;
     }
 
-    function setupNav(device) {
-      const last = state.setupScreen >= device.screens.length - 1;
+    function setupNav(device, idx) {
+      const last = idx >= device.screens.length - 1;
       return `
   <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(11,21,51,.08);margin:26px 2px 0;padding-top:22px">
     <button class="as-hover-ghost" data-testid="setup-back" data-act="setup-back" style="background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:#65009F">Back</button>
@@ -1519,18 +1524,19 @@
     }
 
     function setupSection() {
-      const stage = setupStage();
-      const head = setupHeading();
-      const screen = setupScreenOf();
-
       const device = setupDeviceOf();
+      const stage = setupStage();
+      const idx = setupScreenIndex(device);
+      const screen = setupScreenOf(device, idx);
+      const head = setupHeading(stage, idx, screen);
+
       const body = stage === 'steps' && screen && device
         ? setupChosenRow(device)
           + setupStepList(screen)
           + (screen.note
             ? `<div data-testid="setup-step-note" style="margin:22px 2px 0;border-radius:13px;border:1px solid rgba(101,0,159,.2);background:#F7E9FF;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(screen.note)}</div>`
             : '')
-          + setupNav(device)
+          + setupNav(device, idx)
         : stage === 'support'
           ? setupSupportCard()
           : stage === 'done'
@@ -1544,7 +1550,7 @@
     <h1 style="margin:0 0 6px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">${esc(head[1])}</h1>
     <p style="margin:0;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:640px">${esc(head[2])}</p>
   </div>
-  ${setupProgress()}
+  ${setupProgress(stage, idx)}
   ${body}
   <p style="margin:26px 2px 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">Stuck on a step? Email <a href="mailto:support@afristream.io">support@afristream.io</a> with your device and the step number — we reply within one business day.</p>
 </section>`;
@@ -1875,14 +1881,6 @@
       strip.scrollLeft = centredScrollLeft(strip, active);
     }
 
-    // The Setup rail sticks below the header, so its offset has to track the
-    // header's real height — which changes between mobile and desktop, since the
-    // plan badge is hidden on narrow screens.
-    function syncHeaderHeight() {
-      const header = root.querySelector('header');
-      if (header) root.style.setProperty('--as-header-h', Math.round(header.getBoundingClientRect().height) + 'px');
-    }
-
     function fillSynopsis() {
       if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
       const box = root.querySelector('[data-detail-synopsis]');
@@ -2049,7 +2047,6 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         if (closeBtn) closeBtn.focus();
       }
 
-      syncHeaderHeight();
       placeNavScroll(prevNavScroll, lastNavSection !== state.section);
       lastNavSection = state.section;
 
@@ -2119,7 +2116,6 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         }
         case 'setup-restart': setState({ setupDevice: '', setupScreen: 0, setupDone: false }); break;
         case 'setup-help': setState({ setupHelpOpen: !state.setupHelpOpen }); break;
-        case 'go-profile': setState({ section: 'profile' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
@@ -2246,15 +2242,6 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     }, true);
 
     render();
-
-    // The top bar loses its plan badge below the mobile breakpoint, so its
-    // height — and therefore the sticky rail's offset — changes with the
-    // viewport, not just with a render.
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('resize', () => {
-        syncHeaderHeight();
-      });
-    }
 
     if (state.section === 'apps') loadApps();
 
