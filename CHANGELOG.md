@@ -33,6 +33,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Jumping to a section from any in-page link no longer lands its heading
   underneath the sticky header.
 - The savings calculator input has a visible keyboard focus ring again.
+- The local preview harness can now walk between the landing page and the
+  portal in both directions. Its two halves pointed at URLs the harness did
+  not serve, so both links dead-ended — a harness gap only, since WordPress
+  resolves those two URLs from the portal-page setting and `home_url()`.
 - The mobile menu can be closed with Escape, and the burger button now points
   `aria-controls` at the panel it opens.
 - Entering an amount in "Any other subscriptions?" with nothing else selected

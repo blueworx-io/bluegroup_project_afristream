@@ -939,7 +939,7 @@ test('a hidden section is still reachable through the shortcode default tab', as
 test('the header offers a way back to the site, beside the plan pill', async ({ page }) => {
   const home = page.getByTestId('header-home');
   await expect(home).toBeVisible();
-  await expect(home).toHaveAttribute('href', '/');
+  await expect(home).toHaveAttribute('href', '/landing');
   await expect(page.locator('.as-plan')).toContainText('Annual · Active');
 });
 

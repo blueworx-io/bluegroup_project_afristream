@@ -674,6 +674,10 @@ const server = createServer(async (req, res) => {
     // ?tab= is how the harness reaches them, since there is no nav button to
     // click any more.
     if (path === '/landing' || path === '/landing/') path = '/preview/landing.html';
+    // The landing mirror links its Dashboard button at the portal page's
+    // permalink, which in WordPress is whatever page hosts the shortcode. The
+    // harness has no pages, so /portal/ is that permalink here.
+    if (path === '/portal' || path === '/portal/') path = '/';
     if (path === '/' || path === '/index.html') {
       const tab = url.searchParams.get('tab');
       const html = (await readFile(join(ROOT, 'preview', 'index.html'), 'utf8'))

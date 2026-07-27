@@ -24,6 +24,17 @@ test('the header links to the portal and to the pricing section', async ({ page 
     .toHaveAttribute('href', '/portal/');
 });
 
+test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {
+  // Both halves resolve their target at render time — the landing page from
+  // the portal-page setting, the portal from home_url() — so a link that is
+  // merely present proves nothing. Follow both and check where they land.
+  await page.getByTestId('landing-header').getByRole('link', { name: 'Dashboard' }).click();
+  await expect(page.locator('.afristream-portal')).toBeVisible();
+
+  await page.getByTestId('header-home').click();
+  await expect(page.locator('h1')).toContainText('Every stream. One app.');
+});
+
 test('below 860px the nav collapses into a burger menu that opens and closes', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 900 });
   await page.goto('/landing');
