@@ -1,6 +1,6 @@
 <?php
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.23.0' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.23.1' );
 }
 require_once __DIR__ . '/../../includes/landing.php';
 // The Editor Picks teaser reads afristream_portal_baked_picks(), which lives in

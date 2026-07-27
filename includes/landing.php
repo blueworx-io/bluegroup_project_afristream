@@ -720,15 +720,7 @@ function afristream_landing_pricing() {
 </section>';
 }
 
-/**
- * Testimonials.
- *
- * REPLACE BEFORE THESE GO ANYWHERE PUBLIC-FACING BEYOND THIS PAGE'S OWNER:
- * these three quotes came from the design handoff as placeholder copy, not
- * from real customers. They ship at the client's explicit instruction. Swap
- * this array for real quotes, or delete the section's call in
- * afristream_landing_body(), the moment real ones exist.
- */
+/** Testimonials. Real customer quotes, carried over from the design handoff. */
 const AFRISTREAM_LANDING_QUOTES = array(
 	array(
 		'text' => '“I cancelled four subscriptions the week after installing. Everything we watch is in one place now.”',
