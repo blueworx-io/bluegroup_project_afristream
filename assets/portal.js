@@ -1344,23 +1344,33 @@
       return ['Step 1 of 4', 'Which of these do you have?', 'Pick the device you will be watching on and we will show you only the steps that apply to it. Nothing here needs any technical know-how.'];
     }
 
+    // A numbered stepper rather than a bar with captions under it: the numbers
+    // and the ticks are what say "these are steps, and you are on this one".
+    // Labels drop away on a narrow screen, where the heading above already
+    // names the current step.
     function setupProgress(stage, idx) {
-      const pct = stage === 'device' ? '12%'
-        : stage === 'steps' ? (['40%', '68%', '96%'][idx] || '40%')
-          : '100%';
       const active = stage === 'device' || stage === 'support' ? 0
         : stage === 'done' ? 3
           : idx + 1;
+      const last = SETUP_PROGRESS_LABELS.length - 1;
       return `
-  <div data-testid="setup-progress" style="display:flex;flex-direction:column;gap:11px;margin:0 2px 24px">
-    <div style="height:4px;border-radius:999px;background:rgba(11,21,51,.1);overflow:hidden">
-      <div style="height:100%;border-radius:999px;background:#65009F;transition:width .25s ease-out;width:${pct}"></div>
-    </div>
-    <div style="display:flex;gap:20px;flex-wrap:wrap">
-      ${SETUP_PROGRESS_LABELS.map((label, i) => `
-        <span style="font-size:12px;font-weight:${i === active ? '700' : '500'};color:${i === active ? '#0B1533' : i < active ? 'rgba(11,21,51,.68)' : 'rgba(11,21,51,.42)'}">${esc(label)}</span>`).join('')}
-    </div>
-  </div>`;
+  <ol data-testid="setup-progress" class="as-stepper" style="margin:0 2px 26px;padding:0;list-style:none;display:flex;align-items:center">
+      ${SETUP_PROGRESS_LABELS.map((label, i) => {
+    const done = i < active;
+    const now = i === active;
+    const circle = done
+      ? 'background:#65009F;color:#fff;border:1px solid #65009F'
+      : now
+        ? 'background:#65009F;color:#fff;border:1px solid #65009F;box-shadow:0 0 0 4px #F7E9FF'
+        : 'background:#fff;color:rgba(11,21,51,.45);border:1px solid rgba(11,21,51,.18)';
+    return `
+        <li style="display:flex;align-items:center;gap:10px;${i === last ? 'flex:none' : 'flex:1;min-width:0'}"${now ? ' aria-current="step"' : ''}>
+          <span aria-hidden="true" style="flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:800;${circle}">${done ? '✓' : i + 1}</span>
+          <span class="as-step-label" style="font-size:12.5px;white-space:nowrap;font-weight:${now ? '800' : done ? '700' : '600'};color:${now ? '#0B1533' : done ? 'rgba(11,21,51,.68)' : 'rgba(11,21,51,.42)'}">${esc(label)}</span>
+          ${i === last ? '' : `<span aria-hidden="true" style="flex:1;min-width:12px;height:2px;border-radius:999px;margin:0 4px;background:${done ? '#65009F' : 'rgba(11,21,51,.12)'}"></span>`}
+        </li>`;
+  }).join('')}
+  </ol>`;
     }
 
     function setupDeviceGrid() {

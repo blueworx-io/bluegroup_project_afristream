@@ -25,6 +25,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   holding, then read only the steps for it. Both platforms used to sit side
   by side, so every reader skipped half the page to find their half.
 - The header carries a Home link back to the site, beside the plan pill.
+- Setup's four stages are a numbered stepper rather than a progress bar with
+  captions beneath it: finished stages carry a tick, the current one is
+  filled and haloed, and the ones ahead are outlined. The captions read as a
+  label for the bar rather than as steps you move through. On a narrow
+  screen the numbers stand alone, since the heading above already names the
+  stage you are on.
 
 ### Removed
 

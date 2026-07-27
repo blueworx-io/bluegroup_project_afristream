@@ -215,6 +215,15 @@
 
 /* Setup wizard — device card artwork. A line icon on a tinted plate, sized so
    six cards read as one row of equals rather than six different pictures. */
+/* Setup stepper. Below 620px four labels and their connectors cannot share a
+   line, and the heading directly above already names the step you are on — so
+   the numbers carry it alone and the connectors get the room back. */
+@media (max-width: 620px) {
+  .afristream-portal .as-stepper .as-step-label {
+    display: none;
+  }
+}
+
 .afristream-portal .as-device-icon {
   display: flex;
   align-items: center;

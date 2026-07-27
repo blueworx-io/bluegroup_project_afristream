@@ -975,6 +975,29 @@ test('the Account tab spells out the one-screen and same-household rules', async
 
 const openSetup = async (page) => page.getByRole('button', { name: 'Setup' }).click();
 
+test('the stepper numbers the stages, ticks the finished ones and marks the current', async ({ page }) => {
+  await openSetup(page);
+  const stepper = page.getByTestId('setup-progress');
+
+  // Nothing done yet: four numbered stages, the first current, no ticks.
+  await expect(stepper.getByRole('listitem')).toHaveCount(4);
+  await expect(stepper).toContainText('1');
+  await expect(stepper).not.toContainText('✓');
+  await expect(stepper.locator('[aria-current="step"]')).toContainText('Your device');
+
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await expect(stepper.locator('[aria-current="step"]')).toContainText('Get ready');
+  // The stage just left behind is ticked rather than numbered.
+  await expect(stepper.getByRole('listitem').first()).toContainText('✓');
+
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+  await expect(stepper.locator('[aria-current="step"]')).toContainText('AfriStream app');
+  // Three behind it, all ticked, and exactly one stage current at any time.
+  await expect(stepper.getByText('✓')).toHaveCount(3);
+  await expect(stepper.locator('[aria-current="step"]')).toHaveCount(1);
+});
+
 test('the Setup tab opens on the device grid with a four-stage progress bar', async ({ page }) => {
   await openSetup(page);
 
