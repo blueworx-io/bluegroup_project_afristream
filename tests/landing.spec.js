@@ -116,6 +116,20 @@ test('with reduced motion preferred, the constellation is a still assembled diag
   expect(state.running).toBe(0);
 });
 
+test('the savings card sticks beside the checkboxes but never on top of them', async ({ page }) => {
+  // The mobile override was authored but sat above the base rule at equal
+  // specificity, so it lost on source order and the card stayed sticky —
+  // covering the list it is meant to summarise. Check both sides.
+  const position = () => page.locator('.as-calc-card')
+    .evaluate(el => getComputedStyle(el).position);
+
+  await page.setViewportSize({ width: 1200, height: 900 });
+  expect(await position()).toBe('sticky');
+
+  await page.setViewportSize({ width: 400, height: 900 });
+  expect(await position()).toBe('static');
+});
+
 test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {
   // Both halves resolve their target at render time — the landing page from
   // the portal-page setting, the portal from home_url() — so a link that is
