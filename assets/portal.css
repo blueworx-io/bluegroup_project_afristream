@@ -236,3 +236,19 @@
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* Setup wizard — device card artwork. A line icon on a tinted plate, sized so
+   six cards read as one row of equals rather than six different pictures. */
+.as-setup-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 108px;
+  background: #F7E9FF;
+  border-bottom: 1px solid rgba(11, 21, 51, 0.08);
+  color: #65009F;
+}
+.as-setup-icon svg {
+  width: 62px;
+  height: 62px;
+}
