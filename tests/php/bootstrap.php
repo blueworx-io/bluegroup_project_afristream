@@ -65,6 +65,7 @@ function af_reset_store() {
 			'post_types' => array(),
 			'meta'       => array(),
 		),
+		'rewrite_flushes' => 0, // times flush_rewrite_rules() was called — see af_rewrite_flushes().
 	);
 
 	// The fake $wpdb is a single long-lived object rather than part of the
@@ -1263,6 +1264,24 @@ function wp_doing_ajax() { return (bool) $GLOBALS['af_store']['doing_ajax']; }
  */
 function af_set_doing_ajax( $on = true ) {
 	$GLOBALS['af_store']['doing_ajax'] = (bool) $on;
+}
+
+/**
+ * Counted rather than ignored: flushing rewrite rules rebuilds every rule on the
+ * site, so "did this happen more than once" is the property worth holding, not
+ * "did it happen".
+ */
+function flush_rewrite_rules( $hard = true ) {
+	++$GLOBALS['af_store']['rewrite_flushes'];
+}
+
+/**
+ * How many times flush_rewrite_rules() has been called since the store reset.
+ *
+ * @return int
+ */
+function af_rewrite_flushes() {
+	return (int) $GLOBALS['af_store']['rewrite_flushes'];
 }
 
 function add_meta_box() {}

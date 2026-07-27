@@ -361,22 +361,34 @@ function afristream_available_licenses( $limit = 0 ) {
 /**
  * Register the licence post type.
  *
- * The labels, menu position, icon and public/REST visibility are ACF's own
- * export, kept so the admin URLs and menus are exactly what they were. One
- * argument is deliberately not ACF's: capability_type.
+ * The labels, menu position and icon are ACF's own export, kept so the admin
+ * screens read exactly as they did. Two arguments are deliberately not ACF's:
+ * capability_type, and visibility.
  *
- * 'public' => true is left as it was, but it is worth being plain about what it
- * still costs, because a licence's title is a customer's streaming username.
- * Public implies publicly_queryable, so a single licence is reachable at its own
- * front-end URL; it implies exclude_from_search is false, so licences turn up in
- * the site's own search; and with show_in_rest it means GET /wp/v2/license lists
- * every licence title to anyone. Titles are therefore public. Passwords are not,
- * which is what the meta registration below is for.
+ * ACF registered this type 'public' => true, which was wrong for what a licence
+ * holds. A licence's title is a customer's streaming username. Public implies
+ * publicly_queryable, so every licence was reachable at its own front-end URL;
+ * it implies exclude_from_search is false, so licences surfaced in the site's
+ * own search box; and with show_in_rest it meant an unauthenticated
+ * GET /wp-json/wp/v2/license listed every customer's username in one response.
+ * A username is not a way in on its own, but it is half of one, and the count
+ * alone told an outsider how many customers there were.
  *
- * Turning this off is a real improvement and a real change of behaviour — it
- * moves the admin screens off post_type=license URLs and hides the type from
- * anything that enumerates public types — so it is deliberately left as its own
- * decision rather than folded into a security fix.
+ * So the type is now private and administered entirely from wp-admin. The
+ * arguments that decide that are spelled out rather than left to the defaults
+ * 'public' => false already implies, because each one is load-bearing and a
+ * later edit that reinstates any of them republishes the usernames.
+ *
+ * show_ui and show_in_menu have to be set explicitly and are the reason this is
+ * not a one-line change: both default to the value of 'public', so flipping
+ * public alone would take the Licenses menu away with it. show_in_rest goes
+ * with them, which means the licence editor is the classic one rather than the
+ * block editor — the fields are our own meta boxes either way.
+ *
+ * Old /license/<username>/ rewrite rules stay in the database until they are
+ * flushed, which afristream_maybe_flush_rewrite() below does once. They cannot
+ * serve a licence in the meantime — with query_var off, WordPress drops the
+ * query var before the request is ever made into a query.
  *
  * ACF left it unset, which means WordPress falls back to the capabilities of an
  * ordinary post — and a Contributor holds edit_posts. A licence post's title is
@@ -398,9 +410,9 @@ function afristream_register_license_post_type() {
 	register_post_type(
 		'license',
 		array(
-			'capability_type'  => 'page',
-			'map_meta_cap'     => true,
-			'labels'           => array(
+			'capability_type'     => 'page',
+			'map_meta_cap'        => true,
+			'labels'              => array(
 				'name'          => __( 'Licenses', 'bluegroup-project-afristream' ),
 				'singular_name' => __( 'License', 'bluegroup-project-afristream' ),
 				'menu_name'     => __( 'Licenses', 'bluegroup-project-afristream' ),
@@ -413,11 +425,18 @@ function afristream_register_license_post_type() {
 				'search_items'  => __( 'Search Licenses', 'bluegroup-project-afristream' ),
 				'not_found'     => __( 'No licenses found', 'bluegroup-project-afristream' ),
 			),
-			'public'           => true,
-			'show_in_rest'     => true,
-			'menu_icon'        => 'dashicons-tickets-alt',
-			'supports'         => array( 'title', 'custom-fields' ),
-			'delete_with_user' => false,
+			'public'              => false,
+			'show_ui'             => true,
+			'show_in_menu'        => true,
+			'publicly_queryable'  => false,
+			'exclude_from_search' => true,
+			'show_in_nav_menus'   => false,
+			'show_in_rest'        => false,
+			'query_var'           => false,
+			'rewrite'             => false,
+			'menu_icon'           => 'dashicons-tickets-alt',
+			'supports'            => array( 'title', 'custom-fields' ),
+			'delete_with_user'    => false,
 		)
 	);
 
@@ -425,12 +444,15 @@ function afristream_register_license_post_type() {
 	// belonging to a licence — and so writing one is capability-checked. They are
 	// deliberately kept out of REST.
 	//
-	// show_in_rest is false because these are customer credentials sitting on a
-	// publicly-queryable post type. WP_REST_Meta_Fields applies auth_callback to
-	// writes only; reads are not capability-checked at all. With the meta exposed,
-	// GET /wp-json/wp/v2/license returned every licence's title — the customer's
-	// streaming username — alongside app_password in plaintext, to anyone, with no
-	// authentication. Nothing in this plugin reads these fields over REST: the
+	// show_in_rest is false because these are customer credentials, and it stays
+	// false independently of the post type's own visibility above. The two were
+	// both true once: WP_REST_Meta_Fields applies auth_callback to writes only and
+	// does not capability-check reads at all, so GET /wp-json/wp/v2/license
+	// returned every licence's title — the customer's streaming username —
+	// alongside app_password in plaintext, to anyone, with no authentication.
+	// Either argument alone closes that, which is the point of setting both:
+	// re-exposing the post type must not be enough to republish the passwords.
+	// Nothing in this plugin reads these fields over REST: the
 	// portal's Profile tab is served by /afristream/v1/credentials, which requires
 	// a logged-in user and returns only that user's own licences.
 	//
@@ -1420,6 +1442,42 @@ function afristream_maybe_upgrade() {
 	update_option( AFRISTREAM_SCHEMA_OPTION, AFRISTREAM_SCHEMA_VERSION );
 }
 add_action( 'admin_init', 'afristream_maybe_upgrade' );
+
+/** Marker that the front-end rules left behind by the public post type are gone. */
+define( 'AFRISTREAM_REWRITE_FLUSHED_OPTION', 'afristream_rewrite_flushed' );
+
+/**
+ * Clear the rewrite rules the licence post type left behind, once.
+ *
+ * While the type was 'public' the site collected a /license/<username>/ rule per
+ * permalink structure, and those rules live in an option that nothing rewrites
+ * on its own — deactivating or updating a plugin does not touch them. They
+ * cannot serve a licence now that query_var is off, but they are stale routes
+ * carrying customer usernames and there is no reason to keep them.
+ *
+ * The marker is written before the flush, not after, so this runs at most once
+ * even if the flush itself fails. That is the deliberate trade: flushing rewrite
+ * rules rebuilds every rule on the site, so a version that retried would do it
+ * on every single admin page load — a far worse outcome than a flush that has
+ * to be triggered by hand from Settings > Permalinks.
+ *
+ * Separate from afristream_maybe_upgrade() on purpose. Folding it in would mean
+ * bumping the schema version, and the schema version is what gates the one-way
+ * ownership migration — a cosmetic cleanup must not be able to re-enter that.
+ */
+function afristream_maybe_flush_rewrite() {
+	if ( wp_doing_ajax() || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
+	if ( get_option( AFRISTREAM_REWRITE_FLUSHED_OPTION ) ) {
+		return;
+	}
+
+	update_option( AFRISTREAM_REWRITE_FLUSHED_OPTION, 1 );
+	flush_rewrite_rules( false );
+}
+add_action( 'admin_init', 'afristream_maybe_flush_rewrite' );
 
 /**
  * Declare the data model on the Configurations page.

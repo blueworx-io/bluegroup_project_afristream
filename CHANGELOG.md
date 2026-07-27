@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-07-27
+
+### Fixed
+
+- **Licences are no longer readable from outside the site.** A licence's title is a customer's streaming username, and the licence post type had been registered as public since it was first set up in ACF. That gave every licence its own front-end address, listed licences in the site's own search box, and — through `GET /wp-json/wp/v2/license` — returned every customer's username in a single response to anyone who asked, with no login. Licences are now private and administered only from the admin, which changes nothing about how they are managed. The stale `/license/<username>/` routes left behind in the database are cleared once, the next time an administrator loads an admin page.
+
 ## [0.20.0] - 2026-07-26
 
 ### Added
