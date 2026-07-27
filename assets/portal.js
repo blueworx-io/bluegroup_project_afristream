@@ -1420,6 +1420,27 @@
   <div style="margin:16px 2px 0;border-radius:13px;border:1px solid rgba(11,21,51,.08);background:#fff;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.7)">Picture freezing or an app that will not connect? Nine times out of ten it is WiFi. Email <a href="mailto:support@afristream.io">support@afristream.io</a> and we will walk through it with you.</div>`;
     }
 
+    // Devices we register at our end. There is nothing for the customer to
+    // install, so this branch offers the one action that helps — email us —
+    // rather than steps that cannot work.
+    const SETUP_SUPPORT_LINES = [
+      'Send us an email and we will register your device and create the profile at our end — you do not have to install anything.',
+      'Tell us which device you have and we will reply with what to open on screen. Allow one business day.',
+      'Once it is registered, sign in with the username and password from your welcome email and you are watching.'
+    ];
+
+    function setupSupportCard() {
+      return `
+  <div data-testid="setup-support" style="border-radius:20px;border:1px solid rgba(11,21,51,.08);background:#fff;box-shadow:0 1px 2px rgba(11,21,51,.04);padding:clamp(20px,4vw,30px);margin:0 2px;display:flex;flex-direction:column;gap:15px">
+    <span style="font-size:17.5px;font-weight:800;letter-spacing:-0.01em">We do this part for you</span>
+    ${SETUP_SUPPORT_LINES.map((l) => `<span style="font-size:14.5px;line-height:1.65;color:rgba(11,21,51,.72)">${esc(l)}</span>`).join('')}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">
+      <a href="mailto:support@afristream.io" style="background:linear-gradient(120deg,#65009F,#CD2DF5);border-radius:12px;padding:13px 26px;font-weight:800;font-size:14.5px;color:#fff;text-decoration:none">Email support</a>
+      <button class="as-hover-ghost" data-act="setup-restart" style="background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:#65009F">Change device</button>
+    </div>
+  </div>`;
+    }
+
     function setupSection() {
       const stage = setupStage();
       const head = setupHeading();
@@ -1433,9 +1454,11 @@
             ? `<div data-testid="setup-step-note" style="margin:22px 2px 0;border-radius:13px;border:1px solid rgba(101,0,159,.2);background:#F7E9FF;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(screen.note)}</div>`
             : '')
           + setupNav(device)
-        : stage === 'done'
-          ? setupDoneCard()
-          : setupDeviceGrid();
+        : stage === 'support'
+          ? setupSupportCard()
+          : stage === 'done'
+            ? setupDoneCard()
+            : setupDeviceGrid();
 
       return `
 <section data-screen-label="Setup">

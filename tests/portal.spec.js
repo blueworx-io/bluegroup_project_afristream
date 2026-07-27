@@ -1087,6 +1087,28 @@ test('the copy button on the Downloader code reports back', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
 });
 
+test('a smart TV branches to the support card instead of steps', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Smart TV, nothing plugged in/ }).click();
+
+  await expect(page.getByTestId('setup-support')).toContainText('We do this part for you');
+  await expect(page.getByRole('heading', { name: 'We set this one up for you' })).toBeVisible();
+  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
+  await expect(page.getByTestId('setup-next')).toHaveCount(0);
+
+  await expect(page.getByRole('link', { name: 'Email support' }))
+    .toHaveAttribute('href', 'mailto:support@afristream.io');
+});
+
+test('iPhone, iPad or Roku takes the same support branch', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /iPhone, iPad or Roku/ }).click();
+
+  await expect(page.getByTestId('setup-support')).toBeVisible();
+  await page.getByRole('button', { name: 'Change device' }).click();
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+});
+
 test('the Download tab covers both mobile platforms', async ({ page }) => {
   await page.getByRole('button', { name: 'Download' }).click();
   await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
