@@ -122,7 +122,16 @@ function afristream_landing_template( $template ) {
 		return $template;
 	}
 
-	afristream_landing_enqueue();
+	// Not called directly: wp_head(), printed below, is what fires
+	// wp_enqueue_scripts — which is also what runs
+	// afristream_landing_register_assets() (hooked to the same action, at the
+	// default priority, added at file load so it runs first). Calling
+	// afristream_landing_enqueue() here, before that has ever fired, used to
+	// mean 'surecontact-forms' was not registered yet when this reached
+	// wp_add_inline_script() below — which fails silently against an
+	// unregistered handle — so the newsletter embed never rendered. Hooking
+	// it onto the same action guarantees registration has already run.
+	add_action( 'wp_enqueue_scripts', 'afristream_landing_enqueue' );
 
 	// Printed here rather than returned: this IS the document.
 	?>
@@ -131,9 +140,11 @@ function afristream_landing_template( $template ) {
 <head>
 <meta charset="<?php bloginfo( 'charset' ); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?php echo esc_html( wp_get_document_title() ); ?></title>
 <?php wp_head(); ?>
 </head>
 <body <?php body_class( 'afristream-landing-page' ); ?>>
+<?php wp_body_open(); ?>
 <?php
 	echo afristream_landing_body(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built from escaped parts.
 	wp_footer();
