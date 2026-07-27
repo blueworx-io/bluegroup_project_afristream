@@ -22,6 +22,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   page's Dashboard links point at. Left on "Detect automatically" it finds the
   first published page containing `[afristream_portal]`.
 
+### Fixed
+
+- The newsletter signup embed now actually renders on the page template. It
+  was being enqueued before its script was registered, so the render call was
+  silently dropped and the "Get Started" CTAs led to an empty box.
+- The page template now prints a `<title>` tag and fires `wp_body_open()`
+  itself, since it renders the whole document and never runs the theme's
+  `header.php`.
+- Jumping to a section from any in-page link no longer lands its heading
+  underneath the sticky header.
+- The savings calculator input has a visible keyboard focus ring again.
+- The mobile menu can be closed with Escape, and the burger button now points
+  `aria-controls` at the panel it opens.
+- Entering an amount in "Any other subscriptions?" with nothing else selected
+  no longer shows "your selection below" beside a non-zero saving.
+
 ## [0.21.0] - 2026-07-27
 
 ### Changed

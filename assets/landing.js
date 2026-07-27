@@ -35,6 +35,16 @@
     });
   }
 
+  // Escape closes the panel and returns focus to the toggle — without this,
+  // a keyboard user who opens the menu has no way to dismiss it without
+  // tabbing all the way through every link inside it.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' && e.key !== 'Esc') return;
+    if (!menu || menu.hidden) return;
+    setMenu(false);
+    if (burger) burger.focus();
+  });
+
   // -------------------------------------------------------- calculator
 
   var calc = root.querySelector('[data-testid="landing-calculator"]');
@@ -61,12 +71,16 @@
           chosen += 1;
         }
       });
-      total += Number(other && other.value) || 0;
+      var otherAmount = Number(other && other.value) || 0;
+      total += otherAmount;
 
       savingEl.textContent = money(Math.max(0, total - AFRISTREAM_PRICE));
       totalEl.textContent = money(total) + ' / year';
+      // No chips pressed but an "other" figure entered is still a non-zero
+      // saving — "your selection below" would read as if nothing had been
+      // chosen at all, right beside a number that says otherwise.
       basisEl.textContent = chosen === 0
-        ? 'your selection below'
+        ? (otherAmount > 0 ? 'the other amount entered below' : 'your selection below')
         : chosen + ' subscription' + (chosen === 1 ? '' : 's') + ' selected';
     }
 

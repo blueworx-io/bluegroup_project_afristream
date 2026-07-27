@@ -259,6 +259,17 @@ const AFRISTREAM_LANDING_PLATFORMS = array(
  * The hero. The handoff's animated constellation is a lot of markup for one
  * decorative panel, so it is drawn in CSS from a short list of tiles rather
  * than hand-written per tile.
+ *
+ * Two deliberate simplifications against the spec, undocumented until now:
+ * the spec calls for a dimmed EPG grid backdrop behind two gradient scrims;
+ * this ships one linear gradient (.as-hero background) plus one radial glow
+ * (.as-stage-glow) — a full EPG-grid texture was judged not worth the extra
+ * asset/markup for a decorative backdrop most visitors see for a second
+ * before scrolling. The spec also describes the tiles "wiring into" the hub
+ * with connector lines; those are left out because the CSS keyframes already
+ * carry the same "assembling into one hub" idea through motion (as-tile,
+ * as-hub) without static lines that would need to survive every viewport
+ * width the tiles reflow at.
  */
 function afristream_landing_hero() {
 	$proof = array(
@@ -352,11 +363,11 @@ function afristream_landing_header() {
     </a>
     <nav class="as-nav-full" data-testid="landing-nav">' . $nav . '</nav>
     <div class="as-head-cta">' . $dashboard . '<a class="as-btn as-btn-primary" href="#signup">Get Started</a></div>
-    <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-label="Menu">
+    <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
   </div>
-  <div class="as-menu" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" href="#signup">Get Started</a></div>
+  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" href="#signup">Get Started</a></div>
 </header>';
 }
 

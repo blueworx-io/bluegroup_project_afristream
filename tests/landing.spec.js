@@ -209,7 +209,7 @@ test('with reduced motion preferred, nothing is hidden waiting to be revealed', 
   await page.goto('/landing');
 
   // Every section is visible immediately — the reveal never runs.
-  for (const id of ['landing-features', 'landing-calculator', 'landing-faq', 'landing-signup']) {
+  for (const id of ['landing-features', 'landing-calculator', 'landing-pricing', 'landing-testimonials', 'landing-faq', 'landing-signup']) {
     await expect(page.getByTestId(id).locator('[data-reveal]')).toHaveCSS('opacity', '1');
   }
 });

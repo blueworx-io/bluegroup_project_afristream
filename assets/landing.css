@@ -39,6 +39,13 @@ body.afristream-landing-page {
   border-radius: 4px;
 }
 
+/* Every CTA on the page is an in-page anchor, and the header is sticky at
+   min-height: 56px — without this, jumping to a section lands its eyebrow
+   underneath the bar. */
+.as-landing section {
+  scroll-margin-top: 64px;
+}
+
 /* ---------------------------------------------------------------- header */
 
 .as-landing .as-head {
@@ -823,8 +830,16 @@ body.afristream-landing-page {
   padding: 13px 0;
 }
 
-.as-landing .as-calc-input input:focus { outline: none; }
 .as-landing .as-calc-input:focus-within { border-color: var(--accent); }
+
+/* The border-colour change above is not enough on its own against the dark
+   background — this restores a real focus ring so the field is still
+   findable by anyone tabbing through rather than reading the page. */
+.as-landing .as-calc-input input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
 
 /* ------------------------------------------------------------------- faq */
 
