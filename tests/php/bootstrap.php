@@ -36,6 +36,7 @@ function af_reset_store() {
 		'options'         => array(),
 		'site_options'    => array(),
 		'transients'      => array(),
+		'scheduled'       => array(),
 		'autoload'        => array(),
 		'posts'           => array(),
 		'users'           => array(),
@@ -450,6 +451,32 @@ function set_transient( $key, $value, $ttl = 0 ) {
 
 function delete_transient( $key ) {
 	unset( $GLOBALS['af_store']['transients'][ $key ] );
+	return true;
+}
+
+// -- Cron ---------------------------------------------------------------------
+
+/**
+ * The next run time for a hook, or false when nothing is queued for it.
+ *
+ * @param string $hook Hook name.
+ * @return int|false
+ */
+function wp_next_scheduled( $hook ) {
+	foreach ( $GLOBALS['af_store']['scheduled'] as $event ) {
+		if ( $event['hook'] === $hook ) {
+			return $event['timestamp'];
+		}
+	}
+	return false;
+}
+
+function wp_schedule_single_event( $timestamp, $hook, $args = array() ) {
+	$GLOBALS['af_store']['scheduled'][] = array(
+		'timestamp' => (int) $timestamp,
+		'hook'      => (string) $hook,
+		'args'      => $args,
+	);
 	return true;
 }
 

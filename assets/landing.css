@@ -701,6 +701,88 @@ body.afristream-landing-page {
 .as-landing .as-sec-pricing { background: radial-gradient(ellipse 120% 90% at 12% 60%, rgba(101, 0, 159, 0.28) 0%, rgba(13, 7, 19, 0) 68%); }
 .as-landing .as-sec-testimonials { background: radial-gradient(ellipse 120% 90% at 88% 10%, rgba(101, 0, 159, 0.22) 0%, rgba(13, 7, 19, 0) 68%); }
 
+/* --------------------------------------------------------------- teasers */
+
+/* A sample of the catalogue, not a browsable one: one row, no controls,
+   nothing clickable. The row is clipped rather than scrollable and fades out
+   at the trailing edge, so it reads as "there is more inside" without
+   inviting anyone to drag it. */
+
+.as-landing .as-teaser {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: clamp(40px, 7vw, 56px) 0 clamp(40px, 7vw, 56px) clamp(20px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.as-landing .as-teaser h2 {
+  margin: 0;
+  font-weight: 400;
+  font-size: clamp(24px, 3.4vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.as-landing .as-teaser-lede {
+  margin: 0 0 18px;
+  font-size: clamp(14px, 1.7vw, 16px);
+  line-height: 1.6;
+  color: var(--text-3);
+  max-width: 560px;
+}
+
+.as-landing .as-teaser-row {
+  display: flex;
+  gap: clamp(10px, 1.6vw, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* The row is deliberately wider than the section and clipped by it. */
+  -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+}
+
+.as-landing .as-teaser-card {
+  flex: 0 0 auto;
+  width: clamp(104px, 13vw, 148px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.as-landing .as-teaser-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.as-landing .as-teaser-title {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text-2);
+  /* Two lines, then ellipsis — a long title must not shove the row's baseline
+     around or push the card taller than its neighbours. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.as-landing .as-teaser-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-3);
+}
+
 /* -------------------------------------------------------------- features */
 
 .as-landing .as-features {

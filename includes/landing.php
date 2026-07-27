@@ -229,6 +229,7 @@ function afristream_landing_body() {
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
+		. afristream_landing_teasers()
 		. afristream_landing_features()
 		. afristream_landing_calculator()
 		. afristream_landing_pricing()
@@ -354,6 +355,158 @@ function afristream_landing_integrations() {
   <span class="as-eyebrow as-eyebrow-muted as-integrations-label">Integrations</span>
   <div class="as-marquee"><div class="as-marquee-run">' . $run . '</div></div>
 </section>';
+}
+
+/** How many posters a teaser row shows. A sample, not a catalogue. */
+const AFRISTREAM_LANDING_TEASER_COUNT = 8;
+
+/**
+ * Editor Picks for the teaser, straight from the file baked at deploy time.
+ *
+ * Deliberately afristream_portal_baked_picks() and not
+ * afristream_portal_editor_picks(): the latter falls through to resolving every
+ * title against TMDB when the baked file is absent, which is work no public
+ * page render should ever start.
+ *
+ * @return array<int,array<string,mixed>>
+ */
+function afristream_landing_picks_teaser_items() {
+	$baked = function_exists( 'afristream_portal_baked_picks' ) ? afristream_portal_baked_picks() : null;
+	$picks = ( is_array( $baked ) && ! empty( $baked['picks'] ) ) ? $baked['picks'] : array();
+
+	return array_slice( $picks, 0, AFRISTREAM_LANDING_TEASER_COUNT );
+}
+
+/**
+ * What to Watch for the teaser — read from the warm TMDB cache, never fetched.
+ *
+ * afristream_portal_tmdb_catalog() populates that cache, but on a miss it makes
+ * a dozen-odd TMDB calls before returning. The portal can afford that behind a
+ * spinner; a marketing page cannot, and the visitor who paid for it would be
+ * whoever happened to arrive first after the 12-hour transient expired. So this
+ * reads the transient directly and gives up when it is cold, leaving the row out
+ * rather than holding up the page.
+ *
+ * A cold cache also queues a one-off warm, so the next visitor gets the row
+ * without anyone having opened the portal.
+ *
+ * @return array<int,array<string,mixed>>
+ */
+function afristream_landing_watch_teaser_items() {
+	$catalog = get_transient( 'afristream_portal_tmdb' );
+
+	if ( ! is_array( $catalog ) ) {
+		afristream_landing_queue_catalog_warm();
+		return array();
+	}
+
+	// Trending films and series interleaved, so the row reads as a mix rather
+	// than four films followed by four programmes.
+	$movies = isset( $catalog['movies'] ) && is_array( $catalog['movies'] ) ? $catalog['movies'] : array();
+	$series = isset( $catalog['series'] ) && is_array( $catalog['series'] ) ? $catalog['series'] : array();
+
+	$items = array();
+	for ( $i = 0; count( $items ) < AFRISTREAM_LANDING_TEASER_COUNT; $i++ ) {
+		if ( ! isset( $movies[ $i ] ) && ! isset( $series[ $i ] ) ) {
+			break;
+		}
+		if ( isset( $movies[ $i ] ) ) {
+			$items[] = $movies[ $i ];
+		}
+		if ( count( $items ) < AFRISTREAM_LANDING_TEASER_COUNT && isset( $series[ $i ] ) ) {
+			$items[] = $series[ $i ];
+		}
+	}
+
+	return $items;
+}
+
+/** Marker for the queued warm, so a cold cache queues one job and not one per view. */
+const AFRISTREAM_LANDING_WARM_HOOK = 'afristream_landing_warm_catalog';
+
+/**
+ * Ask for the TMDB catalogue to be built out of band.
+ *
+ * wp_next_scheduled() is what stops a burst of traffic on a cold cache queueing
+ * an event per request.
+ */
+function afristream_landing_queue_catalog_warm() {
+	if ( ! function_exists( 'wp_next_scheduled' ) || wp_next_scheduled( AFRISTREAM_LANDING_WARM_HOOK ) ) {
+		return;
+	}
+	wp_schedule_single_event( time() + 30, AFRISTREAM_LANDING_WARM_HOOK );
+}
+
+function afristream_landing_warm_catalog() {
+	if ( function_exists( 'afristream_portal_tmdb_catalog' ) ) {
+		afristream_portal_tmdb_catalog();
+	}
+}
+add_action( AFRISTREAM_LANDING_WARM_HOOK, 'afristream_landing_warm_catalog' );
+
+/**
+ * One teaser row: an eyebrow, a heading and a strip of posters.
+ *
+ * The posters carry their titles as alt text and nothing is clickable — the
+ * row exists to show the catalogue is real, and the page's only action is to
+ * sign up. An item with no poster is skipped rather than rendered as a hole.
+ *
+ * @param string                            $id      Section id, for the testid.
+ * @param string                            $eyebrow Small label above the heading.
+ * @param string                            $heading The row's heading.
+ * @param string                            $lede    One line under the heading.
+ * @param array<int,array<string,mixed>>    $items   Poster-bearing rows.
+ * @return string Empty when there is nothing to show.
+ */
+function afristream_landing_teaser_row( $id, $eyebrow, $heading, $lede, $items ) {
+	$cards = '';
+	foreach ( $items as $item ) {
+		$poster = isset( $item['poster'] ) ? (string) $item['poster'] : '';
+		if ( '' === $poster ) {
+			continue;
+		}
+		$title = isset( $item['t'] ) ? (string) $item['t'] : '';
+		$meta  = isset( $item['meta'] ) ? (string) $item['meta'] : '';
+
+		$cards .= '<li class="as-teaser-card" data-teaser-card>'
+			. '<img src="' . esc_url( $poster ) . '" alt="' . esc_attr( $title ) . '" loading="lazy" decoding="async" width="342" height="513">'
+			. '<span class="as-teaser-title">' . esc_html( $title ) . '</span>'
+			. ( '' !== $meta ? '<span class="as-teaser-meta">' . esc_html( $meta ) . '</span>' : '' )
+			. '</li>';
+	}
+
+	if ( '' === $cards ) {
+		return '';
+	}
+
+	return '
+<section id="' . esc_attr( $id ) . '" class="as-teaser" data-testid="landing-teaser-' . esc_attr( $id ) . '" data-reveal>
+  <span class="as-eyebrow as-eyebrow-muted">' . esc_html( $eyebrow ) . '</span>
+  <h2>' . esc_html( $heading ) . '</h2>
+  <p class="as-teaser-lede">' . esc_html( $lede ) . '</p>
+  <ul class="as-teaser-row">' . $cards . '</ul>
+</section>';
+}
+
+/**
+ * Both teaser rows. Either can come back empty — Editor Picks when the baked
+ * file is missing, What to Watch when the catalogue cache is cold — and the
+ * page reads correctly with one row, or with none.
+ */
+function afristream_landing_teasers() {
+	return afristream_landing_teaser_row(
+		'watch',
+		'What to Watch',
+		'Trending right now',
+		'A glimpse of what is playing this week. Subscribers get the full list, updated daily.',
+		afristream_landing_watch_teaser_items()
+	) . afristream_landing_teaser_row(
+		'picks',
+		'Editor Picks',
+		'Hand-picked by us',
+		'A running list of what we think is worth your evening. Hundreds more inside.',
+		afristream_landing_picks_teaser_items()
+	);
 }
 
 /**

@@ -130,6 +130,33 @@ test('the savings card sticks beside the checkboxes but never on top of them', a
   expect(await position()).toBe('static');
 });
 
+test('both teaser rows show eight posters and none of them is a link', async ({ page }) => {
+  for (const id of ['watch', 'picks']) {
+    const section = page.getByTestId(`landing-teaser-${id}`);
+    await expect(section).toBeVisible();
+    await expect(section.locator('[data-teaser-card]')).toHaveCount(8);
+    // Teasers are proof the catalogue exists, not a way into it.
+    await expect(section.locator('a')).toHaveCount(0);
+  }
+});
+
+test('teaser posters keep one row of equal cards, clipped rather than scrollable', async ({ page }) => {
+  const row = page.getByTestId('landing-teaser-picks').locator('.as-teaser-row');
+  const box = await row.evaluate((el) => {
+    const cards = [...el.querySelectorAll('[data-teaser-card]')];
+    const tops = new Set(cards.map(c => Math.round(c.getBoundingClientRect().top)));
+    return {
+      rows: tops.size,
+      widths: new Set(cards.map(c => Math.round(c.getBoundingClientRect().width))).size,
+      // The section clips the row; the row itself must not become a scroller.
+      scrollable: el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX !== 'visible'
+    };
+  });
+  expect(box.rows).toBe(1);
+  expect(box.widths).toBe(1);
+  expect(box.scrollable).toBe(false);
+});
+
 test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {
   // Both halves resolve their target at render time — the landing page from
   // the portal-page setting, the portal from home_url() — so a link that is

@@ -1,8 +1,13 @@
 <?php
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.22.0' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.23.0' );
 }
 require_once __DIR__ . '/../../includes/landing.php';
+// The Editor Picks teaser reads afristream_portal_baked_picks(), which lives in
+// the main plugin file. Loaded here rather than stubbed: a local stub would be
+// declared first and then collide with the real one when another test file
+// pulls the plugin in, and stubbing it would test the stub anyway.
+require_once __DIR__ . '/../../bluegroup-project-afristream.php';
 
 /**
  * The rest of the suite for this page — tests/landing.spec.js — runs against
@@ -109,7 +114,13 @@ function af_landing_sub_prices( DOMElement $root ) {
  */
 function af_landing_text_nodes( DOMElement $root ) {
 	$out = array();
-	foreach ( ( new DOMXPath( $root->ownerDocument ) )->query( './/text()', $root ) as $node ) {
+	// Poster titles inside a teaser row are catalogue data — they change every
+	// time the watchlist is synced or TMDB's trending list moves. Pinning them
+	// here would mean editing the mirror after every sync, so the rows' contents
+	// are covered structurally instead (see the teaser tests below) and only
+	// their static copy — eyebrow, heading, lede — is compared.
+	$query = './/text()[not(ancestor::*[contains(concat(" ", normalize-space(@class), " "), " as-teaser-row ")])]';
+	foreach ( ( new DOMXPath( $root->ownerDocument ) )->query( $query, $root ) as $node ) {
 		$value = str_replace( '&#039;', "'", trim( preg_replace( '/\s+/', ' ', $node->nodeValue ) ) );
 		if ( '' !== $value ) {
 			$out[] = $value;
@@ -130,10 +141,44 @@ function af_landing_seed_portal_page() {
 	af_seed_permalink( 42, '/portal/' );
 }
 
+/**
+ * Give both teaser rows something to render.
+ *
+ * The rows are omitted entirely when their data is missing — that is the
+ * designed behaviour, not a failure — so without this the parity tests would
+ * compare a mirror that has them against a render that does not.
+ *
+ * Only the row's presence and shape are seeded. What is IN the rows is
+ * catalogue data and deliberately outside the mirror comparison.
+ */
+function af_landing_seed_teasers() {
+	$item = function ( $title ) {
+		return array(
+			't'      => $title,
+			'poster' => 'https://image.tmdb.org/t/p/w342/' . md5( $title ) . '.jpg',
+			'meta'   => '2024',
+		);
+	};
+
+	set_transient(
+		'afristream_portal_tmdb',
+		array(
+			'movies' => array( $item( 'Film A' ), $item( 'Film B' ), $item( 'Film C' ), $item( 'Film D' ) ),
+			'series' => array( $item( 'Series A' ), $item( 'Series B' ), $item( 'Series C' ), $item( 'Series D' ) ),
+		),
+		HOUR_IN_SECONDS
+	);
+
+	// Editor Picks needs no seeding: it reads the baked data/editor-picks.json
+	// that ships with the plugin, which is present in the repo and is exactly
+	// what production reads.
+}
+
 // -- Mirror parity -------------------------------------------------------
 
 af_test( 'the rendered sections appear in the same order as the preview mirror', function () {
 	af_landing_seed_portal_page();
+	af_landing_seed_teasers();
 
 	af_assert_same(
 		af_landing_section_ids( af_landing_mirror_root() ),
@@ -144,13 +189,15 @@ af_test( 'the rendered sections appear in the same order as the preview mirror',
 
 af_test( 'marker counts match the preview mirror', function () {
 	af_landing_seed_portal_page();
+	af_landing_seed_teasers();
 	$root = af_landing_php_root();
 
 	af_assert_same( 26, af_landing_xpath_count( $root, './/*[@data-platform]' ), 'ticker platforms (13, doubled for a seamless loop)' );
 	af_assert_same( 4, af_landing_xpath_count( $root, './/*[@data-feature]' ), 'feature cards' );
 	af_assert_same( 5, af_landing_xpath_count( $root, './/*[@data-plan-feature]' ), 'plan feature lines' );
 	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-faq]' ), 'FAQ items' );
-	af_assert_same( 6, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
+	af_assert_same( 8, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
+	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-teaser-card]' ), 'teaser posters (eight per row, two rows)' );
 	af_assert_same( 3, af_landing_xpath_count( $root, './/figure' ), 'testimonials' );
 	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-sub-price]' ), 'calculator subscription options' );
 	af_assert_same( 1, af_landing_xpath_count( $root, './/h1' ), 'exactly one h1 on the page' );
@@ -158,6 +205,7 @@ af_test( 'marker counts match the preview mirror', function () {
 
 af_test( 'the sixteen calculator subscription prices match the preview mirror in order', function () {
 	af_landing_seed_portal_page();
+	af_landing_seed_teasers();
 
 	af_assert_same(
 		af_landing_sub_prices( af_landing_mirror_root() ),
@@ -168,6 +216,7 @@ af_test( 'the sixteen calculator subscription prices match the preview mirror in
 
 af_test( 'the visible text matches the preview mirror', function () {
 	af_landing_seed_portal_page();
+	af_landing_seed_teasers();
 
 	af_assert_same(
 		af_landing_text_nodes( af_landing_mirror_root() ),
@@ -215,4 +264,69 @@ af_test( 'the shortcode path enqueues and registers directly, unaffected by the 
 
 	af_assert( false !== strpos( $body, 'id="surecontact-form-afristream-newsletter-sign-up"' ), 'the shortcode still renders the signup container' );
 	af_assert_same( 1, count( af_wp_inline_scripts( 'surecontact-forms' ) ), 'and the render call still attaches' );
+} );
+
+// -- Teasers -------------------------------------------------------------
+
+af_test( 'a cold catalogue cache leaves the What to Watch row out rather than fetching', function () {
+	// The whole point of reading the transient instead of calling
+	// afristream_portal_tmdb_catalog(): a public page render must never be the
+	// thing that goes off to TMDB. No cache, no row.
+	delete_transient( 'afristream_portal_tmdb' );
+
+	af_assert_same( array(), afristream_landing_watch_teaser_items(), 'no items from a cold cache' );
+	af_assert_same( '', afristream_landing_teaser_row( 'watch', 'What to Watch', 'Trending', 'Lede', array() ), 'and no section markup' );
+} );
+
+af_test( 'a cold cache queues exactly one warm, however many visitors arrive', function () {
+	delete_transient( 'afristream_portal_tmdb' );
+	$GLOBALS['af_store']['scheduled'] = array();
+
+	for ( $i = 0; $i < 5; $i++ ) {
+		afristream_landing_watch_teaser_items();
+	}
+
+	af_assert_same( 1, count( $GLOBALS['af_store']['scheduled'] ), 'one queued job, not one per view' );
+	af_assert_same( AFRISTREAM_LANDING_WARM_HOOK, $GLOBALS['af_store']['scheduled'][0]['hook'], 'the warm hook' );
+} );
+
+af_test( 'the What to Watch row interleaves films and series', function () {
+	af_landing_seed_teasers();
+
+	$items  = afristream_landing_watch_teaser_items();
+	$titles = array_map( function ( $i ) { return $i['t']; }, $items );
+
+	af_assert_same(
+		array( 'Film A', 'Series A', 'Film B', 'Series B', 'Film C', 'Series C', 'Film D', 'Series D' ),
+		$titles,
+		'alternating, capped at the teaser count'
+	);
+} );
+
+af_test( 'a teaser row skips an item with no poster instead of rendering a hole', function () {
+	$html = afristream_landing_teaser_row(
+		'picks',
+		'Editor Picks',
+		'Hand-picked',
+		'Lede',
+		array(
+			array( 't' => 'Has a poster', 'poster' => 'https://example.test/a.jpg', 'meta' => '2024' ),
+			array( 't' => 'No poster', 'poster' => '', 'meta' => '2024' ),
+		)
+	);
+
+	af_assert_same( 1, substr_count( $html, 'data-teaser-card' ), 'only the item with artwork' );
+	af_assert( false === strpos( $html, 'No poster' ), 'the posterless item is absent entirely' );
+} );
+
+af_test( 'teaser posters carry their title as alt text and are not links', function () {
+	af_landing_seed_teasers();
+	// af_landing_root() looks for the page wrapper, which a bare section pair
+	// does not carry.
+	$root = af_landing_root( '<div class="as-landing">' . afristream_landing_teasers() . '</div>' );
+
+	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-teaser-card]' ), 'two full rows' );
+	af_assert_same( 0, af_landing_xpath_count( $root, './/a' ), 'nothing in a teaser is clickable' );
+	af_assert_same( 0, af_landing_xpath_count( $root, './/img[not(@alt) or @alt=""]' ), 'every poster names its title' );
+	af_assert_same( 16, af_landing_xpath_count( $root, './/img[@loading="lazy"]' ), 'posters load lazily' );
 } );
