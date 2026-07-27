@@ -93,4 +93,42 @@
     btn.setAttribute('aria-expanded', open ? 'false' : 'true');
     answer.hidden = open;
   });
+
+  // ------------------------------------------------------------ reveal
+
+  // Sections fade and rise as they come into view. Anything already on screen
+  // at load is never hidden — a reveal that hides the hero and then fails to
+  // fire is worse than no reveal at all. Skipped entirely when the visitor
+  // prefers reduced motion.
+  var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reduced) {
+    var pending = [];
+
+    Array.prototype.slice.call(root.querySelectorAll('[data-reveal]')).forEach(function (el) {
+      if (el.getBoundingClientRect().top < window.innerHeight) return;
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(16px)';
+      el.style.transition = 'opacity .25s ease-out, transform .25s ease-out';
+      pending.push(el);
+    });
+
+    var check = function () {
+      pending = pending.filter(function (el) {
+        if (el.getBoundingClientRect().top >= window.innerHeight * 0.92) return true;
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+        return false;
+      });
+      if (!pending.length) {
+        window.removeEventListener('scroll', check, true);
+        window.removeEventListener('resize', check);
+      }
+    };
+
+    // Capture, so a scroll on any container counts.
+    window.addEventListener('scroll', check, true);
+    window.addEventListener('resize', check);
+    check();
+  }
 })();

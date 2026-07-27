@@ -189,3 +189,27 @@ test('every call to action on the page resolves to a section that exists', async
     await expect(page.locator(href), `${href} has no target`).toHaveCount(1);
   }
 });
+
+test('sections below the fold rise into view as you scroll, and none is left hidden', async ({ page }) => {
+  const faq = page.getByTestId('landing-faq').locator('[data-reveal]');
+
+  // Off-screen at load, so it starts hidden and animates in.
+  await expect(faq).toHaveCSS('opacity', '0');
+
+  await page.getByTestId('landing-faq').scrollIntoViewIfNeeded();
+  await expect(faq).toHaveCSS('opacity', '1');
+
+  // Whatever happens, nothing is left invisible at the bottom of the page.
+  await page.keyboard.press('End');
+  await expect(page.getByTestId('landing-signup').locator('[data-reveal]')).toHaveCSS('opacity', '1');
+});
+
+test('with reduced motion preferred, nothing is hidden waiting to be revealed', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/landing');
+
+  // Every section is visible immediately — the reveal never runs.
+  for (const id of ['landing-features', 'landing-calculator', 'landing-faq', 'landing-signup']) {
+    await expect(page.getByTestId(id).locator('[data-reveal]')).toHaveCSS('opacity', '1');
+  }
+});
