@@ -157,6 +157,34 @@ test('teaser posters keep one row of equal cards, clipped rather than scrollable
   expect(box.scrollable).toBe(false);
 });
 
+test('the SALE badge sits off the Pricing link’s top corner without underlining or colliding', async ({ page }) => {
+  const state = await page.locator('.as-nav-full a.as-nav-sale').evaluate((link) => {
+    const badge = link.querySelector('.as-sale');
+    const lb = link.getBoundingClientRect();
+    const bb = badge.getBoundingClientRect();
+    const hits = [...link.parentElement.querySelectorAll('a')]
+      .filter(a => a !== link)
+      .filter(a => {
+        const r = a.getBoundingClientRect();
+        return bb.right > r.left && bb.left < r.right && bb.bottom > r.top && bb.top < r.bottom;
+      })
+      .map(a => a.textContent.trim());
+    return {
+      decoration: getComputedStyle(link).textDecorationLine,
+      // Above the link's own top edge, i.e. superscripted rather than seated.
+      risesAboveLink: bb.top < lb.top,
+      atRightEdge: Math.abs(bb.right - lb.right) < 1,
+      // The badge is absolutely positioned, so the link has to reserve its
+      // width or it lands on top of whatever follows it.
+      collidesWith: hits
+    };
+  });
+  expect(state.decoration).toBe('none');
+  expect(state.risesAboveLink).toBe(true);
+  expect(state.atRightEdge).toBe(true);
+  expect(state.collidesWith).toEqual([]);
+});
+
 test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {
   // Both halves resolve their target at render time — the landing page from
   // the portal-page setting, the portal from home_url() — so a link that is

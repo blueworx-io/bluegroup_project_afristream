@@ -20,6 +20,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   on TMDB. When that cache is cold the row is left out and a one-off job is
   queued to fill it, so the next visitor sees it.
 
+### Changed
+
+- The page background is one continuous field rather than a glow per section.
+  Each section used to carry its own radial gradient, which reached full
+  strength inside the section and stopped at its edge, so every join showed as
+  a line. The blooms now sit on the page wrapper and drift across boundaries.
+- The dividing rules that remain — around the platform ticker and above the
+  footer — fade out towards their ends instead of running edge to edge, and
+  the hero dissolves into the page instead of handing over at a hard stop.
+- The SALE badge is superscripted off the top-right corner of the Pricing nav
+  link, and that link no longer underlines on hover: the underline ran the
+  width of the link plus the badge and read as a mistake. The link also
+  reserves the badge's width, which it previously did not — the badge was
+  overlapping the FAQ link beside it by 7px.
+
 ## [0.22.0] - 2026-07-27
 
 ### Added

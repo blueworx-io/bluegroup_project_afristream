@@ -539,9 +539,12 @@ function afristream_landing_header() {
 	$nav  = '';
 	$menu = '';
 	foreach ( $links as $href => $label ) {
+		// The badge hangs off the link's corner, so the link it hangs from has to
+		// be the positioned one — hence a class on the anchor, not just the span.
 		$sale  = '#pricing' === $href ? '<span class="as-sale">SALE</span>' : '';
-		$nav  .= '<a href="' . esc_attr( $href ) . '">' . esc_html( $label ) . $sale . '</a>';
-		$menu .= '<a href="' . esc_attr( $href ) . '">' . esc_html( $label ) . $sale . '</a>';
+		$class = '' !== $sale ? ' class="as-nav-sale"' : '';
+		$nav  .= '<a' . $class . ' href="' . esc_attr( $href ) . '">' . esc_html( $label ) . $sale . '</a>';
+		$menu .= '<a' . $class . ' href="' . esc_attr( $href ) . '">' . esc_html( $label ) . $sale . '</a>';
 	}
 
 	$dashboard = $portal

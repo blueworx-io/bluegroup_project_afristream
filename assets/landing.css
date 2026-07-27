@@ -13,10 +13,24 @@
   --hairline: #2c2138;
   --mono: 'Space Mono', ui-monospace, Menlo, monospace;
 
-  background: var(--page);
   color: var(--text);
   font-family: 'Geist', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+
+  /* One background for the whole page rather than one per section. The blooms
+     are placed as percentages of the full document height, so each one drifts
+     across section boundaries instead of stopping at them — sections used to
+     carry their own radial gradient, which made every join a visible edge.
+     background-attachment is deliberately NOT fixed: that would hold the glow
+     still while the page moves past it, which reads as a stuck overlay. */
+  background-color: var(--page);
+  background-image:
+    radial-gradient(ellipse 90% 22% at 12% 16%, rgba(101, 0, 159, 0.26) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 80% 18% at 88% 34%, rgba(205, 45, 245, 0.13) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 95% 20% at 6% 52%, rgba(101, 0, 159, 0.22) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 85% 18% at 92% 70%, rgba(101, 0, 159, 0.2) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 90% 20% at 20% 88%, rgba(205, 45, 245, 0.1) 0%, rgba(13, 7, 19, 0) 70%);
+  background-repeat: no-repeat;
 }
 
 body.afristream-landing-page {
@@ -96,12 +110,33 @@ body.afristream-landing-page {
   font-size: 14px;
 }
 
+/* The link carrying the badge is positioned so the badge can hang off its
+   top-right corner, and never underlines: the underline would run the width of
+   the link plus the badge, which reads as a mistake rather than a hover.
+   An explicit class rather than :has(.as-sale) — where :has() is unsupported
+   the badge would still be absolute and would position itself against the
+   sticky header instead, landing in the page's top-right corner. */
+.as-landing a.as-nav-sale,
+.as-landing a.as-nav-sale:hover {
+  position: relative;
+  text-decoration: none;
+  /* Room for the badge. It is absolutely positioned, so without this the nav
+     lays out as if it were not there and it overlaps the next link. */
+  padding-right: 27px;
+}
+
+/* Superscripted off the top-right corner rather than sitting on the baseline. */
 .as-landing .as-sale {
+  position: absolute;
+  right: 0;
+  top: -0.2em;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 9px;
+  line-height: 1;
   letter-spacing: 0.6px;
   color: var(--accent);
-  margin-left: 6px;
+  text-decoration: none;
+  pointer-events: none;
 }
 
 .as-landing .as-head-cta {
@@ -203,9 +238,20 @@ body.afristream-landing-page {
 
 /* ---------------------------------------------------------------- footer */
 
+/* Fades up into the page rather than starting at a hairline. */
 .as-landing .as-foot {
-  background: #060309;
-  border-top: 1px solid var(--hairline);
+  position: relative;
+  background: linear-gradient(rgba(6, 3, 9, 0) 0%, rgba(6, 3, 9, 0.85) 38%, #060309 100%);
+}
+
+.as-landing .as-foot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, var(--hairline) 25%, var(--hairline) 75%, transparent 100%);
 }
 
 .as-landing .as-foot-in {
@@ -257,7 +303,9 @@ body.afristream-landing-page {
 .as-landing .as-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(195deg, #14041f 0%, #0b0510 55%, #0b0510 100%);
+  /* Ends transparent rather than on the page colour, so the hero dissolves into
+     the page-wide glow instead of handing over at a line. */
+  background: linear-gradient(195deg, #14041f 0%, rgba(11, 5, 16, 0.55) 62%, rgba(11, 5, 16, 0) 100%);
 }
 
 .as-landing .as-hero-in {
@@ -598,10 +646,26 @@ body.afristream-landing-page {
 .as-landing .as-integrations {
   display: flex;
   align-items: center;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-  background: rgba(4, 2, 7, 0.4);
+  /* Was a hairline top and bottom, edge to edge. Those two lines were the
+     hardest divisions on the page. The band now fades in and out vertically
+     and its rules fade out towards the edges, so it reads as a change in the
+     background rather than a boundary drawn across it. */
+  position: relative;
+  background: linear-gradient(rgba(4, 2, 7, 0) 0%, rgba(4, 2, 7, 0.45) 22%, rgba(4, 2, 7, 0.45) 78%, rgba(4, 2, 7, 0) 100%);
 }
+
+.as-landing .as-integrations::before,
+.as-landing .as-integrations::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, var(--hairline) 22%, var(--hairline) 78%, transparent 100%);
+}
+
+.as-landing .as-integrations::before { top: 0; }
+.as-landing .as-integrations::after { bottom: 0; }
 
 .as-landing .as-integrations-label {
   flex: none;
@@ -697,9 +761,9 @@ body.afristream-landing-page {
   max-width: 640px;
 }
 
-.as-landing .as-sec-features { background: radial-gradient(ellipse 120% 90% at 8% 0%, rgba(101, 0, 159, 0.3) 0%, rgba(13, 7, 19, 0) 68%); }
-.as-landing .as-sec-pricing { background: radial-gradient(ellipse 120% 90% at 12% 60%, rgba(101, 0, 159, 0.28) 0%, rgba(13, 7, 19, 0) 68%); }
-.as-landing .as-sec-testimonials { background: radial-gradient(ellipse 120% 90% at 88% 10%, rgba(101, 0, 159, 0.22) 0%, rgba(13, 7, 19, 0) 68%); }
+/* These three used to carry a radial gradient each, which is what made their
+   joins visible: the glow reached full strength inside the section and cut off
+   at its edge. The page-wide background on .as-landing replaces all three. */
 
 /* --------------------------------------------------------------- teasers */
 
@@ -931,7 +995,7 @@ body.afristream-landing-page {
 
 /* ------------------------------------------------------------ calculator */
 
-.as-landing .as-sec-calc { background: radial-gradient(ellipse 120% 90% at 92% 40%, rgba(101, 0, 159, 0.26) 0%, rgba(13, 7, 19, 0) 68%); }
+/* Glow moved to the page-wide background on .as-landing. */
 
 .as-landing .as-calc {
   display: grid;
@@ -1081,7 +1145,7 @@ body.afristream-landing-page {
 
 /* ------------------------------------------------------------------- faq */
 
-.as-landing .as-sec-faq { background: radial-gradient(ellipse 120% 90% at 50% 110%, rgba(101, 0, 159, 0.26) 0%, rgba(13, 7, 19, 0) 68%); }
+/* Glow moved to the page-wide background on .as-landing. */
 
 .as-landing .as-faq { display: flex; flex-direction: column; }
 
@@ -1139,7 +1203,9 @@ body.afristream-landing-page {
 
 /* ---------------------------------------------------------------- signup */
 
-.as-landing .as-sec-signup { background: radial-gradient(ellipse 120% 90% at 50% 120%, rgba(101, 0, 159, 0.42) 0%, rgba(13, 7, 19, 0) 68%); }
+/* The one bloom kept per-section: it is centred below the section, so it rises
+   from the bottom edge and never draws a line of its own. */
+.as-landing .as-sec-signup { background: radial-gradient(ellipse 120% 120% at 50% 135%, rgba(101, 0, 159, 0.38) 0%, rgba(13, 7, 19, 0) 72%); }
 
 .as-landing .as-sec-signup .as-sec-in { align-items: center; gap: 28px; }
 
