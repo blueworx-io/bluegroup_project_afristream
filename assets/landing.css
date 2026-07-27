@@ -512,3 +512,177 @@ body.afristream-landing-page {
     transform: none;
   }
 }
+
+/* -------------------------------------------------------------- sections */
+
+.as-landing .as-sec-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(48px, 9vw, 64px) clamp(20px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.as-landing .as-sec-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.as-landing .as-sec-head h2 {
+  margin: 0;
+  font-weight: 400;
+  font-size: clamp(30px, 4.4vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  max-width: 760px;
+}
+
+.as-landing .as-sec-head p {
+  margin: 0;
+  font-size: clamp(15px, 1.8vw, 17px);
+  line-height: 1.6;
+  color: var(--text-3);
+  max-width: 640px;
+}
+
+.as-landing .as-sec-features { background: radial-gradient(ellipse 120% 90% at 8% 0%, rgba(101, 0, 159, 0.3) 0%, rgba(13, 7, 19, 0) 68%); }
+.as-landing .as-sec-pricing { background: radial-gradient(ellipse 120% 90% at 12% 60%, rgba(101, 0, 159, 0.28) 0%, rgba(13, 7, 19, 0) 68%); }
+.as-landing .as-sec-testimonials { background: radial-gradient(ellipse 120% 90% at 88% 10%, rgba(101, 0, 159, 0.22) 0%, rgba(13, 7, 19, 0) 68%); }
+
+/* -------------------------------------------------------------- features */
+
+.as-landing .as-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 32px 24px;
+}
+
+.as-landing .as-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.as-landing .as-feature h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.as-landing .as-feature p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* --------------------------------------------------------------- pricing */
+
+.as-landing .as-sec-pricing .as-sec-in { align-items: center; }
+
+.as-landing .as-plan {
+  width: min(420px, 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 24px;
+  padding: clamp(24px, 4vw, 34px);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--royal), 0 0 60px rgba(101, 0, 159, 0.25);
+}
+
+.as-landing .as-plan-badge {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(205, 45, 245, 0.35);
+  border-radius: 100px;
+  padding: 5px 12px;
+}
+
+.as-landing .as-plan-name { font-size: 15px; color: var(--text-2); }
+
+.as-landing .as-plan-price {
+  font-size: clamp(40px, 6vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.as-landing .as-plan-price small {
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--text-3);
+  margin-left: 8px;
+}
+
+.as-landing .as-plan-tag { font-size: 14.5px; color: var(--text-2); }
+
+.as-landing .as-plan-features {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 18px;
+}
+
+.as-landing .as-plan-features li {
+  display: flex;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.as-landing .as-plan-features li::before {
+  content: '✓';
+  color: var(--accent);
+  flex: none;
+}
+
+.as-landing .as-plan-cta { width: 100%; margin-top: 6px; }
+
+.as-landing .as-plan .as-fine { margin-top: 0; line-height: 1.5; }
+
+/* ---------------------------------------------------------- testimonials */
+
+.as-landing .as-quotes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 48px 32px;
+}
+
+.as-landing .as-quotes figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+}
+
+.as-landing .as-quotes blockquote {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.as-landing .as-quotes figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.as-landing .as-quote-name { font-size: 14px; font-weight: 500; }
+.as-landing .as-quote-meta { font-size: 12px; color: var(--text-3); }

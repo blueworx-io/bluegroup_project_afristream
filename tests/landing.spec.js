@@ -67,3 +67,27 @@ test('the integrations ticker lists the platforms twice, for a seamless loop', a
   // restart without a visible jump.
   await expect(ticker.locator('[data-platform]')).toHaveCount(26);
 });
+
+test('the features section lists four blocks', async ({ page }) => {
+  const features = page.getByTestId('landing-features');
+  await expect(features.locator('[data-feature]')).toHaveCount(4);
+  await expect(features).toContainText('Multiple platforms in one');
+  await expect(features).toContainText('Save time, money, effort');
+});
+
+test('pricing shows one annual plan at R1599 with its five features', async ({ page }) => {
+  const pricing = page.getByTestId('landing-pricing');
+  await expect(pricing).toContainText('Limited Time Offer!');
+  await expect(pricing).toContainText('R1599');
+  await expect(pricing).toContainText('/ year');
+  await expect(pricing.locator('[data-plan-feature]')).toHaveCount(5);
+  await expect(pricing.getByRole('link', { name: 'Get Started' })).toHaveAttribute('href', '#signup');
+  await expect(pricing).toContainText('14 Day Money Back Guarantee');
+});
+
+test('three testimonials render with their attributions', async ({ page }) => {
+  const quotes = page.getByTestId('landing-testimonials').locator('figure');
+  await expect(quotes).toHaveCount(3);
+  await expect(quotes.first()).toContainText('cancelled four subscriptions');
+  await expect(quotes.first().locator('figcaption')).toContainText('Thandi M.');
+});

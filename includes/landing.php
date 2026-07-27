@@ -218,6 +218,9 @@ function afristream_landing_body() {
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
+		. afristream_landing_features()
+		. afristream_landing_pricing()
+		. afristream_landing_testimonials()
 		. afristream_landing_footer()
 		. '</div>';
 }
@@ -341,6 +344,150 @@ function afristream_landing_header() {
   </div>
   <div class="as-menu" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" href="#signup">Get Started</a></div>
 </header>';
+}
+
+/**
+ * Every section below the hero opens the same way.
+ */
+function afristream_landing_section_header( $eyebrow, $title, $sub ) {
+	return '
+  <div class="as-sec-head">
+    <span class="as-eyebrow">' . esc_html( $eyebrow ) . '</span>
+    <h2>' . esc_html( $title ) . '</h2>
+    <p>' . esc_html( $sub ) . '</p>
+  </div>';
+}
+
+function afristream_landing_features() {
+	$features = array(
+		array(
+			'icon'  => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5l5 2.5-5 2.5z"/>',
+			'title' => 'Multiple platforms in one',
+			'body'  => 'AfriStream collates data from all your favourite providers to bring you a complete collection of live TV, movies and series.',
+		),
+		array(
+			'icon'  => '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>',
+			'title' => 'All in one profile',
+			'body'  => 'Your subscription gives you unrestricted access to the AfriStream App. No hidden costs, no guessing.',
+		),
+		array(
+			'icon'  => '<path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/>',
+			'title' => 'A network of options',
+			'body'  => "Today's entertainment needs multiple apps and subscriptions. AfriStream squashes this problem with one app.",
+		),
+		array(
+			'icon'  => '<path d="M4 17l6-6 4 4 6-8"/><path d="M14 7h6v6"/>',
+			'title' => 'Save time, money, effort',
+			'body'  => 'Find what to watch and where — and save thousands on your streaming subscriptions every year.',
+		),
+	);
+
+	$cards = '';
+	foreach ( $features as $feature ) {
+		$cards .= '
+      <div class="as-feature" data-feature>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" aria-hidden="true">' . $feature['icon'] . '</svg>
+        <h3>' . esc_html( $feature['title'] ) . '</h3>
+        <p>' . esc_html( $feature['body'] ) . '</p>
+      </div>';
+	}
+
+	return '
+<section id="features" class="as-sec as-sec-features" data-testid="landing-features">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'Features',
+			'Powerful features at your fingertips',
+			'Stop juggling multiple apps! Bring your content directly to you with AfriStream.'
+		) . '
+    <div class="as-features">' . $cards . '</div>
+  </div>
+</section>';
+}
+
+function afristream_landing_pricing() {
+	$features = array(
+		'Access to the AfriStream App',
+		'Access to the AfriStream Portal',
+		'Dedicated support guides',
+		'Works with any smart TV or device',
+		'Regular price of R1999.99',
+	);
+
+	$rows = '';
+	foreach ( $features as $feature ) {
+		$rows .= '<li data-plan-feature>' . esc_html( $feature ) . '</li>';
+	}
+
+	return '
+<section id="pricing" class="as-sec as-sec-pricing" data-testid="landing-pricing">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'Pricing',
+			'Budget-friendly pricing',
+			'One simple plan giving you access to over 20 000 feeds in one platform. AfriStream shows you what to watch, when to watch it and how to watch it — all from a single dashboard.'
+		) . '
+    <div class="as-plan">
+      <span class="as-plan-badge">Limited Time Offer!</span>
+      <span class="as-plan-name">Annual Plan</span>
+      <span class="as-plan-price">R1599<small>/ year</small></span>
+      <span class="as-plan-tag">One simple subscription, fire and forget!</span>
+      <ul class="as-plan-features">' . $rows . '</ul>
+      <a class="as-btn as-btn-primary as-plan-cta" href="#signup">Get Started</a>
+      <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
+    </div>
+  </div>
+</section>';
+}
+
+/**
+ * Testimonials.
+ *
+ * REPLACE BEFORE THESE GO ANYWHERE PUBLIC-FACING BEYOND THIS PAGE'S OWNER:
+ * these three quotes came from the design handoff as placeholder copy, not
+ * from real customers. They ship at the client's explicit instruction. Swap
+ * this array for real quotes, or delete the section's call in
+ * afristream_landing_body(), the moment real ones exist.
+ */
+const AFRISTREAM_LANDING_QUOTES = array(
+	array(
+		'text' => '“I cancelled four subscriptions the week after installing. Everything we watch is in one place now.”',
+		'name' => 'Thandi M.',
+		'meta' => 'Johannesburg',
+	),
+	array(
+		'text' => '“Live EPL, F1 and all the movies my kids want. One bill a year and I stopped thinking about it.”',
+		'name' => 'Pieter v.d. W.',
+		'meta' => 'Cape Town',
+	),
+	array(
+		'text' => '“The savings calculator said R6 000 a year. It was right.”',
+		'name' => 'Naledi K.',
+		'meta' => 'Durban',
+	),
+);
+
+function afristream_landing_testimonials() {
+	$figures = '';
+	foreach ( AFRISTREAM_LANDING_QUOTES as $quote ) {
+		$figures .= '
+      <figure>
+        <blockquote>' . esc_html( $quote['text'] ) . '</blockquote>
+        <figcaption><span class="as-quote-name">' . esc_html( $quote['name'] ) . '</span><span class="as-quote-meta">' . esc_html( $quote['meta'] ) . '</span></figcaption>
+      </figure>';
+	}
+
+	return '
+<section id="testimonials" class="as-sec as-sec-testimonials" data-testid="landing-testimonials">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'Testimonials',
+			'Watched everywhere, paid once',
+			'What viewers say after switching to one subscription.'
+		) . '
+    <div class="as-quotes">' . $figures . '</div>
+  </div>
+</section>';
 }
 
 function afristream_landing_footer() {
