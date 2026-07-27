@@ -1883,16 +1883,6 @@
       if (header) root.style.setProperty('--as-header-h', Math.round(header.getBoundingClientRect().height) + 'px');
     }
 
-    // Keep the step you are on visible in the sticky rail without wrapping it
-    // onto a second line, which on a phone would eat the screen.
-    function placeRailScroll() {
-      const rail = root.querySelector('.as-setup-rail');
-      if (!rail) return;
-      rail.classList.toggle('as-draggable', rail.scrollWidth - rail.clientWidth > 0);
-      const current = rail.querySelector('[data-rail-current="1"]');
-      if (current) rail.scrollLeft = centredScrollLeft(rail, current);
-    }
-
     function fillSynopsis() {
       if (!state.detail || state.detail.detailKind && state.detail.detailKind !== 'title') return;
       const box = root.querySelector('[data-detail-synopsis]');
@@ -2061,7 +2051,6 @@ ${state.detail ? detailDrawer(state.detail) : ''}
 
       syncHeaderHeight();
       placeNavScroll(prevNavScroll, lastNavSection !== state.section);
-      placeRailScroll();
       lastNavSection = state.section;
 
       // Scroll-lock the page while a modal panel is open; restore the original
@@ -2264,7 +2253,6 @@ ${state.detail ? detailDrawer(state.detail) : ''}
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('resize', () => {
         syncHeaderHeight();
-        placeRailScroll();
       });
     }
 

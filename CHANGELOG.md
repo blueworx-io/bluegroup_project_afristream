@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-07-27
+
+### Changed
+
+- The Setup tab asks one question instead of three. Six device cards lead
+  straight to that device's steps, replacing the family → model → install
+  method flow, which asked twice more before showing a single instruction
+  and only ever arrived at the same handful of routes.
+- Setup steps are one screen at a time with a four-stage progress bar, a
+  Back that steps out to the device grid from the first screen, and a
+  finished card that hands over to What to Watch.
+- Buying advice, the retailer links and the WiFi tips are one collapsible
+  panel beneath the device grid, rather than being spread through step 2.
+
+### Removed
+
+- The Fire TV route no longer names the store app it installs from; it
+  points at the welcome email instead.
+
 ## [0.20.1] - 2026-07-27
 
 ### Fixed
