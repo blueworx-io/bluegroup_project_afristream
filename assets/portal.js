@@ -426,7 +426,12 @@
       credentialsEndpoint: root.getAttribute('data-credentials-endpoint') || '',
       affiliateEndpoint: root.getAttribute('data-affiliate-endpoint') || '',
       restNonce: root.getAttribute('data-rest-nonce') || '',
-      appsUrl: root.getAttribute('data-apps-url') || ''
+      appsUrl: root.getAttribute('data-apps-url') || '',
+      // Where the "Home" link in the header points. WordPress fills this from
+      // home_url(); the header hides the link rather than guessing when it is
+      // missing, so a portal embedded somewhere unexpected never offers a way
+      // out that goes nowhere.
+      homeUrl: root.getAttribute('data-home-url') || ''
     };
     // Profile credentials. Without a credentials endpoint (e.g. the generic
     // local preview) the built-in demo ACCOUNTS are shown. With one (the
@@ -464,6 +469,9 @@
       setupScreen: 0,
       setupDone: false,
       setupHelpOpen: false,
+      // '' until the user picks a platform on the Download tab, which follows
+      // the same pick-then-steps shape as Setup.
+      downloadPlatform: '',
       affPlan: '',
       affPerYear: 5,
       affValue: 15,
@@ -1147,13 +1155,24 @@
     // The last screen for every supported device: Downloader fetches the
     // player, then one sign-in. The note lists the fallbacks so a customer
     // whose player will not connect never has to come back and ask.
+    // All four players, shown together rather than one recommended code with the
+    // rest buried in a footnote. They are alternatives, not a fallback ladder:
+    // the same username and password signs in to any of them, so a customer
+    // whose player will not connect can pick another without coming back here.
+    const SETUP_PLAYER_CODES = [
+      { code: '6573365', app: 'IPTV Player', note: 'The most reliable, and the one we recommend starting with.' },
+      { code: '617725', app: 'IBO Player', note: 'A solid alternative if IPTV Player will not connect.' },
+      { code: '9469460', app: 'Sky App', note: 'Worth a try if neither of the first two works.' },
+      { code: '569138', app: 'Sky Live', note: 'The fourth option — same login, different look.' }
+    ];
+
     const SETUP_SCREEN_INSTALL = {
       title: 'Install AfriStream and sign in',
       sub: 'Last one. Downloader fetches the app, then you type in your username and password once.',
-      note: 'If that app will not connect, come back here and try one of the others: IBO Player 617725, Sky App 9469460, or Sky Live 569138. Your username and password stay the same for all of them.',
+      note: 'It does not matter which of the four you install — your username and password work in all of them. If one will not connect, come back to this step and install another.',
       steps: [
         { t: 'Open Downloader, and click the empty box across the top of the screen.' },
-        { t: 'Type in this code, then press GO.', code: '6573365', hint: 'This installs IPTV Player — the most reliable app, and the one we recommend.' },
+        { t: 'Type in one of these codes, then press GO. Any of the four works — pick one.', codes: SETUP_PLAYER_CODES },
         { t: 'Let it install all the way through, then choose Open. Do not press Back while it is working.' },
         { t: 'If it asks to allow access to media, files, or installing apps, always choose Allow.' },
         { t: 'Choose Add profile, then type in your AfriStream username and password.', hint: SETUP_ACCOUNT_HINT },
@@ -1264,13 +1283,6 @@
         body: 'A Samsung or LG on its own. This works, but we have to register the TV at our end first.',
         badge: '',
         screens: null
-      },
-      {
-        key: 'other',
-        title: 'iPhone, iPad or Roku',
-        body: 'These cannot install the app themselves, so we set the profile up for you.',
-        badge: '',
-        screens: null
       }
     ];
 
@@ -1310,8 +1322,7 @@
       googletv: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="16" width="26" height="14" rx="4"/><path d="M31 23h5"/><path d="M36 19h5v8h-5z"/><path d="M12 23h8"/></svg>',
       box: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="24" height="18" rx="4"/><path d="M14 26h6"/><circle cx="27" cy="26" r="1.5"/><path d="M32 20h4a4 4 0 0 1 4 4v10"/></svg>',
       android: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="10" width="14" height="26" rx="3"/><path d="M11 33h4"/><rect x="24" y="14" width="18" height="22" rx="3"/><path d="M31 32h4"/></svg>',
-      smarttv: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="10" width="36" height="23" rx="4"/><path d="M18 39h12M24 33v6"/></svg>',
-      other: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="9" width="15" height="28" rx="3"/><path d="M12 33h5"/><rect x="27" y="22" width="15" height="11" rx="4"/><path d="M31 27h7"/></svg>'
+      smarttv: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="10" width="36" height="23" rx="4"/><path d="M18 39h12M24 33v6"/></svg>'
     };
 
     const setupIcon = (key) => SETUP_ICONS[key] || '';
@@ -1357,7 +1368,7 @@
   <div data-testid="setup-device-picker" role="group" aria-label="Choose your device" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:0 2px">
     ${SETUP_DEVICES.map((d) => `
       <button class="as-editor-card" data-act="setup-device" data-val="${esc(d.key)}" style="display:flex;flex-direction:column;gap:0;text-align:left;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:0;overflow:hidden;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(11,21,51,.04)">
-        <span aria-hidden="true" class="as-setup-icon">${setupIcon(d.key)}</span>
+        <span aria-hidden="true" class="as-device-icon">${setupIcon(d.key)}</span>
         <span style="display:flex;flex-direction:column;gap:7px;padding:17px 19px 19px">
           <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:15.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(d.title)}</span>
@@ -1460,6 +1471,18 @@
             <code data-testid="setup-code" style="border:1px solid rgba(101,0,159,.3);border-radius:11px;padding:11px 22px;font-family:ui-monospace,Menlo,monospace;font-size:22px;font-weight:700;letter-spacing:.12em;color:#65009F;background:#F7E9FF">${esc(s.code)}</code>
             <button class="as-hover-ghost" data-act="setup-copy" data-val="${esc(s.code)}" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:11px;padding:10px 18px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">${state.copied === 'setup-' + s.code ? 'Copied' : 'Copy code'}</button>
           </span>` : ''}
+          ${s.codes ? `
+          <span data-testid="setup-code-options" style="display:flex;flex-direction:column;gap:10px">
+            ${s.codes.map((c) => `
+            <span data-setup-code-option style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:14px;padding:12px 14px">
+              <code data-testid="setup-code" style="flex:none;min-width:8ch;text-align:center;border:1px solid rgba(101,0,159,.3);border-radius:11px;padding:9px 18px;font-family:ui-monospace,Menlo,monospace;font-size:20px;font-weight:700;letter-spacing:.12em;color:#65009F;background:#F7E9FF">${esc(c.code)}</code>
+              <span style="flex:1 1 180px;min-width:0;display:flex;flex-direction:column;gap:2px">
+                <span style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em">${esc(c.app)}</span>
+                <span style="font-size:12.5px;line-height:1.5;color:rgba(11,21,51,.58)">${esc(c.note)}</span>
+              </span>
+              <button class="as-hover-ghost" data-act="setup-copy" data-val="${esc(c.code)}" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:11px;padding:10px 18px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">${state.copied === 'setup-' + c.code ? 'Copied' : 'Copy code'}</button>
+            </span>`).join('')}
+          </span>` : ''}
           ${s.hint ? `<span style="font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58)">${esc(s.hint)}</span>` : ''}
         </span>
       </li>`).join('')}
@@ -1559,11 +1582,15 @@
     // Home-screen install guidance. Static: no manifest ships with this plugin,
     // so both platforms create a home-screen shortcut rather than a store
     // install — the copy is written to hold either way.
+    //
+    // Shaped like the Setup tab: pick the thing you are holding, then read only
+    // the steps for it. Showing both platforms at once meant every reader
+    // skipped half the page to find their half.
     const DOWNLOAD_PLATFORMS = [
       {
         key: 'ios',
-        label: 'iPhone & iPad',
-        icon: '🍎',
+        label: 'iPhone or iPad',
+        body: 'Safari puts the portal on your Home Screen in four taps.',
         note: 'You must use Safari. Chrome and Firefox on iOS cannot add a site to the Home Screen.',
         steps: [
           'Open this portal in Safari.',
@@ -1575,8 +1602,8 @@
       },
       {
         key: 'android',
-        label: 'Android',
-        icon: '🤖',
+        label: 'Android phone or tablet',
+        body: 'Chrome offers to install it straight from the menu.',
         note: 'These steps are for Chrome. Samsung Internet and Edge have the same option under their own menus.',
         steps: [
           'Open this portal in Chrome.',
@@ -1588,31 +1615,63 @@
       }
     ];
 
+    const DOWNLOAD_ICONS = {
+      ios: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="6" width="17" height="32" rx="4"/><path d="M15 33h5"/><rect x="30" y="14" width="12" height="24" rx="3"/><path d="M34 34h4"/></svg>',
+      android: '<svg viewBox="0 0 48 48" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="5" width="20" height="38" rx="4"/><path d="M20 38h8"/><path d="M24 12v12M18.5 18.5h11"/></svg>'
+    };
+
+    const downloadPlatformOf = () => DOWNLOAD_PLATFORMS.find((p) => p.key === state.downloadPlatform) || null;
+
+    function downloadPicker() {
+      return `
+  <div data-testid="download-picker" role="group" aria-label="Choose your device" class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:0 2px">
+    ${DOWNLOAD_PLATFORMS.map((p) => `
+      <button class="as-editor-card" data-act="download-platform" data-val="${esc(p.key)}" data-testid="download-${esc(p.key)}" style="display:flex;flex-direction:column;gap:0;text-align:left;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:0;overflow:hidden;font-family:inherit;cursor:pointer;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+        <span aria-hidden="true" class="as-device-icon">${DOWNLOAD_ICONS[p.key] || ''}</span>
+        <span style="display:flex;flex-direction:column;gap:7px;padding:17px 19px 19px">
+          <span style="font-size:15.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(p.label)}</span>
+          <span style="font-size:13px;line-height:1.55;color:rgba(11,21,51,.6)">${esc(p.body)}</span>
+          <span style="margin-top:3px;font-size:13px;font-weight:700;color:#65009F">Show me how →</span>
+        </span>
+      </button>`).join('')}
+  </div>
+  <div style="margin:20px 2px 0;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:15px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:rgba(11,21,51,.72)">This adds an icon that opens the portal full screen — it is not an app store download, so there is nothing to update and nothing taking up space on your device. Looking to install the streaming app itself? That is on the <strong>Setup</strong> tab.</div>`;
+    }
+
+    function downloadSteps(platform) {
+      return `
+  <div data-testid="download-chosen" style="display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:15px;padding:13px 16px;margin:0 2px 22px">
+    <span style="font-size:15px;font-weight:800">${esc(platform.label)}</span>
+    <span style="flex:1 1 20px"></span>
+    <button class="as-hover-ghost" data-act="download-restart" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:11px;padding:9px 16px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">Change device</button>
+  </div>
+  <ol data-testid="download-steps" style="margin:0 2px;padding:0;list-style:none;display:flex;flex-direction:column;gap:22px">
+    ${platform.steps.map((s, i) => `
+      <li style="display:flex;gap:16px;align-items:flex-start">
+        <span aria-hidden="true" style="flex:none;width:30px;height:30px;border-radius:50%;background:#65009F;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">${i + 1}</span>
+        <span style="font-size:15.5px;line-height:1.55;color:rgba(11,21,51,.82);padding-top:3px">${esc(s)}</span>
+      </li>`).join('')}
+  </ol>
+  <div data-testid="download-note" style="margin:22px 2px 0;border-radius:13px;border:1px solid rgba(101,0,159,.2);background:#F7E9FF;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(platform.note)}</div>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(11,21,51,.08);margin:26px 2px 0;padding-top:22px">
+    <button class="as-hover-ghost" data-testid="download-back" data-act="download-restart" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:#65009F">Back</button>
+  </div>`;
+    }
+
     function downloadSection() {
+      const platform = downloadPlatformOf();
+      const head = platform
+        ? ['Add to your device', 'Put AfriStream on your ' + (platform.key === 'ios' ? 'Home Screen' : 'home screen'), 'Five taps and the portal opens like any other app on the device.']
+        : ['Add to your device', 'Add AfriStream to Your Device', 'Put this portal on your phone or tablet home screen so it opens like an app — no app store, no download.'];
+
       return `
 <section data-screen-label="Download">
   <div style="margin:2px 2px 18px">
-    <h1 style="margin:0 0 5px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">Add AfriStream to Your Device</h1>
-    <p style="margin:0;font-size:13.5px;color:rgba(11,21,51,.58)">Put this portal on your phone or tablet home screen so it opens like an app — no app store, no download.</p>
+    <div style="margin:0 0 7px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#65009F">${esc(head[0])}</div>
+    <h1 style="margin:0 0 6px;font-size:clamp(21px,3vw,27px);font-weight:800;letter-spacing:-0.015em">${esc(head[1])}</h1>
+    <p style="margin:0;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:640px">${esc(head[2])}</p>
   </div>
-  <div class="as-grid-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
-    ${DOWNLOAD_PLATFORMS.map((p) => `
-      <div data-testid="download-${esc(p.key)}" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:22px 22px 24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
-        <div style="display:flex;align-items:center;gap:12px">
-          <span aria-hidden="true" style="flex:none;font-size:24px">${p.icon}</span>
-          <h2 style="margin:0;font-size:17px;font-weight:800;letter-spacing:-0.01em">${esc(p.label)}</h2>
-        </div>
-        <ol style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px">
-          ${p.steps.map((s, i) => `
-            <li style="display:flex;gap:11px">
-              <span aria-hidden="true" style="flex:none;width:23px;height:23px;border-radius:50%;background:#F7E9FF;color:#65009F;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">${i + 1}</span>
-              <span style="flex:1;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(s)}</span>
-            </li>`).join('')}
-        </ol>
-        <div style="margin-top:auto;padding-top:4px;font-size:12px;line-height:1.55;color:rgba(11,21,51,.5)">${esc(p.note)}</div>
-      </div>`).join('')}
-  </div>
-  <div style="margin-top:18px;background:#F7E9FF;border:1px solid rgba(101,0,159,.18);border-radius:15px;padding:16px 18px;font-size:13.5px;line-height:1.65;color:rgba(11,21,51,.72)">This adds an icon that opens the portal full screen — it is not an app store download, so there is nothing to update and nothing taking up space on your device. Looking to install the streaming app itself? That is on the <strong>Setup</strong> tab.</div>
+  ${platform ? downloadSteps(platform) : downloadPicker()}
 </section>`;
     }
 
@@ -1785,16 +1844,15 @@
 
     // -------------------------------------------------------------- render
 
-    // Tips & Tricks and Troubleshooting are deliberately absent here while they
-    // are hidden — their sections stay in SECTIONS below, so they are still
-    // reachable via default_tab="tips"/"help" and restoring them to the portal
-    // nav is a matter of adding the two rows back.
+    // Tips & Tricks, Troubleshooting and Free Streaming are deliberately absent
+    // here while they are hidden — their sections stay in SECTIONS below, so
+    // they are still reachable via default_tab="tips"/"help"/"apps" and
+    // restoring one to the portal nav is a matter of adding its row back.
     const NAV = [
       { id: 'profile', label: 'Account' },
       { id: 'setup', label: 'Setup' },
       { id: 'watch', label: 'What to Watch' },
       { id: 'editor', label: 'Editor Picks' },
-      { id: 'apps', label: 'Free Streaming' },
       { id: 'download', label: 'Download' }
     ];
     // Affiliates is the one tab that is not for everyone: it appears only once
@@ -2021,8 +2079,11 @@
     <div class="as-tabs" data-dragscroll style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
       ${navItems().map((n) => `<button style="${navBtn(n.id === state.section)}" data-act="nav" data-val="${n.id}" data-testid="nav-${n.id}">${esc(n.label)}</button>`).join('')}
     </div>
-    <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;flex:none;white-space:nowrap">
-      <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
+    <div class="as-plan" style="align-self:center;display:flex;align-items:center;gap:10px;flex:none">
+      ${props.homeUrl ? `<a href="${esc(props.homeUrl)}" data-testid="header-home" style="display:flex;align-items:center;gap:6px;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;text-decoration:none;white-space:nowrap">Home</a>` : ''}
+      <span style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap">
+        <span style="width:7px;height:7px;border-radius:50%;background:#3DD68C;flex:none"></span>Annual · Active
+      </span>
     </div>
   </nav>
 </header>
@@ -2116,6 +2177,8 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         }
         case 'setup-restart': setState({ setupDevice: '', setupScreen: 0, setupDone: false }); break;
         case 'setup-help': setState({ setupHelpOpen: !state.setupHelpOpen }); break;
+        case 'download-platform': setState({ downloadPlatform: val }); break;
+        case 'download-restart': setState({ downloadPlatform: '' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;

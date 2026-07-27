@@ -669,7 +669,18 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (path === '/' || path === '/index.html') path = '/preview/index.html';
+    // Sections hidden from the portal nav — Free Streaming, Tips, Troubleshooting
+    // — are still reachable in WordPress through the shortcode's default_tab.
+    // ?tab= is how the harness reaches them, since there is no nav button to
+    // click any more.
+    if (path === '/' || path === '/index.html') {
+      const tab = url.searchParams.get('tab');
+      const html = (await readFile(join(ROOT, 'preview', 'index.html'), 'utf8'))
+        .replace('data-default-tab="profile"', `data-default-tab="${encodeURIComponent(tab || 'profile')}"`);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
 
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(ROOT + sep)) {

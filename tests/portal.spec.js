@@ -75,10 +75,9 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
     };
   }, id);
 
-  // A tab with room on both sides lands dead centre. Free Streaming no longer
-  // has one (the affiliate-only tab it used to have on its right is gone by
-  // design), so it sits with the clamped tabs below instead.
-  for (const id of ['watch', 'editor']) {
+  // A tab with room on both sides lands dead centre. Since Free Streaming left
+  // the nav, What to Watch is the only one with room on both sides.
+  for (const id of ['watch']) {
     await page.locator(`.as-tabs [data-act="nav"][data-val="${id}"]`).click();
     const m = await measure(id);
     expect(Math.abs(m.offCentre), `${id} should be centred`).toBeLessThanOrEqual(1);
@@ -98,13 +97,12 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
   expect(last.left).toBe(last.max);
   expect(last.offCentre).toBeGreaterThan(0);
 
-  // Free Streaming sits one tab before Download, but the strip is now narrow
-  // enough that centring it would scroll past the end of the range, so it
-  // clamps to the same right edge as the last tab rather than landing centred.
-  await page.locator('.as-tabs [data-act="nav"][data-val="apps"]').click();
-  const apps = await measure('apps');
-  expect(apps.left).toBe(apps.max);
-  expect(apps.offCentre).toBeGreaterThan(0);
+  // Editor Picks sits one tab before Download, and the strip is narrow enough
+  // that centring it would scroll past the end of the range, so it clamps to
+  // the same right edge as the last tab rather than landing centred.
+  await page.locator('.as-tabs [data-act="nav"][data-val="editor"]').click();
+  const editor = await measure('editor');
+  expect(editor.left).toBe(editor.max);
 });
 
 test('the tab bar can be dragged with a mouse without navigating', async ({ page }) => {
@@ -853,7 +851,7 @@ test('portal never widens the page past the viewport inside a padded theme conta
   await page.goto('/');
   await page.addStyleTag({ content: 'body{padding:0 24px}' });
 
-  for (const tab of ['Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download']) {
+  for (const tab of ['Account', 'Setup', 'What to Watch', 'Editor Picks', 'Download']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     const overflow = await page.evaluate(() => {
       const de = document.documentElement;
@@ -921,13 +919,28 @@ test('the Affiliates tab is absent for a non-affiliate, not an outbound link', a
 
 // ------------------------------------------------------------ account, setup
 
-test('the nav offers exactly the visible tabs, with tips and troubleshooting hidden', async ({ page }) => {
+test('the nav offers exactly the visible tabs, with the hidden sections absent', async ({ page }) => {
   const tabs = page.locator('.as-tabs');
   await expect(tabs.getByRole('button')).toHaveText([
-    'Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download',
+    'Account', 'Setup', 'What to Watch', 'Editor Picks', 'Download',
   ]);
   await expect(tabs.getByRole('button', { name: 'Tips & Tricks' })).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: 'Troubleshooting' })).toHaveCount(0);
+  await expect(tabs.getByRole('button', { name: 'Free Streaming' })).toHaveCount(0);
+});
+
+test('a hidden section is still reachable through the shortcode default tab', async ({ page }) => {
+  // Free Streaming left the nav but not the plugin: a host page pinning it
+  // with [afristream_portal default_tab="apps"] still lands on it.
+  await page.goto('/?tab=apps');
+  await expect(page.getByRole('heading', { name: 'Free Streaming' })).toBeVisible();
+});
+
+test('the header offers a way back to the site, beside the plan pill', async ({ page }) => {
+  const home = page.getByTestId('header-home');
+  await expect(home).toBeVisible();
+  await expect(home).toHaveAttribute('href', '/');
+  await expect(page.locator('.as-plan')).toContainText('Annual · Active');
 });
 
 test('the Account tab explains what the credentials do not unlock', async ({ page }) => {
@@ -971,7 +984,7 @@ test('the Setup tab opens on the device grid with a four-stage progress bar', as
   await expect(page.getByTestId('setup-steps')).toHaveCount(0);
 
   const picker = page.getByTestId('setup-device-picker');
-  await expect(picker.getByRole('button')).toHaveCount(6);
+  await expect(picker.getByRole('button')).toHaveCount(5);
   await expect(picker.getByRole('button', { name: /EASIEST/ })).toHaveCount(1);
   await expect(picker.getByRole('button', { name: /EASIEST/ })).toContainText('Google TV');
 });
@@ -1082,9 +1095,16 @@ test('the copy button on the Downloader code reports back', async ({ page }) => 
   await page.getByTestId('setup-next').click();
   await page.getByTestId('setup-next').click();
 
-  await expect(page.getByTestId('setup-code')).toHaveText('6573365');
-  await page.getByRole('button', { name: 'Copy code' }).click();
-  await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+  // All four players are offered together, not one code with the rest in a
+  // footnote — any of them signs in with the same username and password.
+  await expect(page.getByTestId('setup-code')).toHaveText(['6573365', '617725', '9469460', '569138']);
+  await expect(page.getByTestId('setup-code-options')).toContainText('IPTV Player');
+  await expect(page.getByTestId('setup-code-options')).toContainText('Sky Live');
+  await expect(page.getByTestId('setup-steps')).toContainText('Any of the four works');
+
+  await page.getByRole('button', { name: 'Copy code' }).nth(2).click();
+  await expect(page.getByRole('button', { name: 'Copied' })).toHaveCount(1);
+  await expect(page.getByTestId('setup-step-note')).toContainText('work in all of them');
 });
 
 test('a smart TV branches to the support card instead of steps', async ({ page }) => {
@@ -1098,15 +1118,19 @@ test('a smart TV branches to the support card instead of steps', async ({ page }
 
   await expect(page.getByRole('link', { name: 'Email support' }))
     .toHaveAttribute('href', 'mailto:support@afristream.io');
-});
 
-test('iPhone, iPad or Roku takes the same support branch', async ({ page }) => {
-  await openSetup(page);
-  await page.getByRole('button', { name: /iPhone, iPad or Roku/ }).click();
-
-  await expect(page.getByTestId('setup-support')).toBeVisible();
+  // The support card's only way onward, other than the email, is back to the grid.
   await page.getByRole('button', { name: 'Change device' }).click();
   await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+});
+
+test('the device grid offers nothing we cannot actually set up', async ({ page }) => {
+  await openSetup(page);
+
+  // iPhone, iPad and Roku were dropped: they cannot install the app at all,
+  // so offering them only led people to a card telling them so.
+  await expect(page.getByTestId('setup-device-picker')).not.toContainText('iPhone');
+  await expect(page.getByTestId('setup-device-picker')).not.toContainText('Roku');
 });
 
 test('the buying advice sits collapsed under the device grid until asked for', async ({ page }) => {
@@ -1140,20 +1164,43 @@ test('the buying advice is only on the device grid, not part-way through a route
   await expect(page.getByTestId('setup-buying')).toHaveCount(0);
 });
 
-test('the Download tab covers both mobile platforms', async ({ page }) => {
-  await page.getByRole('button', { name: 'Download' }).click();
+// The Download tab follows the Setup tab's shape: pick the device you are
+// holding, then read only the steps for it.
+
+const openDownload = async (page) => page.getByRole('button', { name: 'Download' }).click();
+
+test('the Download tab opens on a platform picker, not both platforms at once', async ({ page }) => {
+  await openDownload(page);
   await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
 
-  const ios = page.getByTestId('download-ios');
-  await expect(ios).toContainText('Safari');
-  await expect(ios).toContainText('Add to Home Screen');
-
-  const android = page.getByTestId('download-android');
-  await expect(android).toContainText('Chrome');
-  await expect(android).toContainText('Add to Home screen');
+  await expect(page.getByTestId('download-picker').getByRole('button')).toHaveCount(2);
+  await expect(page.getByTestId('download-steps')).toHaveCount(0);
 
   // It points at Setup for the thing it is not: installing the streaming app.
   await expect(page.locator('[data-screen-label="Download"]')).toContainText('Setup');
+});
+
+test('picking iPhone shows the Safari route and nothing about Chrome', async ({ page }) => {
+  await openDownload(page);
+  await page.getByTestId('download-ios').click();
+
+  const steps = page.getByTestId('download-steps');
+  await expect(steps.getByRole('listitem')).toHaveCount(5);
+  await expect(steps).toContainText('Add to Home Screen');
+  await expect(steps).not.toContainText('three-dot');
+  await expect(page.getByTestId('download-note')).toContainText('must use Safari');
+});
+
+test('picking Android shows the Chrome route, and Back returns to the picker', async ({ page }) => {
+  await openDownload(page);
+  await page.getByTestId('download-android').click();
+
+  await expect(page.getByTestId('download-steps')).toContainText('Install app');
+  await expect(page.getByTestId('download-chosen')).toContainText('Android phone or tablet');
+
+  await page.getByTestId('download-back').click();
+  await expect(page.getByTestId('download-picker')).toBeVisible();
+  await expect(page.getByTestId('download-steps')).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------- apps data
@@ -1225,7 +1272,7 @@ test('no content category carries more than four apps', async ({ request }) => {
 });
 
 test('the Apps tab renders the app grid from the database', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await expect(page.getByRole('heading', { name: 'Free Streaming' })).toBeVisible();
 
   const grid = page.getByTestId('apps-grid');
@@ -1239,7 +1286,7 @@ test('the Apps tab renders the app grid from the database', async ({ page }) => 
 test('the Apps tab reports a failed database load instead of rendering an empty grid', async ({ page }) => {
   await page.route('**/data/apps.json', (route) => route.fulfill({ status: 500, body: 'boom' }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
 
   await expect(page.getByTestId('apps-error')).toBeVisible();
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
@@ -1247,7 +1294,7 @@ test('the Apps tab reports a failed database load instead of rendering an empty 
 });
 
 test('the content filter narrows the app grid to that category', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
 
@@ -1263,14 +1310,14 @@ test('the content filter narrows the app grid to that category', async ({ page }
 test('the region and device controls are both gone', async ({ page }) => {
   // Category is the only filter left. Devices are still shown on each card and
   // stepped through in the drawer — picking one is the Setup tab's job.
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await expect(page.getByTestId('apps-grid')).toBeVisible();
   await expect(page.getByLabel('Region')).toHaveCount(0);
   await expect(page.getByTestId('apps-device-filters')).toHaveCount(0);
 });
 
 test('the content filters offer only Movies, Series and Sport', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await expect(page.getByTestId('apps-content-filters').getByRole('button'))
     .toHaveText(['All', 'Movies', 'Series', 'Sport']);
 });
@@ -1295,7 +1342,7 @@ test('a category with nothing behind it shows an empty state that resets', async
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(stub) }));
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Movies', exact: true }).click();
 
   const empty = page.getByTestId('apps-empty');
@@ -1308,7 +1355,7 @@ test('a category with nothing behind it shows an empty state that resets', async
 });
 
 test('the active content pill is marked pressed for assistive tech', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const pills = page.getByTestId('apps-content-filters');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await pills.getByRole('button', { name: 'Series', exact: true }).click();
@@ -1317,7 +1364,7 @@ test('the active content pill is marked pressed for assistive tech', async ({ pa
 });
 
 test('app cards show cost, blurb, content and devices', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await expect(card).toBeVisible();
 
@@ -1331,7 +1378,7 @@ test('app cards show cost, blurb, content and devices', async ({ page }) => {
 });
 
 test('clicking an app card opens a drawer with install steps and an official link', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const drawer = page.getByTestId('detail-drawer');
@@ -1348,7 +1395,7 @@ test('clicking an app card opens a drawer with install steps and an official lin
 });
 
 test('the app drawer lists a step for every device the app supports', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
@@ -1366,7 +1413,7 @@ test('the app drawer shows an install override where one exists and the default 
   const plain = app.devices.filter((d) => d !== 'consoles');
   expect(plain.length).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="red-bull-tv"]').click();
   const drawer = page.getByTestId('detail-drawer');
   await expect(drawer).toBeVisible();
@@ -1385,7 +1432,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
   const detailCalls = [];
   page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
 
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
 
@@ -1393,7 +1440,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
 });
 
 test('the app drawer closes on Escape and returns focus to its card', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await card.click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
@@ -1404,7 +1451,7 @@ test('the app drawer closes on Escape and returns focus to its card', async ({ p
 });
 
 test('an app card opens its drawer from the keyboard', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const card = page.getByTestId('apps-grid').locator('[data-app-id="plex"]');
   await card.focus();
   await page.keyboard.press('Enter');

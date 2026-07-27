@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- The Setup tab asks one question instead of three. Six device cards lead
+- The Setup tab asks one question instead of three. Five device cards lead
   straight to that device's steps, replacing the family → model → install
   method flow, which asked twice more before showing a single instruction
   and only ever arrived at the same handful of routes.
@@ -17,6 +17,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   finished card that hands over to What to Watch.
 - Buying advice, the retailer links and the WiFi tips are one collapsible
   panel beneath the device grid, rather than being spread through step 2.
+- All four player codes are offered together on the install step, each with
+  its own copy button, rather than one recommended code with the other three
+  in a footnote. The same username and password signs in to any of them, so
+  they are alternatives to choose between, not a fallback ladder.
+- The Download tab follows the same shape as Setup: pick the device you are
+  holding, then read only the steps for it. Both platforms used to sit side
+  by side, so every reader skipped half the page to find their half.
+- The header carries a Home link back to the site, beside the plan pill.
 
 ### Removed
 
@@ -31,6 +39,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Two of the four retailer links in the buying-advice panel: both listings
   for the Xiaomi TV Box S, including the only Amazon.co.za link. The two
   Takealot stick links stay.
+- The "iPhone, iPad or Roku" device card. Those devices cannot install the
+  app at all, so the card only ever led to a panel saying so — the smart TV
+  card still covers the hardware we register by hand.
+- The Free Streaming tab, from the portal nav. The section itself stays in
+  the plugin and is still reachable with
+  `[afristream_portal default_tab="apps"]`, the same way Tips & Tricks and
+  Troubleshooting already are.
 
 ## [0.20.1] - 2026-07-27
 
