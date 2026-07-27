@@ -75,8 +75,10 @@ function afristream_portal_user_credentials() {
  * to the drain, and invisible to both afristream_mirror_mismatches() and
  * afristream_over_allocated(), which work outwards from users that exist. So a
  * refusal is retried once — the commonest cause is an overlapping request
- * holding the assignment lock for a moment, which a second attempt clears —
- * before it is given up on.
+ * holding the assignment lock for a moment — before it is given up on. The retry
+ * is immediate and in-process, so it only clears contention that has already
+ * finished; anything longer-lived leaves the licence orphaned, and the release
+ * control on the Configurations page is the real way back from that.
  *
  * The mirror is cleared only when every licence really was freed. Not because
  * the row outlives the deletion — WordPress removes an account's usermeta as

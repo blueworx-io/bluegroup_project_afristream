@@ -1104,12 +1104,12 @@ function afristream_user_registered_timestamp( $user ) {
  *
  * A `license` post that is a draft or in the trash is reported the same way too,
  * even with only one claimant and nothing to lose to another user. Its owner meta
- * is still written, because that is the only surviving record that a customer
- * paid for it — the old usermeta array that said so is erased when the mirror
- * below is rebuilt, and this migration runs exactly once. Restore or re-publish
- * the licence later with no owner row, and it comes back free for anyone. A post
- * that is not a `license` at all, or does not exist, gets none of this: it was
- * never a licence, so there is nothing to preserve and it is dropped silently.
+ * is still written, because ownership is deliberately independent of post status:
+ * an unpublished licence stays in its customer's holdings, it simply cannot be
+ * handed to anybody new. Without that row, restoring the licence later would bring
+ * it back free for anyone. A post that is not a `license` at all, or does not
+ * exist, gets none of this: it was never a licence, so there is nothing to
+ * preserve and it is dropped silently.
  *
  * @return array{claimed:int,conflicts:array<int,array{license:int,kept:int,rejected:int[],status?:string}>}|WP_Error
  *         WP_Error when the lock is held, in which case nothing was written.
@@ -1199,14 +1199,12 @@ function afristream_backfill_ownership() {
 
 				// A licence that is a draft or in the trash will never be handed to
 				// anybody — afristream_license_is_available() is publish-only — but
-				// the owner meta written above is not idle. It is what keeps the
-				// licence in its customer's holdings while it is unpublished, and it
-				// is the only surviving record that they paid for it: the mirror
-				// rebuild below erases the old usermeta array that used to say so,
-				// and this migration runs exactly once. It is still flagged for a
-				// human, even with a single claimant, because a licence somebody
-				// holds but cannot use is a state worth a person's attention rather
-				// than one to leave sitting quietly in the data.
+				// the owner meta written above is not idle. Ownership is independent
+				// of post status, so that row is what keeps the licence in its
+				// customer's holdings while it is unpublished. It is still flagged
+				// for a human, even with a single claimant, because a licence
+				// somebody holds but cannot use is a state worth a person's
+				// attention rather than one to leave sitting quietly in the data.
 				$status = get_post_status( $license_id );
 
 				if ( ! empty( $rejected ) || 'publish' !== $status ) {
@@ -1263,7 +1261,8 @@ function afristream_backfill_ownership() {
 
 			// Rebuild every affected mirror from the licences, which corrects the
 			// losers of a conflict and drops references to anything that is not a
-			// published licence pointing back at them.
+			// licence pointing back at them. Unpublished licences are kept: the
+			// mirror follows ownership, and ownership does not care about status.
 			foreach ( array_keys( $touched ) as $user_id ) {
 				afristream_rebuild_user_mirror( $user_id );
 			}
