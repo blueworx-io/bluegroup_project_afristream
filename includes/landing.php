@@ -218,8 +218,8 @@ function afristream_landing_body() {
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
-		. afristream_landing_calculator()
 		. afristream_landing_features()
+		. afristream_landing_calculator()
 		. afristream_landing_pricing()
 		. afristream_landing_testimonials()
 		. afristream_landing_footer()
@@ -523,7 +523,7 @@ function afristream_landing_calculator() {
 		$options .= '
         <button type="button" class="as-sub" data-sub-price="' . (int) $sub[1] . '" aria-pressed="false">
           <span class="as-sub-box" aria-hidden="true"></span>
-          <span class="as-sub-text"><span class="as-sub-name">' . esc_html( $sub[0] ) . '</span><span class="as-sub-price">R' . (int) $sub[1] . '/yr</span></span>
+          <span class="as-sub-text"><span class="as-sub-name">' . esc_html( $sub[0] ) . '</span> <span class="as-sub-price">R' . (int) $sub[1] . '/yr</span></span>
         </button>';
 	}
 
