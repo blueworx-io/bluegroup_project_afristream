@@ -368,7 +368,11 @@ function afristream_render_user_license_field( $user ) {
 	$options   = array_values( array_unique( array_merge( $held, $available ) ) );
 	sort( $options );
 
-	wp_nonce_field( 'afristream_save_user_licenses', 'afristream_user_license_nonce' );
+	// Scoped to the user being edited, exactly as the licence meta box scopes its
+	// nonce to the licence. An unscoped action mints a token that verifies against
+	// every profile on the site, so one grabbed while editing user A would stay
+	// usable against user B for its whole lifetime.
+	wp_nonce_field( 'afristream_save_user_licenses_' . (int) $user->ID, 'afristream_user_license_nonce' );
 	?>
 	<h2><?php esc_html_e( 'AfriStream Licence', 'bluegroup-project-afristream' ); ?></h2>
 	<table class="form-table" role="presentation">
@@ -439,7 +443,9 @@ function afristream_save_user_license_field( $user_id ) {
 	if ( ! isset( $_POST['afristream_user_license_nonce'] ) ) {
 		return;
 	}
-	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['afristream_user_license_nonce'] ) ), 'afristream_save_user_licenses' ) ) {
+	// Verified against the action the render side minted for this exact user, so
+	// a token taken from one profile screen cannot be replayed against another.
+	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['afristream_user_license_nonce'] ) ), 'afristream_save_user_licenses_' . (int) $user_id ) ) {
 		return;
 	}
 	if ( ! current_user_can( 'edit_users' ) ) {

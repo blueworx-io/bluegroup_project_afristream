@@ -176,6 +176,49 @@ af_test( 'a user without edit_users cannot save a licence selection, even with a
 	af_assert_same( '', $html, 'the save returned before it ever reached the refusal-collecting code, so nothing is queued to report' );
 } );
 
+/**
+ * The nonce on the profile's licence field. There is no request cycle here to
+ * carry a real token from one screen to another, so what these two tests hold
+ * still is the pair of action strings — the one the form mints and the one the
+ * save verifies. An unscoped action is exactly the case where those two strings
+ * are identical for two different users, which is what makes a token minted
+ * while editing user A valid against user B for its whole lifetime.
+ */
+
+af_test( 'the profile licence nonce is minted against the user being edited', function () {
+	af_seed_user( 7 );
+	af_seed_user( 9 );
+	af_seed_post( 10, 'alpha' );
+
+	ob_start();
+	afristream_render_user_license_field( (object) array( 'ID' => 7 ) );
+	afristream_render_user_license_field( (object) array( 'ID' => 9 ) );
+	ob_get_clean();
+
+	$minted = af_nonce_field_actions( 'afristream_user_license_nonce' );
+
+	af_assert_same( 2, count( $minted ), 'one nonce per rendered field' );
+	af_assert_same( 'afristream_save_user_licenses_7', $minted[0], 'scoped to the first user' );
+	af_assert_same( 'afristream_save_user_licenses_9', $minted[1], 'and to the second — not one action for the whole site' );
+} );
+
+af_test( 'the save verifies the nonce against the user it is saving', function () {
+	af_seed_user( 9 );
+	af_seed_post( 10, 'alpha' );
+
+	$_POST = array(
+		'afristream_user_license_nonce' => 'nonce',
+		'afristream_active_license'     => array( '10' ),
+	);
+	afristream_save_user_license_field( 9 );
+	unset( $_POST );
+
+	$verified = af_nonce_verified_actions();
+
+	af_assert_same( 1, count( $verified ), 'the nonce was checked' );
+	af_assert_same( 'afristream_save_user_licenses_9', $verified[0], 'against this user, so a token minted while editing anyone else does not fit' );
+} );
+
 af_test( 'a user with edit_users can still save, both on their own profile and on someone else\'s', function () {
 	af_seed_user( 7 );
 	af_seed_user( 9 );

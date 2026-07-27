@@ -102,10 +102,14 @@ const EDITOR_FIXTURE = {
   ],
 };
 
-// Deterministic credentials fixture for the Profile tab (mirrors the plugin's
-// afristream/v1/credentials, which is ACF-backed and per-user in production).
+// Deterministic credentials fixture for the Profile tab. Mirrors the plugin's
+// afristream/v1/credentials, which is per-user in production and reports
+// source: 'assigned' when the customer holds at least one licence, 'fallback'
+// when they hold none — the value this harness serves has to be the same word,
+// or the front end is exercised against a state production never produces.
+// tests/portal.spec.js asserts the two agree, so they cannot drift apart again.
 const CREDENTIALS_FIXTURE = {
-  source: 'acf',
+  source: 'assigned',
   profiles: [
     { label: 'Profile 1', user: 'afri_fixture', pass: 'Fx9Kp2Lm' },
     { label: 'Profile 2', user: 'afri_fixture_tv', pass: 'Tv4Qr8Zn' },

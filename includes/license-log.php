@@ -52,6 +52,17 @@ function afristream_current_actor() {
  * Stored oldest-first so appending is a push and capping is a slice; the
  * reversal for display happens on read, which is the rarer operation.
  *
+ * Every string is sanitised on the way in, not only escaped on the way out.
+ * Two of them are not this plugin's own words: actor comes from a display name,
+ * which a subscriber sets for themselves, and detail carries field values a
+ * licence's editor typed. Every reader escapes today, but the log is read in
+ * several places and will be read in more, and a store that cannot hold markup
+ * is one that cannot be the source of an injection when somebody adds a reader
+ * that forgets. sanitize_text_field() is the right strength here: these are
+ * single-line labels, and it strips tags and control bytes while leaving
+ * ordinary punctuation — including the arrows the field diffs are written with
+ * — alone.
+ *
  * @param int    $license_id Licence post ID.
  * @param string $event      assigned|unassigned|created|updated|conflict.
  * @param int    $user_id    Licence holder involved, 0 if none.
@@ -72,11 +83,11 @@ function afristream_license_log_add( $license_id, $event, $user_id = 0, $context
 
 	$log[] = array(
 		'time'    => (int) current_time( 'timestamp' ),
-		'event'   => (string) $event,
+		'event'   => sanitize_text_field( (string) $event ),
 		'user'    => (int) $user_id,
-		'actor'   => afristream_current_actor(),
-		'context' => (string) $context,
-		'detail'  => (string) $detail,
+		'actor'   => sanitize_text_field( afristream_current_actor() ),
+		'context' => sanitize_text_field( (string) $context ),
+		'detail'  => sanitize_text_field( (string) $detail ),
 	);
 
 	if ( count( $log ) > AFRISTREAM_LOG_CAP ) {

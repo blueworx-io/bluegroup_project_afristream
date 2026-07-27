@@ -147,12 +147,61 @@ function afristream_license_owner( $license_id ) {
 }
 
 /**
- * Every published licence ID. Small by nature — a licence is a thing someone
- * bought, and there are tens of them, not thousands.
+ * Every post status a licence can be sitting in.
+ *
+ * Ownership is not a property of publication. A licence somebody paid for still
+ * belongs to them while it is a draft, and while it is in the trash — those are
+ * editorial states of the record, not of the customer's entitlement — so every
+ * question about who holds what has to look at all of these.
+ *
+ * Written out rather than passed as WP_Query's 'any', because 'any' silently
+ * omits trash. Trashing an assigned licence would then take it out of its
+ * owner's holdings, which is the same bug this list exists to prevent for a
+ * draft.
+ *
+ * @return string[]
+ */
+function afristream_license_statuses() {
+	return array( 'publish', 'future', 'draft', 'pending', 'private', 'trash' );
+}
+
+/**
+ * Every licence ID, whatever state its post is in. Small by nature — a licence
+ * is a thing someone bought, and there are tens of them, not thousands.
+ *
+ * This is the list for questions about ownership and history. Anything deciding
+ * what may be handed to a customer wants afristream_published_license_ids()
+ * instead: a drafted licence still belongs to whoever holds it, but it must
+ * never be given to somebody new.
  *
  * @return int[]
  */
 function afristream_all_license_ids() {
+	$ids = get_posts(
+		array(
+			'post_type'      => 'license',
+			'post_status'    => afristream_license_statuses(),
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'orderby'        => 'ID',
+			'order'          => 'ASC',
+		)
+	);
+
+	return array_map( 'intval', (array) $ids );
+}
+
+/**
+ * Every published licence ID — the stock this plugin is allowed to hand out.
+ *
+ * Deliberately the narrower of the two lists, and deliberately separate from
+ * afristream_all_license_ids(): availability is a publication question and
+ * ownership is not, and a single list serving both is what let a licence
+ * disappear from its owner's holdings the moment somebody moved it to draft.
+ *
+ * @return int[]
+ */
+function afristream_published_license_ids() {
 	$ids = get_posts(
 		array(
 			'post_type'      => 'license',
@@ -173,6 +222,19 @@ function afristream_all_license_ids() {
  * Not from the usermeta mirror: the mirror is a convenience for other readers,
  * and if the two ever disagree the licence's own record is the one to trust.
  *
+ * Status-blind on purpose. A licence moved to draft or to the trash is still
+ * the licence this customer paid for, so it still counts as held — both for the
+ * profiles their portal shows them and, more importantly, for the count
+ * afristream_topup_user() compares against their entitlement. A publish-only
+ * answer here made a drafted licence look like a licence the customer never
+ * had, and the next subscription event handed them another one.
+ *
+ * One query, not a scan. Asking the meta table for the rows that name this user
+ * is what the index on meta_key is for; walking every licence and reading its
+ * owner one get_post_meta() at a time was a full scan on a code path that runs
+ * on every Users-list row, every portal load, and once per candidate during a
+ * top-up.
+ *
  * @param int $user_id User ID.
  * @return int[] Ascending licence IDs.
  */
@@ -182,12 +244,27 @@ function afristream_user_license_ids( $user_id ) {
 		return array();
 	}
 
-	$held = array();
-	foreach ( afristream_all_license_ids() as $license_id ) {
-		if ( afristream_license_owner( $license_id ) === $user_id ) {
-			$held[] = $license_id;
-		}
-	}
+	$ids = get_posts(
+		array(
+			'post_type'      => 'license',
+			'post_status'    => afristream_license_statuses(),
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'orderby'        => 'ID',
+			'order'          => 'ASC',
+			// The owner is written as a string of digits by
+			// afristream_claim_license_row(), so it is matched as one.
+			'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				array(
+					'key'     => AFRISTREAM_LICENSE_OWNER_META,
+					'value'   => (string) $user_id,
+					'compare' => '=',
+				),
+			),
+		)
+	);
+
+	$held = array_map( 'intval', (array) $ids );
 
 	sort( $held );
 	return $held;
@@ -255,7 +332,7 @@ function afristream_license_is_available( $license_id ) {
  */
 function afristream_available_licenses( $limit = 0 ) {
 	$available = array();
-	foreach ( afristream_all_license_ids() as $license_id ) {
+	foreach ( afristream_published_license_ids() as $license_id ) {
 		if ( afristream_license_is_available( $license_id ) ) {
 			$available[] = $license_id;
 		}
@@ -284,13 +361,45 @@ function afristream_available_licenses( $limit = 0 ) {
 /**
  * Register the licence post type.
  *
- * Arguments copied verbatim from ACF's own export so the admin URLs, menu
- * position, icon and REST visibility are exactly what they were.
+ * The labels, menu position, icon and public/REST visibility are ACF's own
+ * export, kept so the admin URLs and menus are exactly what they were. One
+ * argument is deliberately not ACF's: capability_type.
+ *
+ * 'public' => true is left as it was, but it is worth being plain about what it
+ * still costs, because a licence's title is a customer's streaming username.
+ * Public implies publicly_queryable, so a single licence is reachable at its own
+ * front-end URL; it implies exclude_from_search is false, so licences turn up in
+ * the site's own search; and with show_in_rest it means GET /wp/v2/license lists
+ * every licence title to anyone. Titles are therefore public. Passwords are not,
+ * which is what the meta registration below is for.
+ *
+ * Turning this off is a real improvement and a real change of behaviour — it
+ * moves the admin screens off post_type=license URLs and hides the type from
+ * anything that enumerates public types — so it is deliberately left as its own
+ * decision rather than folded into a security fix.
+ *
+ * ACF left it unset, which means WordPress falls back to the capabilities of an
+ * ordinary post — and a Contributor holds edit_posts. A licence post's title is
+ * a customer's streaming username and its meta is their password, so "anyone
+ * who may draft a blog post" is the wrong bar entirely. Mapping the type onto
+ * page capabilities raises it to Editor and above: edit_pages is a real
+ * capability that already exists on every WordPress site, held by the roles
+ * that administer a site and not by Contributors or Authors.
+ *
+ * A capability set of its very own — edit_licenses and friends — would be
+ * tighter still, but those capabilities have to be granted to a role by code
+ * that runs once, and this plugin is already active on the live site, so an
+ * activation hook would never fire (the same reason afristream_maybe_upgrade()
+ * lives on admin_init). Getting that wrong locks every administrator out of the
+ * licence screens, which is a worse failure than the one being fixed. Page
+ * capabilities need no migration and cannot lock anyone out.
  */
 function afristream_register_license_post_type() {
 	register_post_type(
 		'license',
 		array(
+			'capability_type'  => 'page',
+			'map_meta_cap'     => true,
 			'labels'           => array(
 				'name'          => __( 'Licenses', 'bluegroup-project-afristream' ),
 				'singular_name' => __( 'License', 'bluegroup-project-afristream' ),
@@ -312,6 +421,25 @@ function afristream_register_license_post_type() {
 		)
 	);
 
+	// These four are registered so WordPress knows their shape — single, string,
+	// belonging to a licence — and so writing one is capability-checked. They are
+	// deliberately kept out of REST.
+	//
+	// show_in_rest is false because these are customer credentials sitting on a
+	// publicly-queryable post type. WP_REST_Meta_Fields applies auth_callback to
+	// writes only; reads are not capability-checked at all. With the meta exposed,
+	// GET /wp-json/wp/v2/license returned every licence's title — the customer's
+	// streaming username — alongside app_password in plaintext, to anyone, with no
+	// authentication. Nothing in this plugin reads these fields over REST: the
+	// portal's Profile tab is served by /afristream/v1/credentials, which requires
+	// a logged-in user and returns only that user's own licences.
+	//
+	// auth_callback asks whether this user may edit this licence, rather than
+	// whether they may edit posts in general. edit_posts is held by a Contributor,
+	// so the previous check let anyone who could draft a blog post write a
+	// customer's password through the custom-fields box. Routed through
+	// edit_post so map_meta_cap() applies the licence's own page-level
+	// capabilities, per licence.
 	foreach ( array_keys( afristream_license_fields() ) as $key ) {
 		register_meta(
 			'post',
@@ -320,9 +448,14 @@ function afristream_register_license_post_type() {
 				'object_subtype' => 'license',
 				'type'           => 'string',
 				'single'         => true,
-				'show_in_rest'   => true,
-				'auth_callback'  => function () {
-					return current_user_can( 'edit_posts' );
+				'show_in_rest'   => false,
+				'auth_callback'  => function ( $allowed, $meta_key, $object_id ) {
+					// No object means there is no licence to weigh the request
+					// against, so it falls back to the plural capability the
+					// licence post type is registered with.
+					return $object_id
+						? current_user_can( 'edit_post', (int) $object_id )
+						: current_user_can( 'edit_pages' );
 				},
 			)
 		);
@@ -1064,17 +1197,16 @@ function afristream_backfill_ownership() {
 				// without leaving a trace anywhere.
 				$rejected = array_values( array_diff( $claimants, array( $keeper ) ) );
 
-				// A licence that is a draft or in the trash is not one
-				// afristream_license_is_available() or afristream_user_license_ids()
-				// will ever hand out or count — the rest of the system only looks at
-				// published licences — so the owner meta written above changes
-				// nothing operationally. What it does is keep the only record that
-				// this customer paid for it. Restore or re-publish the licence later
-				// with no owner row, and an auto-assign would give it to whoever
-				// asks next; the mirror rebuild below has already erased the old
-				// usermeta array that was the sole trace of who it belonged to. So
-				// this is flagged for a human exactly like a genuine two-user clash,
-				// even when there was only ever one claimant to record.
+				// A licence that is a draft or in the trash will never be handed to
+				// anybody — afristream_license_is_available() is publish-only — but
+				// the owner meta written above is not idle. It is what keeps the
+				// licence in its customer's holdings while it is unpublished, and it
+				// is the only surviving record that they paid for it: the mirror
+				// rebuild below erases the old usermeta array that used to say so,
+				// and this migration runs exactly once. It is still flagged for a
+				// human, even with a single claimant, because a licence somebody
+				// holds but cannot use is a state worth a person's attention rather
+				// than one to leave sitting quietly in the data.
 				$status = get_post_status( $license_id );
 
 				if ( ! empty( $rejected ) || 'publish' !== $status ) {
@@ -1110,7 +1242,7 @@ function afristream_backfill_ownership() {
 				}
 			}
 
-			// Every published licence needs its owner row left in the shape
+			// Every licence needs its owner row left in the shape
 			// afristream_claim_license_row() expects, not just the ones the old
 			// usermeta arrays happened to mention. That function's conditional UPDATE
 			// can only ever match a row that already exists, and while it does create
@@ -1168,10 +1300,102 @@ function afristream_ownership_conflicts() {
 }
 
 /**
- * Run the backfill once, the first time an admin loads a page after upgrading.
+ * Licences whose owner is a user account that no longer exists.
+ *
+ * A licence in this state is out of circulation with nothing to release it: it
+ * is not available, because it has an owner; it is in nobody's holdings, because
+ * that user is gone; and neither afristream_mirror_mismatches() nor
+ * afristream_over_allocated() can see it, because both work outwards from users
+ * that exist. Without somewhere to report it, the only way back is a database
+ * edit, so it is reported on the Configurations page alongside the other states
+ * a person has to act on.
+ *
+ * @return array<int,array{license:int,owner:int}> Ascending by licence ID.
+ */
+function afristream_orphaned_licenses() {
+	$orphans = array();
+
+	foreach ( afristream_all_license_ids() as $license_id ) {
+		$owner = afristream_license_owner( $license_id );
+		if ( $owner && ! get_userdata( $owner ) ) {
+			$orphans[] = array(
+				'license' => (int) $license_id,
+				'owner'   => (int) $owner,
+			);
+		}
+	}
+
+	return $orphans;
+}
+
+/**
+ * Put an orphaned licence back into circulation.
+ *
+ * The supported way out of the state afristream_orphaned_licenses() reports,
+ * and narrow on purpose: it refuses anything whose owner is a real account, so
+ * the link that triggers it cannot be turned into a way of taking a licence off
+ * a paying customer. Releasing goes through afristream_unassign_license() like
+ * every other release, so the licence's own history records that it happened
+ * and who did it.
+ *
+ * The capability is checked here as well as on the page that offers the link,
+ * because this frees a licence and a write authorised only by its caller is
+ * authorised by whoever calls it next.
+ *
+ * @param int $license_id Licence post ID.
+ * @return true|WP_Error True when the licence was freed.
+ */
+function afristream_release_orphaned_license( $license_id ) {
+	$license_id = (int) $license_id;
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return new WP_Error( 'afristream_forbidden', __( 'You are not allowed to release a licence.', 'bluegroup-project-afristream' ) );
+	}
+
+	if ( ! $license_id || 'license' !== get_post_type( $license_id ) ) {
+		return new WP_Error( 'afristream_not_a_license', __( 'That is not a licence.', 'bluegroup-project-afristream' ) );
+	}
+
+	$owner = afristream_license_owner( $license_id );
+
+	if ( ! $owner ) {
+		return new WP_Error( 'afristream_license_free', __( 'That licence is already free.', 'bluegroup-project-afristream' ) );
+	}
+
+	if ( get_userdata( $owner ) ) {
+		return new WP_Error(
+			'afristream_owner_exists',
+			__( 'That licence belongs to an account that still exists. Change the assignment from that user\'s profile.', 'bluegroup-project-afristream' )
+		);
+	}
+
+	$result = afristream_unassign_license( $license_id, 'orphan-release' );
+
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	// afristream_unassign_license() answers false only when the licence was
+	// already free, and the owner was read a moment ago — so this is somebody
+	// else having released it in between, not a failure worth alarming about.
+	return true;
+}
+
+/**
+ * Run the backfill once, the first time an administrator loads a page after
+ * upgrading.
  *
  * On admin_init rather than plugin activation: the plugin is already active on
  * the live site, so an activation hook would never fire.
+ *
+ * That hook is not the once-per-upgrade, administrator-only moment its name
+ * suggests. It also fires on admin-ajax.php, which serves logged-out requests,
+ * so without the gate below an anonymous request could set a one-way migration
+ * running. The lock inside the backfill means that was never a correctness
+ * problem, but who can start it is a separate question from whether it is safe
+ * once started. It is gated on manage_options, which is who this migration is
+ * for, and skipped during AJAX so it runs on a real admin page load rather than
+ * on the heartbeat firing in a background tab.
  *
  * The version is recorded only once the backfill reports that it ran. This gate
  * is a read followed much later by a write, so two requests can both pass it;
@@ -1182,6 +1406,10 @@ function afristream_ownership_conflicts() {
  * down instead costs one more attempt on a later admin page load.
  */
 function afristream_maybe_upgrade() {
+	if ( wp_doing_ajax() || ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
 	if ( (int) get_option( AFRISTREAM_SCHEMA_OPTION, 1 ) >= AFRISTREAM_SCHEMA_VERSION ) {
 		return;
 	}
@@ -1236,16 +1464,27 @@ function afristream_register_field_registry( $items ) {
 		);
 	}
 
+	// An orphan is reported here as well as in the notice on the Configurations
+	// page, because this row is the one somebody reads when they are asking what
+	// the assignment machinery is doing rather than what is wrong today.
+	$orphans = afristream_orphaned_licenses();
+
 	$items[] = array(
 		'group'  => 'Licences',
 		'name'   => 'Licence assignment',
 		'type'   => 'field',
 		'handle' => AFRISTREAM_LICENSE_OWNER_META,
 		'file'   => 'includes/fields.php',
-		'status' => array(
-			'state' => 'ok',
-			'label' => __( 'Owner stored on the licence, user meta mirrored', 'bluegroup-project-afristream' ),
-		),
+		'status' => empty( $orphans )
+			? array(
+				'state' => 'ok',
+				'label' => __( 'Owner stored on the licence, user meta mirrored', 'bluegroup-project-afristream' ),
+			)
+			: array(
+				'state' => 'warn',
+				/* translators: %d: number of licences owned by a deleted account. */
+				'label' => sprintf( _n( '%d licence is held by an account that no longer exists', '%d licences are held by accounts that no longer exist', count( $orphans ), 'bluegroup-project-afristream' ), count( $orphans ) ),
+			),
 	);
 
 	return $items;

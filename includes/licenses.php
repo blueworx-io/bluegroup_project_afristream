@@ -70,19 +70,48 @@ function afristream_portal_user_credentials() {
  * out to have been a mistake.
  *
  * A refused lock or a hand-off that lands mid-release comes back as a WP_Error
- * rather than a bool, and a licence left un-freed by that is a licence quietly
- * leaked out of circulation. There is no administrator watching a delete_user
- * hook to show a notice to, so the only honest place to leave a trace is the
- * licence's own history — logged against the licence so whoever next looks at
- * it can see the release was attempted and failed, rather than the deletion
- * silently going quiet on this one licence.
+ * rather than a bool, and a licence left un-freed that way is a licence owned by
+ * a user ID that is about to stop existing: permanently out of stock, invisible
+ * to the drain, and invisible to both afristream_mirror_mismatches() and
+ * afristream_over_allocated(), which work outwards from users that exist. So a
+ * refusal is retried once — the commonest cause is an overlapping request
+ * holding the assignment lock for a moment, which a second attempt clears —
+ * before it is given up on.
+ *
+ * The mirror is cleared only when every licence really was freed. Not because
+ * the row outlives the deletion — WordPress removes an account's usermeta as
+ * part of deleting it, so it is going either way — but because deleting it here
+ * is this plugin recording that the licences were released when one of them was
+ * not, and afristream_mirror_mismatches() reads that record. Leaving it alone
+ * keeps the failure legible for as long as anything can still see it.
+ *
+ * What outlasts the deletion is the licence itself, still owned by a user ID
+ * that no longer resolves to anybody. afristream_orphaned_licenses() reports
+ * that state on the Configurations page with a way to release it, and that —
+ * not the mirror — is the recovery path.
+ *
+ * There is no administrator watching a delete_user hook to show a notice to, so
+ * a failure is also written to the licence's own history, where whoever next
+ * opens that licence will find it.
  *
  * @param int $user_id User being deleted.
  */
 function afristream_portal_unassign_licenses_on_user_delete( $user_id ) {
+	$failed = array();
+
 	foreach ( afristream_user_license_ids( $user_id ) as $license_id ) {
+		if ( is_wp_error( afristream_unassign_license( $license_id, 'user-deleted' ) ) ) {
+			$failed[] = $license_id;
+		}
+	}
+
+	$still_held = array();
+
+	foreach ( $failed as $license_id ) {
 		$result = afristream_unassign_license( $license_id, 'user-deleted' );
+
 		if ( is_wp_error( $result ) ) {
+			$still_held[] = $license_id;
 			afristream_license_log_add(
 				$license_id,
 				'conflict',
@@ -92,7 +121,10 @@ function afristream_portal_unassign_licenses_on_user_delete( $user_id ) {
 			);
 		}
 	}
-	delete_user_meta( $user_id, AFRISTREAM_USER_LICENSE_META );
+
+	if ( empty( $still_held ) ) {
+		delete_user_meta( $user_id, AFRISTREAM_USER_LICENSE_META );
+	}
 }
 add_action( 'delete_user', 'afristream_portal_unassign_licenses_on_user_delete' );
 add_action( 'wpmu_delete_user', 'afristream_portal_unassign_licenses_on_user_delete' );
@@ -285,6 +317,18 @@ add_filter( 'manage_edit-license_sortable_columns', 'afristream_portal_license_s
 /**
  * Sort licences by expiry date or mobile flag.
  *
+ * Sorting on a meta key by setting meta_key and ordering on meta_value forces an
+ * INNER JOIN, so any licence without that row simply drops out of the list — a
+ * licence with no expiry date disappeared from the screen the moment somebody
+ * clicked Expiry Date, which reads as licences having been deleted. A meta_query
+ * of "has it OR does not have it" is joined the other way, as a LEFT JOIN, so
+ * every licence stays in the list and the ones with no value sort together at
+ * one end.
+ *
+ * The order is taken from the request and applied to the named clause. A
+ * per-clause direction overrides the query's own 'order', so leaving it out
+ * would pin the column to ascending whichever way the arrow was clicked.
+ *
  * @param WP_Query $query The query being run.
  */
 function afristream_portal_sort_license_columns( $query ) {
@@ -296,10 +340,27 @@ function afristream_portal_sort_license_columns( $query ) {
 	}
 
 	$orderby = $query->get( 'orderby' );
-	if ( in_array( $orderby, array( 'expiry_date', 'mobile_active' ), true ) ) {
-		$query->set( 'meta_key', $orderby ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-		$query->set( 'orderby', 'meta_value' );
+	if ( ! in_array( $orderby, array( 'expiry_date', 'mobile_active' ), true ) ) {
+		return;
 	}
+
+	$order = 'DESC' === strtoupper( (string) $query->get( 'order' ) ) ? 'DESC' : 'ASC';
+
+	$query->set(
+		'meta_query', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		array(
+			'relation'         => 'OR',
+			'afristream_value' => array(
+				'key'     => $orderby,
+				'compare' => 'EXISTS',
+			),
+			'afristream_none'  => array(
+				'key'     => $orderby,
+				'compare' => 'NOT EXISTS',
+			),
+		)
+	);
+	$query->set( 'orderby', array( 'afristream_value' => $order ) );
 }
 add_action( 'pre_get_posts', 'afristream_portal_sort_license_columns' );
 

@@ -15,6 +15,21 @@ af_test( 'an entry records what happened, to whom, and who did it', function () 
 	af_assert_same( 1785024000, $log[0]['time'], 'stamped from the frozen clock' );
 } );
 
+af_test( 'the log stores what an actor calls themselves, not markup', function () {
+	// A display name is the one part of a log entry a customer writes, and they
+	// can put anything in it. Every reader escapes today; storing it clean means
+	// a reader added later cannot be the one that gets it wrong.
+	af_seed_user( 7, 'Mallory <img src=x onerror=alert(1)>' );
+	af_set_current_user( 7 );
+	af_seed_post( 10, 'alpha' );
+
+	afristream_license_log_add( 10, 'assigned', 7, 'profile', '<b>app_password</b> (empty) → hunter2' );
+
+	$log = afristream_license_log_get( 10 );
+	af_assert_same( 'Mallory', $log[0]['actor'], 'the markup is gone from the stored value' );
+	af_assert_same( 'app_password (empty) → hunter2', $log[0]['detail'], 'and from the detail, without disturbing the arrow a field diff is written with' );
+} );
+
 af_test( 'the log reads newest first', function () {
 	af_seed_post( 10, 'alpha' );
 	afristream_license_log_add( 10, 'created', 0, 'admin' );

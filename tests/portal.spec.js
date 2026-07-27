@@ -792,6 +792,31 @@ test('profile tab shows the logged-in user credentials from the endpoint', async
   await expect(page.getByText('afri_fixture_tv')).toBeVisible();
 });
 
+test('the preview harness serves the same credentials source words as the plugin', async ({ request }) => {
+  // The harness exists to stand in for the WordPress mount, and the front end
+  // branches on this exact string — payload.source === 'fallback' is what makes
+  // it show "no profile assigned" instead of credentials. When the plugin
+  // stopped saying 'acf' and started saying 'assigned', the harness went on
+  // serving the old word, so every Profile test was exercising a state
+  // production can no longer produce. Read out of both files — through the
+  // harness itself, which serves the repo — so the two cannot drift apart again
+  // without this failing.
+  const plugin = await (await request.get('/bluegroup-project-afristream.php')).text();
+  const harness = await (await request.get('/scripts/preview-server.mjs')).text();
+
+  const pluginSource = plugin.match(/'source'\s*=>\s*\$profiles\s*\?\s*'([a-z-]+)'\s*:\s*'([a-z-]+)'/);
+  expect(pluginSource, 'the plugin still answers /credentials with a source').not.toBeNull();
+  const [, assigned, fallback] = pluginSource;
+
+  const fixtureSource = harness.match(/const CREDENTIALS_FIXTURE = \{\s*source: '([a-z-]+)'/);
+  expect(fixtureSource, 'the harness still has a credentials fixture').not.toBeNull();
+  expect(fixtureSource[1]).toBe(assigned);
+
+  const emptySource = harness.match(/:\s*\{ source: '([a-z-]+)', profiles: \[\] \}/);
+  expect(emptySource, 'the harness still has an empty-credentials answer').not.toBeNull();
+  expect(emptySource[1]).toBe(fallback);
+});
+
 test('poster grids stay multi-column on a phone inside a padded theme container', async ({ page }) => {
   // A host theme wraps shortcode output in a container with its own gutter, and
   // the portal adds its own on top. That doubled gutter is what used to drop the

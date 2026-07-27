@@ -642,6 +642,11 @@ function afristream_license_acquired_at( $license_id ) {
  * about when it changed hands. Ties, including licences with no recorded
  * assignment, fall back to licence ID so the report is stable between runs.
  *
+ * Counted over every licence whatever its post status, the same as
+ * afristream_user_license_ids(), because a customer holding a licence that has
+ * since been moved to draft still holds it. A publish-only count here would
+ * disagree with the count the top-up works from and quietly under-report.
+ *
  * @return array<int,array{user:int,entitled:int,held:int,surplus:int[]}>
  */
 function afristream_over_allocated() {

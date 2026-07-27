@@ -30,6 +30,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Two customers checking out at the same moment can no longer be handed the same licence.
 
+- **A licence taken out of publication no longer disappears from the customer holding it.** Whether a licence is published decides whether anybody new can be given one — it was never meant to decide whether the person who already paid for it still has it. Moving an assigned licence to draft or to the trash took the profile out of that customer's portal and, worse, made the plugin believe they held one fewer than they do, so the next payment event handed them another licence on top. Ownership is now read independently of the licence's editorial state, while stock is still strictly published-only, and a licence that is assigned but unpublished is counted and named as its own thing on the Configurations page rather than quietly missing from the totals.
+
+- **Deleting a customer can no longer strand a licence with no way to get it back.** If freeing one of their licences was refused — usually a second request holding the assignment lock for a moment — the licence stayed owned by an account that no longer existed: permanently out of stock, and invisible to every report. The release is now retried, the record of what that account held is kept whenever anything could not be freed rather than wiped regardless, and any licence left in that state is listed on the Configurations page with a **Release it** link that puts it straight back into the pool and records it in the licence's own history.
+
+- **Sorting the licence list by Expiry Date no longer hides every licence that has no expiry date.** Sorting on a field WordPress stores separately quietly excludes the rows that do not have it, so clicking the column header made licences look deleted.
+
+- The reverse lookup of "which licences does this customer hold" is now a single indexed query rather than a walk over every licence reading each one in turn. It runs on every row of the Users screen, on every portal load, and once per candidate while a licence is being handed out.
+
+- The licence history now stores names and field values cleaned rather than relying on every screen that shows them to clean them at the point of display.
+
+- The preview harness now reports credentials the same way the live plugin does. It had been left saying `acf` after the plugin stopped, so the front end was being tested against a state production can no longer produce; the test suite now checks the two agree.
+
+### Security
+
+- **Every customer's streaming username and password were readable by anyone, without logging in.** The licence's four fields were registered as visible to the WordPress REST API, and WordPress does not capability-check reading them, so a single unauthenticated request to `/wp-json/wp/v2/license` returned the lot — usernames and passwords in plain text, for every customer. The fields are no longer exposed to that API at all. Nothing in the portal ever used it: a customer's own credentials are served by a separate route that requires them to be logged in and returns only their own. Note that a licence's title is a username, and the licence post type is public in the same way it was under ACF, so titles remain visible to anyone who looks — changing that affects the admin screens' addresses and is deliberately left as a decision to take on its own.
+
+- **Anyone who could draft a blog post could change a customer's password.** Licences inherited ordinary post permissions, which a Contributor holds, and the fields themselves were writable by anyone with the same. Both now sit at the level of the people who administer the site, and the field check asks about the specific licence rather than about posts in general.
+
+- **The licence field on a user's profile now uses a token tied to that user.** It was scoped to nothing in particular, so one obtained while editing one customer stayed valid against any other for as long as it lived.
+
+- **The one-off data migration can no longer be set running by an anonymous request.** It hangs off a WordPress hook that also fires on the site's AJAX endpoint, which serves logged-out visitors. It now runs only for a logged-in administrator on a real admin page load.
+
 ## [0.19.0] - 2026-07-23
 
 ### Added

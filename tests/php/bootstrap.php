@@ -56,6 +56,15 @@ function af_reset_store() {
 		'now'             => 1785024000, // 2026-07-26 08:00 UTC, fixed so date tests are stable.
 		'capabilities'    => null, // null means permissive — see current_user_can() below.
 		'current_user_id' => 0, // 0 means logged out — see is_user_logged_in() below.
+		'is_admin'        => false, // see is_admin() and af_set_admin() below.
+		'doing_ajax'      => false, // see wp_doing_ajax() and af_set_doing_ajax() below.
+		'queries'         => array(), // every get_posts() argument set, in order — see af_get_posts_queries().
+		'nonce_fields'    => array(), // action strings wp_nonce_field() minted, by field name.
+		'nonce_verified'  => array(), // action strings wp_verify_nonce() was asked about.
+		'registrations'   => array(
+			'post_types' => array(),
+			'meta'       => array(),
+		),
 	);
 
 	// The fake $wpdb is a single long-lived object rather than part of the
@@ -449,12 +458,34 @@ function get_post_status( $post_id ) {
 
 /**
  * Supports only the shapes this plugin actually asks for: licence posts by
- * status, returning IDs.
+ * status, optionally filtered by a meta_query, returning IDs.
+ *
+ * The meta_query support is deliberately the narrowest thing that answers the
+ * one query the plugin makes — the reverse lookup of which licences name a
+ * given owner. Only a flat list of clauses is understood, only with an '='
+ * comparison, and anything else raises rather than being quietly ignored: a
+ * stub that skipped a clause it did not recognise would answer "every licence"
+ * to a query that asked for one user's, and the test built on it would pass
+ * while the real query returned something else entirely. That is the same
+ * standard the fake $wpdb holds itself to.
+ *
+ * Values are compared as strings because that is what MySQL does with a
+ * meta_value column, and because the owner is written as a string of digits by
+ * afristream_claim_license_row() but as an integer by the backfill's
+ * update_post_meta() — both are '7' in the database, and both must match here.
  */
 function get_posts( $args = array() ) {
+	$GLOBALS['af_store']['queries'][] = $args;
+
 	$type   = isset( $args['post_type'] ) ? $args['post_type'] : 'post';
 	$status = isset( $args['post_status'] ) ? (array) $args['post_status'] : array( 'publish' );
-	$out    = array();
+	$meta   = isset( $args['meta_query'] ) ? (array) $args['meta_query'] : array();
+
+	if ( isset( $meta['relation'] ) ) {
+		throw new RuntimeException( 'Fake get_posts(): meta_query relations are not modelled.' );
+	}
+
+	$out = array();
 	foreach ( $GLOBALS['af_store']['posts'] as $post ) {
 		if ( $post['post_type'] !== $type ) {
 			continue;
@@ -462,10 +493,56 @@ function get_posts( $args = array() ) {
 		if ( ! in_array( $post['post_status'], $status, true ) ) {
 			continue;
 		}
+		if ( ! af_meta_query_matches( $post['ID'], $meta ) ) {
+			continue;
+		}
 		$out[] = $post['ID'];
 	}
 	sort( $out );
 	return $out;
+}
+
+/**
+ * Every get_posts() call made since the store was reset, with its arguments.
+ *
+ * How a lookup is asked for is the thing under test in one case — the reverse
+ * "which licences does this user hold" query has to be a single meta_query
+ * rather than a scan of every licence, and both shapes return the same answer,
+ * so the answer alone cannot tell them apart.
+ *
+ * @return array<int,array>
+ */
+function af_get_posts_queries() {
+	return $GLOBALS['af_store']['queries'];
+}
+
+/**
+ * Whether one post satisfies every clause of a modelled meta_query.
+ *
+ * @param int   $post_id Post to test.
+ * @param array $clauses Flat list of meta_query clauses, ANDed.
+ * @return bool
+ */
+function af_meta_query_matches( $post_id, $clauses ) {
+	foreach ( $clauses as $clause ) {
+		if ( ! is_array( $clause ) || ! isset( $clause['key'] ) || ! array_key_exists( 'value', $clause ) ) {
+			throw new RuntimeException( 'Fake get_posts(): meta_query clause shape is not modelled.' );
+		}
+		if ( isset( $clause['compare'] ) && '=' !== $clause['compare'] ) {
+			throw new RuntimeException( 'Fake get_posts(): meta_query compare "' . $clause['compare'] . '" is not modelled.' );
+		}
+
+		$rows = isset( $GLOBALS['af_store']['postmeta'][ $post_id ] ) ? $GLOBALS['af_store']['postmeta'][ $post_id ] : array();
+
+		if ( ! array_key_exists( $clause['key'], $rows ) ) {
+			return false;
+		}
+		if ( (string) $rows[ $clause['key'] ] !== (string) $clause['value'] ) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 /**
@@ -593,6 +670,10 @@ function esc_attr( $value ) {
 
 function __( $text, $domain = '' ) {
 	return $text;
+}
+
+function esc_html_e( $text, $domain = '' ) {
+	echo esc_html( $text );
 }
 
 function esc_html__( $text, $domain = '' ) {
@@ -1155,20 +1236,129 @@ function af_wpdb_fail_silently( $which = '*' ) {
 }
 
 // Admin-only functions the includes call at load time but tests never exercise.
-function is_admin() { return false; }
+
+/**
+ * False by default, because nothing in the suite is a request to wp-admin. A
+ * test that needs the admin-side branch of a hook — the licence list table's
+ * sort, say — turns it on with af_set_admin() for the rest of that test.
+ */
+function is_admin() { return (bool) $GLOBALS['af_store']['is_admin']; }
+
+/**
+ * @param bool $on Whether this request should look like a wp-admin one.
+ */
+function af_set_admin( $on = true ) {
+	$GLOBALS['af_store']['is_admin'] = (bool) $on;
+}
+
+/**
+ * False by default: an ordinary admin page load, not admin-ajax.php. Settable
+ * because admin_init fires on both and the migration gate depends on telling
+ * them apart.
+ */
+function wp_doing_ajax() { return (bool) $GLOBALS['af_store']['doing_ajax']; }
+
+/**
+ * @param bool $on Whether this request should look like admin-ajax.php.
+ */
+function af_set_doing_ajax( $on = true ) {
+	$GLOBALS['af_store']['doing_ajax'] = (bool) $on;
+}
+
 function add_meta_box() {}
 function add_menu_page() {}
 function add_options_page() {}
 function add_settings_section() {}
 function add_settings_field() {}
 function register_setting() {}
-function register_post_type() {}
-function register_meta() {}
+
+/**
+ * Records what was registered instead of discarding it. The post type's
+ * capability_type and the meta's show_in_rest are security decisions that exist
+ * nowhere but these arguments — there is no behaviour to observe them through
+ * without a REST stack — so the only way a test can hold them still is to read
+ * back what was passed.
+ */
+function register_post_type( $type = '', $args = array() ) {
+	$GLOBALS['af_store']['registrations']['post_types'][ (string) $type ] = (array) $args;
+	return (object) array( 'name' => (string) $type );
+}
+
+function register_meta( $object_type = '', $meta_key = '', $args = array() ) {
+	$GLOBALS['af_store']['registrations']['meta'][ (string) $meta_key ] = (array) $args;
+	return true;
+}
+
+/**
+ * The arguments a post type was registered with, or null if it never was.
+ *
+ * @param string $type Post type name.
+ * @return array|null
+ */
+function af_registered_post_type( $type ) {
+	return isset( $GLOBALS['af_store']['registrations']['post_types'][ $type ] )
+		? $GLOBALS['af_store']['registrations']['post_types'][ $type ]
+		: null;
+}
+
+/**
+ * The arguments a meta key was registered with, or null if it never was.
+ *
+ * @param string $meta_key Meta key.
+ * @return array|null
+ */
+function af_registered_meta( $meta_key ) {
+	return isset( $GLOBALS['af_store']['registrations']['meta'][ $meta_key ] )
+		? $GLOBALS['af_store']['registrations']['meta'][ $meta_key ]
+		: null;
+}
+
 function add_shortcode() {}
 function wp_register_script() {}
 function wp_register_style() {}
-function wp_nonce_field() {}
-function wp_verify_nonce() { return true; }
+
+/**
+ * Records the action a nonce was minted for, keyed by the field name it was
+ * rendered under. There is no request cycle here to carry a real token across,
+ * so what a test can check is the pair of action strings: the one the form
+ * minted and the one the save verified. A nonce that is not scoped to the thing
+ * it authorises shows up as those two strings being the same for two different
+ * users, which is exactly the flaw.
+ */
+function wp_nonce_field( $action = -1, $name = '_wpnonce' ) {
+	$GLOBALS['af_store']['nonce_fields'][ (string) $name ][] = (string) $action;
+	echo '<input type="hidden" name="' . esc_attr( (string) $name ) . '" value="nonce" />';
+}
+
+/**
+ * Always honours the token — there is none to check — but records which action
+ * it was asked about, so the scoping can be asserted. See wp_nonce_field().
+ */
+function wp_verify_nonce( $nonce = '', $action = -1 ) {
+	$GLOBALS['af_store']['nonce_verified'][] = (string) $action;
+	return true;
+}
+
+/**
+ * Every action string wp_nonce_field() minted under a field name, in order.
+ *
+ * @param string $name Field name.
+ * @return string[]
+ */
+function af_nonce_field_actions( $name ) {
+	return isset( $GLOBALS['af_store']['nonce_fields'][ $name ] )
+		? $GLOBALS['af_store']['nonce_fields'][ $name ]
+		: array();
+}
+
+/**
+ * Every action string wp_verify_nonce() has been asked about, in order.
+ *
+ * @return string[]
+ */
+function af_nonce_verified_actions() {
+	return $GLOBALS['af_store']['nonce_verified'];
+}
 function wp_create_nonce( $action = -1 ) { return 'nonce'; }
 /**
  * Always honours the nonce, the same permissive default as wp_verify_nonce()
@@ -1189,8 +1379,13 @@ function wp_nonce_url( $actionurl, $action = -1, $name = '_wpnonce' ) {
 	$sep       = false !== strpos( $actionurl, '?' ) ? '&' : '?';
 	return $actionurl . $sep . $name . '=' . wp_create_nonce( $action );
 }
-function selected( $a, $b, $echo = true ) { return $a === $b ? ' selected' : ''; }
-function checked( $a, $b, $echo = true ) { return $a === $b ? ' checked' : ''; }
+/**
+ * $b defaults to true exactly as core's does, because core's callers rely on
+ * it: selected( in_array( $id, $held, true ) ) is the one-argument form, and a
+ * stub demanding two arguments turns that into a fatal under PHP 8.
+ */
+function selected( $a, $b = true, $echo = true ) { return $a === $b ? ' selected' : ''; }
+function checked( $a, $b = true, $echo = true ) { return $a === $b ? ' checked' : ''; }
 function plugins_url( $path = '', $file = '' ) { return '/wp-content/plugins/' . ltrim( (string) $path, '/' ); }
 function rest_url( $path = '' ) { return '/wp-json/' . ltrim( (string) $path, '/' ); }
 function add_query_arg( $key, $value, $url = '' ) { return $url . '?' . $key . '=' . $value; }
@@ -1213,7 +1408,22 @@ function current_user_can( $capability, ...$args ) {
 	}
 	return ! empty( $caps[ $capability ] );
 }
-function wp_get_current_user() { return (object) array( 'ID' => 0, 'display_name' => 'system' ); }
+/**
+ * The user af_set_current_user() named, read from the same seeded records
+ * get_userdata() serves. It used to answer with a fixed anonymous object, which
+ * meant the licence log's actor could only ever be 'system' and nothing could
+ * exercise what happens when the name comes from an account — a display name is
+ * something a subscriber sets for themselves, so it is the one field in a log
+ * entry that is not this plugin's own words.
+ *
+ * Falls back to that same anonymous object when nobody is logged in, or when
+ * the current user ID names an account no test seeded, which is what a webhook
+ * or a cron run looks like.
+ */
+function wp_get_current_user() {
+	$user = get_userdata( $GLOBALS['af_store']['current_user_id'] );
+	return $user ? $user : (object) array( 'ID' => 0, 'display_name' => 'system' );
+}
 
 /**
  * Logged-out by default, the same as before this stub was made settable, so

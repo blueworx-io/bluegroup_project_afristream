@@ -97,20 +97,32 @@ function afristream_registry() {
  * so the page names it as something to go and fix, rather than folding it
  * into a count that hides it.
  *
- * @return array{total:int,available:int,assigned:int,expired:int,unreadable:int}
+ * The count runs over every licence, not only the published ones, so that a
+ * licence somebody moved to draft cannot vanish from the page while still
+ * belonging to a customer. An unowned licence that is not published gets a
+ * bucket of its own too: it is not available and it has not expired, and
+ * counting it as either would be a plain untruth about stock.
+ *
+ * @return array{total:int,available:int,assigned:int,expired:int,unreadable:int,unpublished:int}
  */
 function afristream_license_stock() {
-	$total      = 0;
-	$available  = 0;
-	$assigned   = 0;
-	$expired    = 0;
-	$unreadable = 0;
+	$total       = 0;
+	$available   = 0;
+	$assigned    = 0;
+	$expired     = 0;
+	$unreadable  = 0;
+	$unpublished = 0;
 
 	foreach ( afristream_all_license_ids() as $license_id ) {
 		$total++;
 
 		if ( afristream_license_owner( $license_id ) ) {
 			$assigned++;
+			continue;
+		}
+
+		if ( 'publish' !== get_post_status( $license_id ) ) {
+			$unpublished++;
 			continue;
 		}
 
@@ -128,11 +140,12 @@ function afristream_license_stock() {
 	}
 
 	return array(
-		'total'      => $total,
-		'available'  => $available,
-		'assigned'   => $assigned,
-		'expired'    => $expired,
-		'unreadable' => $unreadable,
+		'total'       => $total,
+		'available'   => $available,
+		'assigned'    => $assigned,
+		'expired'     => $expired,
+		'unreadable'  => $unreadable,
+		'unpublished' => $unpublished,
 	);
 }
 
@@ -875,10 +888,24 @@ function afristream_render_configurations_page() {
 		afristream_acf_audit_invalidate();
 	}
 
+	// The page's other deliberate write: releasing a licence whose owner has been
+	// deleted. It is the only way back from that state short of editing the
+	// database, so it lives where the state is reported. The nonce is scoped to
+	// the licence, so a link for one cannot be replayed against another, and
+	// afristream_release_orphaned_license() re-checks both the capability and
+	// that the owner really is gone before it frees anything.
+	$released = null;
+	if ( isset( $_GET['afristream_release_license'] ) ) {
+		$release_id = (int) $_GET['afristream_release_license'];
+		check_admin_referer( 'afristream_release_license_' . $release_id );
+		$released = afristream_release_orphaned_license( $release_id );
+	}
+
 	$stock     = afristream_license_stock();
 	$pending   = afristream_pending_all();
 	$over      = afristream_over_allocated();
 	$mismatch  = afristream_mirror_mismatches();
+	$orphans   = afristream_orphaned_licenses();
 	$conflicts = afristream_ownership_conflicts();
 	$audit     = afristream_acf_audit();
 	$registry  = afristream_registry();
@@ -900,16 +927,38 @@ function afristream_render_configurations_page() {
 		<p>
 			<?php
 			printf(
-				/* translators: 1: total, 2: available, 3: assigned, 4: expired, 5: unreadable expiry. */
-				esc_html__( '%1$d licences — %2$d available, %3$d assigned, %4$d expired, %5$d with an expiry date that could not be read (fix these — they are not being handed out).', 'bluegroup-project-afristream' ),
+				/* translators: 1: total, 2: available, 3: assigned, 4: expired, 5: unreadable expiry, 6: not published. */
+				esc_html__( '%1$d licences — %2$d available, %3$d assigned, %4$d expired, %5$d with an expiry date that could not be read (fix these — they are not being handed out), %6$d unassigned and not published (a draft or in the trash, so nobody can be given one).', 'bluegroup-project-afristream' ),
 				(int) $stock['total'],
 				(int) $stock['available'],
 				(int) $stock['assigned'],
 				(int) $stock['expired'],
-				(int) $stock['unreadable']
+				(int) $stock['unreadable'],
+				(int) $stock['unpublished']
 			);
 			?>
 		</p>
+
+		<?php if ( is_wp_error( $released ) ) : ?>
+			<div class="notice notice-error inline"><p><?php echo esc_html( $released->get_error_message() ); ?></p></div>
+		<?php elseif ( true === $released ) : ?>
+			<div class="notice notice-success inline"><p><?php esc_html_e( 'That licence is free again and back in the pool.', 'bluegroup-project-afristream' ); ?></p></div>
+		<?php endif; ?>
+
+		<?php if ( ! empty( $orphans ) ) : ?>
+			<div class="notice notice-error inline"><p>
+				<strong><?php esc_html_e( 'Held by an account that no longer exists:', 'bluegroup-project-afristream' ); ?></strong><br>
+				<?php esc_html_e( 'These licences cannot be handed to anyone and will not free themselves. Releasing one puts it straight back into the available pool and records it in that licence\'s history.', 'bluegroup-project-afristream' ); ?><br>
+				<?php foreach ( $orphans as $orphan ) : ?>
+					<?php echo esc_html( get_the_title( $orphan['license'] ) ); ?>
+					— <?php echo esc_html( sprintf( __( 'owner was user %d', 'bluegroup-project-afristream' ), $orphan['owner'] ) ); ?>
+					<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=afristream-configurations&afristream_release_license=' . $orphan['license'] ), 'afristream_release_license_' . $orphan['license'] ) ); ?>">
+						<?php esc_html_e( 'Release it', 'bluegroup-project-afristream' ); ?>
+					</a>
+					<br>
+				<?php endforeach; ?>
+			</p></div>
+		<?php endif; ?>
 
 		<?php if ( ! empty( $pending ) ) : ?>
 			<div class="notice notice-warning inline"><p>

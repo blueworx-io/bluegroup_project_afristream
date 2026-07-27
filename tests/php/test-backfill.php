@@ -107,7 +107,7 @@ af_test( 'a licence taken back to draft keeps its owner meta instead of losing t
 	af_assert_same( 7, $log[0]['user'], 'against the user whose assignment was preserved' );
 	af_assert_same( 'assigned', $log[1]['event'], 'under the assignment it explains' );
 
-	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the mirror is still rebuilt — a draft licence is never counted as held' );
+	af_assert_same( array( '21' ), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'and the rebuilt mirror keeps it — a draft licence is unusable, not unowned' );
 } );
 
 af_test( 'a trashed licence keeps its owner meta instead of losing the assignment', function () {
@@ -130,7 +130,7 @@ af_test( 'a trashed licence keeps its owner meta instead of losing the assignmen
 	af_assert_same( 7, $log[0]['user'], 'against the user whose assignment was preserved' );
 	af_assert_same( 'assigned', $log[1]['event'], 'under the assignment it explains' );
 
-	af_assert_same( array(), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'the mirror is still rebuilt — a trashed licence is never counted as held' );
+	af_assert_same( array( '22' ), get_user_meta( 7, AFRISTREAM_USER_LICENSE_META, true ), 'and the rebuilt mirror keeps it — a trashed licence is unusable, not unowned' );
 } );
 
 af_test( 'a licence claimed by two users registered at the same moment resolves on user ID', function () {
@@ -239,6 +239,62 @@ af_test( 'the upgrade runs once and then stands down', function () {
 	afristream_unassign_license( 10, 'test' );
 	afristream_maybe_upgrade();
 	af_assert_same( 0, afristream_license_owner( 10 ), 'the upgrade did not run again' );
+} );
+
+/**
+ * admin_init, which the migration hangs off, is not the administrator-only
+ * moment its name suggests: it fires on admin-ajax.php, and that endpoint
+ * serves logged-out requests too. The lock inside the backfill means an
+ * anonymous trigger was never a correctness problem — but who may start a
+ * one-way migration is a separate question from whether it is safe once
+ * started, and the answer should not be "anybody at all".
+ */
+
+af_test( 'an anonymous request cannot set the migration running', function () {
+	af_seed_user( 7, 'alice' );
+	af_seed_post( 10, 'alpha' );
+	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '10' ) );
+
+	// admin-ajax.php with nobody logged in: no manage_options, and an AJAX
+	// request besides.
+	af_set_capabilities( array() );
+	af_set_doing_ajax( true );
+
+	afristream_maybe_upgrade();
+
+	af_assert_same( 0, afristream_license_owner( 10 ), 'nothing was migrated' );
+	af_assert_same( 1, (int) get_option( AFRISTREAM_SCHEMA_OPTION, 1 ), 'and the schema version is untouched, so a real admin page load still will' );
+} );
+
+af_test( 'a logged-in visitor without manage_options cannot either', function () {
+	af_seed_user( 7, 'alice' );
+	af_seed_post( 10, 'alpha' );
+	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '10' ) );
+
+	af_set_capabilities( array( 'read' => true ) );
+
+	afristream_maybe_upgrade();
+
+	af_assert_same( 0, afristream_license_owner( 10 ), 'a subscriber reaching admin-ajax migrates nothing' );
+} );
+
+af_test( 'the heartbeat does not run the migration, an admin page load does', function () {
+	af_seed_user( 7, 'alice' );
+	af_seed_post( 10, 'alpha' );
+	update_user_meta( 7, AFRISTREAM_USER_LICENSE_META, array( '10' ) );
+
+	af_set_capabilities( array( 'manage_options' => true ) );
+
+	// The same administrator, but on admin-ajax.php — the heartbeat firing in a
+	// background tab. It waits for a real page load rather than starting a
+	// migration nobody is watching.
+	af_set_doing_ajax( true );
+	afristream_maybe_upgrade();
+	af_assert_same( 0, afristream_license_owner( 10 ), 'not on the heartbeat' );
+
+	af_set_doing_ajax( false );
+	afristream_maybe_upgrade();
+	af_assert_same( 7, afristream_license_owner( 10 ), 'and then on the page load' );
 } );
 
 af_test( 'a licence nobody ever held leaves the backfill with an explicit owner row, not no row at all', function () {
