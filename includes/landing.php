@@ -218,6 +218,7 @@ function afristream_landing_body() {
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
+		. afristream_landing_calculator()
 		. afristream_landing_features()
 		. afristream_landing_pricing()
 		. afristream_landing_testimonials()
@@ -486,6 +487,75 @@ function afristream_landing_testimonials() {
 			'What viewers say after switching to one subscription.'
 		) . '
     <div class="as-quotes">' . $figures . '</div>
+  </div>
+</section>';
+}
+
+/**
+ * Annualised Rand prices. The first block is from published South African
+ * monthly pricing, mid-2026; the second is international pricing converted at
+ * roughly R18 to the dollar.
+ */
+const AFRISTREAM_LANDING_SUBS = array(
+	array( 'Netflix Premium', 2748 ),
+	array( 'Live sport bundle', 8388 ),
+	array( 'Showmax + Premier League', 1800 ),
+	array( 'Amazon Prime', 399 ),
+	array( 'Disney Plus Premium', 1908 ),
+	array( 'Apple TV Plus', 1500 ),
+	array( 'YouTube Premium', 864 ),
+	array( 'MUBI', 1668 ),
+	array( 'Crunchyroll Mega Fan', 580 ),
+	array( 'Viu Premium', 588 ),
+	array( 'Hulu', 2160 ),
+	array( 'HBO Max', 4968 ),
+	array( 'Paramount Plus', 3024 ),
+	array( 'Peacock', 3672 ),
+	array( 'BritBox', 1980 ),
+	array( 'ESPN Play', 2592 ),
+);
+
+const AFRISTREAM_LANDING_PRICE = 1599;
+
+function afristream_landing_calculator() {
+	$options = '';
+	foreach ( AFRISTREAM_LANDING_SUBS as $sub ) {
+		$options .= '
+        <button type="button" class="as-sub" data-sub-price="' . (int) $sub[1] . '" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">' . esc_html( $sub[0] ) . '</span><span class="as-sub-price">R' . (int) $sub[1] . '/yr</span></span>
+        </button>';
+	}
+
+	return '
+<section id="calculate" class="as-sec as-sec-calc" data-testid="landing-calculator">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'Calculate',
+			'Calculate your annual savings',
+			'AfriStream can help save you thousands on your streaming subscriptions. Select your current subscriptions to see how much.'
+		) . '
+    <div class="as-calc">
+      <div class="as-calc-card">
+        <span class="as-eyebrow">Your potential saving</span>
+        <span class="as-calc-saving" data-testid="calc-saving">R0</span>
+        <span class="as-calc-basis">per year, based on <span data-testid="calc-basis">your selection below</span></span>
+        <div class="as-calc-rows">
+          <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
+          <div><span>AfriStream</span><span>R' . (int) AFRISTREAM_LANDING_PRICE . ' / year</span></div>
+        </div>
+        <a class="as-btn as-btn-primary as-calc-cta" href="#pricing">Get AfriStream for R' . (int) AFRISTREAM_LANDING_PRICE . '!</a>
+        <span class="as-fine">14 Day Money Back Guarantee.</span>
+      </div>
+      <div class="as-calc-pick">
+        <span class="as-calc-q">Do you have any of the following subscriptions?</span>
+        <div class="as-subs">' . $options . '</div>
+        <div class="as-calc-other">
+          <label for="as-calc-other">Any other subscriptions?</label>
+          <div class="as-calc-input"><span aria-hidden="true">R</span><input id="as-calc-other" data-testid="calc-other" type="number" min="0" step="1" placeholder="0 annually" inputmode="numeric"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>';
 }

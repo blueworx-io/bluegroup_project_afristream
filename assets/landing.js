@@ -34,4 +34,51 @@
       if (e.target.closest('a')) setMenu(false);
     });
   }
+
+  // -------------------------------------------------------- calculator
+
+  var calc = root.querySelector('[data-testid="landing-calculator"]');
+
+  if (calc) {
+    var AFRISTREAM_PRICE = 1599;
+    var subs = Array.prototype.slice.call(calc.querySelectorAll('[data-sub-price]'));
+    var other = calc.querySelector('[data-testid="calc-other"]');
+    var savingEl = calc.querySelector('[data-testid="calc-saving"]');
+    var totalEl = calc.querySelector('[data-testid="calc-total"]');
+    var basisEl = calc.querySelector('[data-testid="calc-basis"]');
+
+    // en-ZA groups thousands the way the rest of the page's prices read.
+    function money(n) {
+      return 'R' + n.toLocaleString('en-ZA');
+    }
+
+    function recalc() {
+      var total = 0;
+      var chosen = 0;
+      subs.forEach(function (btn) {
+        if (btn.getAttribute('aria-pressed') === 'true') {
+          total += Number(btn.getAttribute('data-sub-price')) || 0;
+          chosen += 1;
+        }
+      });
+      total += Number(other && other.value) || 0;
+
+      savingEl.textContent = money(Math.max(0, total - AFRISTREAM_PRICE));
+      totalEl.textContent = money(total) + ' / year';
+      basisEl.textContent = chosen === 0
+        ? 'your selection below'
+        : chosen + ' subscription' + (chosen === 1 ? '' : 's') + ' selected';
+    }
+
+    subs.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+        recalc();
+      });
+    });
+
+    if (other) other.addEventListener('input', recalc);
+
+    recalc();
+  }
 })();

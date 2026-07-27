@@ -91,3 +91,58 @@ test('three testimonials render with their attributions', async ({ page }) => {
   await expect(quotes.first()).toContainText('cancelled four subscriptions');
   await expect(quotes.first().locator('figcaption')).toContainText('Thandi M.');
 });
+
+// Prices are annualised Rand. The maths under test: saving is what is left
+// after AfriStream's own R1599, and never negative.
+const pick = (page, name) => page.getByTestId('landing-calculator').getByRole('button', { name });
+
+// en-ZA groups thousands with a non-breaking space, so assert on digits.
+const digits = async (locator) => (await locator.innerText()).replace(/[^\d]/g, '');
+
+test('the calculator starts at zero and prompts for a selection', async ({ page }) => {
+  const calc = page.getByTestId('landing-calculator');
+  await expect(calc.getByTestId('calc-saving')).toHaveText(/R\s*0$/);
+  await expect(calc.getByTestId('calc-basis')).toContainText('your selection below');
+  await expect(calc).toContainText('R1599 / year');
+});
+
+test('selecting subscriptions adds up and subtracts the AfriStream price', async ({ page }) => {
+  const calc = page.getByTestId('landing-calculator');
+
+  await pick(page, /Netflix Premium/).click();
+  await pick(page, /HBO Max/).click();
+
+  // 2748 + 4968 = 7716, less AfriStream's 1599 = 6117.
+  expect(await digits(calc.getByTestId('calc-total'))).toBe('7716');
+  expect(await digits(calc.getByTestId('calc-saving'))).toBe('6117');
+  await expect(calc.getByTestId('calc-basis')).toContainText('2 subscriptions selected');
+
+  // A chosen subscription reads as pressed, for assistive tech.
+  await expect(pick(page, /Netflix Premium/)).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('the other-subscriptions figure joins the total', async ({ page }) => {
+  const calc = page.getByTestId('landing-calculator');
+  await pick(page, /Netflix Premium/).click();
+  await pick(page, /HBO Max/).click();
+  await calc.getByTestId('calc-other').fill('1000');
+
+  expect(await digits(calc.getByTestId('calc-saving'))).toBe('7117');
+});
+
+test('deselecting returns the saving to zero', async ({ page }) => {
+  const calc = page.getByTestId('landing-calculator');
+  await pick(page, /Netflix Premium/).click();
+  expect(await digits(calc.getByTestId('calc-saving'))).toBe('1149');
+
+  await pick(page, /Netflix Premium/).click();
+  expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
+  await expect(pick(page, /Netflix Premium/)).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('a selection worth less than AfriStream shows no saving, not a negative one', async ({ page }) => {
+  const calc = page.getByTestId('landing-calculator');
+  // Amazon Prime at R399 is well under AfriStream's R1599.
+  await pick(page, /Amazon Prime/).click();
+  expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
+});
