@@ -13,7 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.22.0' );
+if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.22.0' );
+}
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,

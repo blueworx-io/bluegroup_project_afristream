@@ -65,7 +65,13 @@ function af_reset_store() {
 			'post_types' => array(),
 			'meta'       => array(),
 		),
-		'rewrite_flushes' => 0, // times flush_rewrite_rules() was called — see af_rewrite_flushes().
+		'rewrite_flushes'       => 0, // times flush_rewrite_rules() was called — see af_rewrite_flushes().
+		'permalinks'            => array(), // post ID => URL, seeded by af_seed_permalink() — see get_permalink().
+		'scripts_registered'    => array(), // handle => true, set by wp_register_script().
+		'styles_registered'     => array(), // handle => true, set by wp_register_style().
+		'scripts_enqueued'      => array(), // handles, in the order wp_enqueue_script() was called with them.
+		'styles_enqueued'       => array(), // handles, in the order wp_enqueue_style() was called with them.
+		'inline_scripts'        => array(), // handle => list of array( 'data' => …, 'position' => … ).
 	);
 
 	// The fake $wpdb is a single long-lived object rather than part of the
@@ -1333,8 +1339,121 @@ function af_registered_meta( $meta_key ) {
 }
 
 function add_shortcode() {}
-function wp_register_script() {}
-function wp_register_style() {}
+
+/**
+ * Records the handle as registered — the one fact that
+ * wp_add_inline_script() below actually depends on. Matches real WP: a
+ * handle exists as soon as it is registered, whether or not anything ever
+ * enqueues it.
+ */
+function wp_register_script( $handle, $src = '', $deps = array(), $ver = false, $in_footer = false ) {
+	$GLOBALS['af_store']['scripts_registered'][ $handle ] = true;
+	return true;
+}
+
+function wp_register_style( $handle, $src = '', $deps = array(), $ver = false, $media = 'all' ) {
+	$GLOBALS['af_store']['styles_registered'][ $handle ] = true;
+	return true;
+}
+
+/**
+ * Deliberately does NOT register the handle on the caller's behalf, even
+ * though real WordPress does that much (with an empty src) when handed one
+ * it has never seen. That leniency is exactly why a missing
+ * wp_register_script() call goes unnoticed on a live site — the CSS/JS still
+ * "loads" (with nothing to load) and nothing looks broken. Modelling that
+ * same tolerance here, rather than the full implicit-registration behaviour,
+ * keeps the one failure this harness exists to catch — wp_add_inline_script()
+ * against a handle nobody registered — from being papered over by the stub.
+ */
+function wp_enqueue_script( $handle, $src = '', $deps = array(), $ver = false, $in_footer = false ) {
+	$GLOBALS['af_store']['scripts_enqueued'][] = $handle;
+	return true;
+}
+
+function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false, $media = 'all' ) {
+	$GLOBALS['af_store']['styles_enqueued'][] = $handle;
+	return true;
+}
+
+/**
+ * The one behaviour this whole block of stubs exists to reproduce:
+ * WP_Dependencies::add_data(), which wp_add_inline_script() calls under the
+ * hood, returns false — silently, no warning — when the handle has not been
+ * registered yet. A caller that runs before wp_register_script() has fired
+ * (the landing page's Critical 1) loses the call entirely.
+ *
+ * @param string $handle   Registered handle to attach to.
+ * @param string $data     The inline script body.
+ * @param string $position 'before' or 'after' the handle's own script.
+ * @return bool Whether the handle was registered and the call recorded.
+ */
+function wp_add_inline_script( $handle, $data, $position = 'after' ) {
+	if ( empty( $GLOBALS['af_store']['scripts_registered'][ $handle ] ) ) {
+		return false;
+	}
+	$GLOBALS['af_store']['inline_scripts'][ $handle ][] = array(
+		'data'     => (string) $data,
+		'position' => (string) $position,
+	);
+	return true;
+}
+
+/**
+ * Every inline script call that actually attached to a handle, in order.
+ *
+ * @param string $handle Script handle.
+ * @return array<int,array{data:string,position:string}>
+ */
+function af_wp_inline_scripts( $handle ) {
+	return isset( $GLOBALS['af_store']['inline_scripts'][ $handle ] )
+		? $GLOBALS['af_store']['inline_scripts'][ $handle ]
+		: array();
+}
+
+/**
+ * has_shortcode() only needs to answer "is [tag ...] present", not parse
+ * attributes — nothing here reads what a shortcode was called with.
+ */
+function has_shortcode( $content, $tag ) {
+	if ( '' === (string) $content || false === strpos( (string) $content, '[' ) ) {
+		return false;
+	}
+	return 1 === preg_match( '/\[' . preg_quote( (string) $tag, '/' ) . '(?:[\s\/\]]|$)/', (string) $content );
+}
+
+function get_post_field( $field, $post_id ) {
+	return isset( $GLOBALS['af_store']['posts'][ $post_id ][ $field ] )
+		? $GLOBALS['af_store']['posts'][ $post_id ][ $field ]
+		: '';
+}
+
+/**
+ * A post's permalink, from whatever af_seed_permalink() gave it. A post
+ * nobody seeded a permalink for still answers with something rather than
+ * failing outright — a placeholder that could never be mistaken for a real
+ * seeded value, so a test that forgot to seed one fails on a mismatch instead
+ * of coincidentally passing.
+ *
+ * @param int $post_id Post to link to.
+ * @return string
+ */
+function get_permalink( $post_id = 0 ) {
+	$map = $GLOBALS['af_store']['permalinks'];
+	return array_key_exists( (int) $post_id, $map ) ? $map[ (int) $post_id ] : 'http://example.test/?p=' . (int) $post_id;
+}
+
+/**
+ * @param int    $post_id Post get_permalink() should resolve.
+ * @param string $url     The permalink to answer with.
+ */
+function af_seed_permalink( $post_id, $url ) {
+	$GLOBALS['af_store']['permalinks'][ (int) $post_id ] = (string) $url;
+}
+
+function wp_dropdown_pages( $args = array() ) {
+	echo '<select></select>';
+}
 
 /**
  * Records the action a nonce was minted for, keyed by the field name it was
