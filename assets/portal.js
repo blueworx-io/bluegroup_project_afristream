@@ -1365,6 +1365,83 @@
   </div>`;
     }
 
+    const SETUP_BUYING_BULLETS = [
+      'Good WiFi matters most. Look for "WiFi 6" or "dual band" on the box — a stick has nowhere to plug a cable in.',
+      'At least 2GB of memory so it stays quick, and 8GB of storage so there is room for the app.',
+      'A 4K one if your TV is 4K. Otherwise the cheaper HD version is fine.',
+      'A plug that goes into the wall. Running a stick off the TV\'s USB socket is the most common cause of it restarting by itself.',
+      'If you are buying new, a Google TV stick such as the Xiaomi TV Stick 4K is the least fiddly to set up.',
+      'Amazon\'s newest Fire sticks can only install apps from Amazon, so our app will not go on them. The 4K Max and 4K Plus are the last that work.'
+    ];
+
+    // Kept from the flow this replaces: the two devices we have actually tested,
+    // and the WiFi advice. Nearly every "the picture freezes" email is a WiFi
+    // problem rather than a device one, so it earns its place next to the
+    // buying guidance rather than being dropped with the old taxonomy.
+    const SETUP_BUY_LINKS = [
+      {
+        name: 'Amazon Fire TV Stick 4K Max',
+        retailer: 'Takealot',
+        note: 'The one most people buy. Works with us — unlike the newer Amazon sticks.',
+        url: 'https://www.takealot.com/amazon-fire-tv-stick-4k-max-streaming-device-alexa-voice-remote-/PLID91995419'
+      },
+      {
+        name: 'Xiaomi TV Stick 4K (2nd Gen)',
+        retailer: 'Takealot',
+        note: 'Our pick if you are buying new. Simpler to set up, and nothing Amazon can switch off later.',
+        url: 'https://www.takealot.com/xiaomi-tv-stick-4k-2nd-gen-media-player/PLID100971431'
+      }
+    ];
+
+    const SETUP_WIFI_TIPS = [
+      'If your WiFi shows two networks with almost the same name, join the one ending in 5G. It is the faster of the two and much better for video.',
+      'Walls are what slow WiFi down, not distance. One wall between your device and the router is fine — three walls and a floor is what causes the picture to freeze.',
+      'If your stick is pushed in behind a big TV, use the short extension lead that came in the box to bring it out to the side. TVs block the signal.',
+      'If the router is at the far end of the house, a WiFi booster in the TV room will help far more than buying a better stick.',
+      'Microwaves and cordless phones can interrupt WiFi while you are watching. Joining the 5G network usually puts a stop to it.'
+    ];
+
+    function setupBuyingPanel() {
+      const open = !!state.setupHelpOpen;
+      return `
+  <div data-testid="setup-buying" style="margin:20px 2px 0;border-radius:18px;border:1px solid rgba(11,21,51,.08);background:#fff;box-shadow:0 1px 2px rgba(11,21,51,.04);padding:20px 21px">
+    <button data-act="setup-help" aria-expanded="${open ? 'true' : 'false'}" style="display:block;width:100%;text-align:left;background:transparent;border:none;padding:0;font-family:inherit;font-size:15.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533;cursor:pointer">${open ? '–' : '+'} Buying a device? What to look for</button>
+    ${open ? `
+    <ul style="margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+      ${SETUP_BUYING_BULLETS.map((b) => `
+        <li style="display:flex;gap:11px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.72)">
+          <span aria-hidden="true" style="flex:none;width:5px;height:5px;border-radius:50%;background:#65009F;margin-top:8px"></span>
+          <span>${esc(b)}</span>
+        </li>`).join('')}
+    </ul>
+    <div data-testid="setup-buy-links" style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(11,21,51,.08)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:12px">Ones we know work</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+        ${SETUP_BUY_LINKS.map((b) => `
+          <a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" style="display:flex;flex-direction:column;gap:5px;text-decoration:none;background:#FAFAFC;border:1px solid rgba(11,21,51,.1);border-radius:14px;padding:14px 16px">
+            <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:14.5px;font-weight:800;letter-spacing:-0.01em;color:#0B1533">${esc(b.name)}</span>
+              <span style="flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#F7E9FF;color:#65009F;border:1px solid rgba(101,0,159,.18)">${esc(b.retailer)}</span>
+            </span>
+            <span style="font-size:12.5px;line-height:1.55;color:rgba(11,21,51,.62)">${esc(b.note)}</span>
+            <span style="font-size:13px;font-weight:700;color:#65009F">Buy on ${esc(b.retailer)} ↗</span>
+          </a>`).join('')}
+      </div>
+      <p style="margin:12px 0 0;font-size:11.5px;line-height:1.6;color:rgba(11,21,51,.45)">South African retailers. Prices and stock change — the list above tells you what to match on anything else you find.</p>
+    </div>
+    <div data-testid="setup-wifi" style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(11,21,51,.08)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(11,21,51,.45);margin-bottom:12px">Getting the best from your WiFi</div>
+      <ul style="margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">
+        ${SETUP_WIFI_TIPS.map((t) => `
+          <li style="display:flex;gap:11px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.72)">
+            <span aria-hidden="true" style="flex:none;width:5px;height:5px;border-radius:50%;background:#65009F;margin-top:8px"></span>
+            <span>${esc(t)}</span>
+          </li>`).join('')}
+      </ul>
+    </div>` : ''}
+  </div>`;
+    }
+
     function setupStepList(screen) {
       return `
   <ol data-testid="setup-steps" style="margin:0 2px;padding:0;list-style:none;display:flex;flex-direction:column;gap:22px">
@@ -1458,7 +1535,7 @@
           ? setupSupportCard()
           : stage === 'done'
             ? setupDoneCard()
-            : setupDeviceGrid();
+            : setupDeviceGrid() + setupBuyingPanel();
 
       return `
 <section data-screen-label="Setup">
@@ -2052,6 +2129,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
           break;
         }
         case 'setup-restart': setState({ setupDevice: '', setupScreen: 0, setupDone: false }); break;
+        case 'setup-help': setState({ setupHelpOpen: !state.setupHelpOpen }); break;
         case 'go-profile': setState({ section: 'profile' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;

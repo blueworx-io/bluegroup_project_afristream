@@ -1109,6 +1109,37 @@ test('iPhone, iPad or Roku takes the same support branch', async ({ page }) => {
   await expect(page.getByTestId('setup-device-picker')).toBeVisible();
 });
 
+test('the buying advice sits collapsed under the device grid until asked for', async ({ page }) => {
+  await openSetup(page);
+
+  const panel = page.getByTestId('setup-buying');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Buying a device? What to look for');
+  await expect(panel.getByRole('listitem')).toHaveCount(0);
+
+  await panel.getByRole('button').click();
+  await expect(panel.getByRole('listitem').first()).toContainText('WiFi 6');
+  await expect(panel).toContainText('4K Max and 4K Plus are the last that work');
+});
+
+test('the buying advice keeps the retailer links and the WiFi tips', async ({ page }) => {
+  await openSetup(page);
+  await page.getByTestId('setup-buying').getByRole('button').click();
+
+  const links = page.getByTestId('setup-buy-links').getByRole('link');
+  await expect(links).toHaveCount(2);
+  await expect(links.first()).toHaveAttribute('target', '_blank');
+  await expect(links.first()).toHaveAttribute('rel', /noopener/);
+
+  await expect(page.getByTestId('setup-wifi')).toContainText('ending in 5G');
+});
+
+test('the buying advice is only on the device grid, not part-way through a route', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await expect(page.getByTestId('setup-buying')).toHaveCount(0);
+});
+
 test('the Download tab covers both mobile platforms', async ({ page }) => {
   await page.getByRole('button', { name: 'Download' }).click();
   await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
