@@ -216,8 +216,18 @@ function afristream_landing_page_field() {
 function afristream_landing_body() {
 	return '<div class="as-landing">'
 		. afristream_landing_header()
+		. afristream_landing_stand_in_hero()
 		. afristream_landing_footer()
 		. '</div>';
+}
+
+/**
+ * Stand-in for the hero Task 2 builds. Keeps the page at exactly one <h1>
+ * until the real section lands; mirrors preview/landing.html's placeholder
+ * verbatim so the plugin's real output and the local preview agree.
+ */
+function afristream_landing_stand_in_hero() {
+	return '<h1 style="max-width:1120px;margin:0 auto;padding:40px clamp(20px,5vw,40px)">Every stream. One app.</h1>';
 }
 
 /**
