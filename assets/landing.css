@@ -171,6 +171,10 @@ body.afristream-landing-page {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  /* Without this, width:100% resolves to the container's CONTENT width and
+     the button's own padding and border are added on top — the full-width
+     CTAs spilled 12px past the card border they sit in. */
+  box-sizing: border-box;
   border: 1px solid transparent;
   border-radius: 100px;
   padding: 12px 20px;

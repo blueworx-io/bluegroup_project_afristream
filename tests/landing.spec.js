@@ -24,6 +24,38 @@ test('the header links to the portal and to the pricing section', async ({ page 
     .toHaveAttribute('href', '/portal/');
 });
 
+test('the full-width CTAs sit inside the cards that hold them', async ({ page }) => {
+  // width:100% on a content-box button adds its own padding and border on top
+  // of the container's content width, so both CTAs spilled past the card
+  // border. Measure the gap on each side rather than trusting the width.
+  for (const sel of ['.as-calc-cta', '.as-plan-cta']) {
+    const gaps = await page.locator(sel).evaluate(el => {
+      const b = el.getBoundingClientRect();
+      const p = el.parentElement.getBoundingClientRect();
+      return { left: b.left - p.left, right: p.right - b.right };
+    });
+    expect(gaps.left, `${sel} spills past the left edge`).toBeGreaterThanOrEqual(0);
+    expect(gaps.right, `${sel} spills past the right edge`).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(gaps.left - gaps.right), `${sel} is not centred`).toBeLessThan(1);
+  }
+});
+
+test('the six platform tiles in the constellation are all the same square', async ({ page }) => {
+  // Two-line labels used to grow their tile taller: aspect-ratio gives way to
+  // the content's minimum height unless the overflow is clipped.
+  const boxes = await page.locator('.as-tile').evaluateAll(els =>
+    els.map(el => {
+      const r = el.getBoundingClientRect();
+      return { w: Math.round(r.width), h: Math.round(r.height) };
+    }));
+  expect(boxes).toHaveLength(6);
+  for (const box of boxes) {
+    expect(box.w).toBe(boxes[0].w);
+    expect(box.h).toBe(boxes[0].h);
+    expect(box.h).toBe(box.w);
+  }
+});
+
 test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {
   // Both halves resolve their target at render time — the landing page from
   // the portal-page setting, the portal from home_url() — so a link that is
