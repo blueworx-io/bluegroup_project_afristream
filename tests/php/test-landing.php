@@ -1,6 +1,6 @@
 <?php
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.23.1' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.24.0' );
 }
 require_once __DIR__ . '/../../includes/landing.php';
 // The Editor Picks teaser reads afristream_portal_baked_picks(), which lives in
@@ -200,9 +200,9 @@ af_test( 'marker counts match the preview mirror', function () {
 	af_assert_same( 4, af_landing_xpath_count( $root, './/*[@data-feature]' ), 'feature cards' );
 	af_assert_same( 5, af_landing_xpath_count( $root, './/*[@data-plan-feature]' ), 'plan feature lines' );
 	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-faq]' ), 'FAQ items' );
-	af_assert_same( 8, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
+	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
 	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-teaser-card]' ), 'teaser posters (eight per row, two rows)' );
-	af_assert_same( 3, af_landing_xpath_count( $root, './/figure' ), 'testimonials' );
+	af_assert_same( 0, af_landing_xpath_count( $root, './/figure' ), 'no testimonials — the section was dropped in 0.24.0' );
 	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-sub-price]' ), 'calculator subscription options' );
 	af_assert_same( 1, af_landing_xpath_count( $root, './/h1' ), 'exactly one h1 on the page' );
 } );
@@ -267,6 +267,29 @@ af_test( 'an unset Get Started URL falls back to the pricing section, never to n
 	af_assert(
 		false !== strpos( afristream_landing_signup(), 'href="#pricing"' ),
 		'the CTA every other Get Started button leads to is never inert'
+	);
+} );
+
+af_test( 'every Get Started button on the page uses the configured URL, not another CTA', function () {
+	// They used to jump to each other — the header and pricing buttons at
+	// #signup, the calculator's at #pricing — so a visitor could press Get
+	// Started twice and still not be buying anything.
+	af_landing_seed_portal_page();
+	af_landing_seed_teasers();
+	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
+
+	$root  = af_landing_php_root();
+	$xpath = new DOMXPath( $root->ownerDocument );
+	$hrefs = array();
+	foreach ( $xpath->query( './/a[starts-with(normalize-space(text()), "Get Started") or starts-with(normalize-space(text()), "Get AfriStream")]', $root ) as $link ) {
+		$hrefs[] = $link->getAttribute( 'href' );
+	}
+
+	af_assert_same( 5, count( $hrefs ), 'header, mobile menu, pricing card, calculator, closing section' );
+	af_assert_same(
+		array( 'https://pay.example.test/afristream' ),
+		array_values( array_unique( $hrefs ) ),
+		'all five resolve to the one configured URL'
 	);
 } );
 

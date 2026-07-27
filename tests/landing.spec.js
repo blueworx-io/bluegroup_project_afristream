@@ -253,15 +253,25 @@ test('pricing shows one annual plan at R1599 with its five features', async ({ p
   await expect(pricing).toContainText('R1599');
   await expect(pricing).toContainText('/ year');
   await expect(pricing.locator('[data-plan-feature]')).toHaveCount(5);
-  await expect(pricing.getByRole('link', { name: 'Get Started' })).toHaveAttribute('href', '#signup');
   await expect(pricing).toContainText('14 Day Money Back Guarantee');
 });
 
-test('three testimonials render with their attributions', async ({ page }) => {
-  const quotes = page.getByTestId('landing-testimonials').locator('figure');
-  await expect(quotes).toHaveCount(3);
-  await expect(quotes.first()).toContainText('cancelled four subscriptions');
-  await expect(quotes.first().locator('figcaption')).toContainText('Thandi M.');
+test('every Get Started button shares one destination, none pointing at another CTA', async ({ page }) => {
+  // The mirror carries the empty-setting fallback, so what matters here is that
+  // all five agree — in WordPress they all resolve through the same setting.
+  const hrefs = await page.locator('.as-landing a').evaluateAll((links) =>
+    links
+      .filter((a) => /^(Get Started|Get AfriStream)/.test(a.textContent.trim()))
+      .map((a) => a.getAttribute('href')));
+
+  expect(hrefs).toHaveLength(5);
+  expect([...new Set(hrefs)]).toHaveLength(1);
+  expect(hrefs[0]).not.toBe('#signup');
+});
+
+test('the testimonials section is gone', async ({ page }) => {
+  await expect(page.getByTestId('landing-testimonials')).toHaveCount(0);
+  await expect(page.locator('.as-landing figure')).toHaveCount(0);
 });
 
 // Prices are annualised Rand. The maths under test: saving is what is left
@@ -393,7 +403,7 @@ test('with reduced motion preferred, nothing is hidden waiting to be revealed', 
   await page.goto('/landing');
 
   // Every section is visible immediately — the reveal never runs.
-  for (const id of ['landing-features', 'landing-calculator', 'landing-pricing', 'landing-testimonials', 'landing-faq', 'landing-signup']) {
+  for (const id of ['landing-features', 'landing-calculator', 'landing-pricing', 'landing-faq', 'landing-signup']) {
     await expect(page.getByTestId(id).locator('[data-reveal]')).toHaveCSS('opacity', '1');
   }
 });

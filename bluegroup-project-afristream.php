@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.23.1
+ * Version:     0.24.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.23.1' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.24.0' );
 }
 
 /**
@@ -60,6 +60,42 @@ function afristream_portal_register_assets() {
 	);
 }
 add_action( 'wp_enqueue_scripts', 'afristream_portal_register_assets' );
+
+/**
+ * The site favicon, from the icon bundled with this plugin.
+ *
+ * Printed on the front end, in the admin, and on the login screen, so the tab
+ * carries the mark everywhere rather than only on the landing page — which
+ * renders its own document and would otherwise be the only place it appeared.
+ *
+ * Defers to WordPress's own Site Icon. Somebody who has set one in Appearance →
+ * Customize has said what they want the favicon to be, and a plugin quietly
+ * overriding that is a bug report waiting to happen; core prints those icons
+ * from wp_site_icon() on the same hook.
+ *
+ * The SVG is the real icon — it stays sharp at any size a browser asks for.
+ * The PNG is there for browsers that do not take an SVG favicon, and doubles as
+ * the touch icon a phone uses when the page is saved to a home screen.
+ */
+function afristream_portal_site_icon() {
+	if ( function_exists( 'has_site_icon' ) && has_site_icon() ) {
+		return;
+	}
+
+	$svg = plugins_url( 'assets/afristream-icon.svg', __FILE__ );
+	$png = plugins_url( 'assets/logo.png', __FILE__ );
+
+	printf(
+		'<link rel="icon" href="%1$s" type="image/svg+xml">' . "\n"
+			. '<link rel="alternate icon" href="%2$s" type="image/png" sizes="120x120">' . "\n"
+			. '<link rel="apple-touch-icon" href="%2$s">' . "\n",
+		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, $svg ) ),
+		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, $png ) )
+	);
+}
+add_action( 'wp_head', 'afristream_portal_site_icon' );
+add_action( 'admin_head', 'afristream_portal_site_icon' );
+add_action( 'login_head', 'afristream_portal_site_icon' );
 
 /**
  * [afristream_portal default_tab="profile" show_sport="true"]

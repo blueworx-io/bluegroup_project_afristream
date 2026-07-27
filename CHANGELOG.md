@@ -4,6 +4,28 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-07-27
+
+### Added
+
+- **The plugin sets the site favicon.** The bundled AfriStream mark is printed
+  on the front end, in the admin and on the login screen — as an SVG, with a
+  PNG fallback for browsers that will not take one and a touch icon for phone
+  home screens. A Site Icon set in Appearance → Customize still wins; the
+  plugin stands down rather than printing a second icon over the top of it.
+
+### Changed
+
+- **Every "Get Started" button now goes to the Get Started URL.** The header,
+  the mobile menu, the pricing card, the calculator and the closing section all
+  resolve through the one setting. They used to jump to each other — to
+  `#signup` or `#pricing` — so a visitor could press Get Started twice and
+  still not be buying anything.
+
+### Removed
+
+- The testimonials section.
+
 ## [0.23.1] - 2026-07-27
 
 ### Fixed
