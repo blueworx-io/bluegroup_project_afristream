@@ -12,6 +12,23 @@ Install `bluegroup-project-afristream.zip` (the deployment artifact, built one l
 
 `default_tab` is one of `profile | watch | apps | editor | tips | help`.
 
+## The landing page
+
+The plugin also ships a public marketing landing page. On any page's editor,
+set the Template dropdown to **AfriStream Landing** — the template renders
+the whole document itself (its own header and footer), so no theme wrapper
+or Elementor is needed. `[afristream_landing]` renders the same sections as
+a shortcode instead, inside an existing page's theme wrapper, for anyone who
+wants that.
+
+Under **Settings → AfriStream Portal**, set the **Portal page** to the page
+carrying `[afristream_portal]` — the landing page's header and footer
+"Dashboard" links point at it. Left on "Detect automatically" it finds the
+first published page containing that shortcode.
+
+The newsletter signup section hosts SureContact's own embedded form; the
+plugin only provides the container it renders into.
+
 ## Live "What to Watch" data
 
 **Sport (no key needed):** major global events — Soccer (FIFA World Cup, Premier League, Champions League), Cricket (ICC World Cup / T20 / Champions Trophy), Rugby, Golf, F1, UFC, NFL, NBA, tennis — come from ESPN's public scoreboard API: live events first, then the week's soonest kick-offs with broadcaster, in the viewer's local time. Extend the league list in [bluegroup-project-afristream.php](bluegroup-project-afristream.php) and [scripts/preview-server.mjs](scripts/preview-server.mjs) (keep the two in sync). Cached 2 hours. Note this is an unofficial API — if it ever breaks, the portal just shows its curated sport list (which always includes Cricket, Golf, Rugby and Soccer).

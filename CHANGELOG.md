@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-07-27
+
+### Added
+
+- The public landing page now ships with the plugin, as a page template
+  ("AfriStream Landing" on a page's Template dropdown). It renders the whole
+  document itself, so no theme header or footer wraps it and Elementor is no
+  longer needed to build the page. `[afristream_landing]` renders the same
+  sections inside an existing page for anyone who wants that instead.
+- Eight sections: hero, the platform ticker, features, a savings calculator,
+  pricing, testimonials, the FAQ, and the newsletter signup.
+- The savings calculator totals sixteen annualised subscription prices
+  against AfriStream's R1599 and shows the difference, clamped at zero.
+- The newsletter signup hosts the SureContact embed.
+- Settings → AfriStream Portal gains a Portal page setting, which the landing
+  page's Dashboard links point at. Left on "Detect automatically" it finds the
+  first published page containing `[afristream_portal]`.
+
 ## [0.21.0] - 2026-07-27
 
 ### Changed
