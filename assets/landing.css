@@ -825,3 +825,105 @@ body.afristream-landing-page {
 
 .as-landing .as-calc-input input:focus { outline: none; }
 .as-landing .as-calc-input:focus-within { border-color: var(--accent); }
+
+/* ------------------------------------------------------------------- faq */
+
+.as-landing .as-sec-faq { background: radial-gradient(ellipse 120% 90% at 50% 110%, rgba(101, 0, 159, 0.26) 0%, rgba(13, 7, 19, 0) 68%); }
+
+.as-landing .as-faq { display: flex; flex-direction: column; }
+
+.as-landing .as-faq-item { border-top: 1px solid var(--hairline); }
+.as-landing .as-faq-item:last-child { border-bottom: 1px solid var(--hairline); }
+
+.as-landing .as-faq-item button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 22px 0;
+  font-family: inherit;
+  font-size: clamp(16px, 2vw, 18px);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.as-landing .as-faq-mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+
+.as-landing .as-faq-mark::before,
+.as-landing .as-faq-mark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.as-landing .as-faq-mark::after { transform: rotate(90deg); }
+
+.as-landing .as-faq-item button[aria-expanded='true'] .as-faq-mark::after { transform: rotate(0deg); }
+
+.as-landing .as-faq-answer {
+  padding: 0 0 22px;
+  max-width: 780px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+
+.as-landing .as-faq-answer[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- signup */
+
+.as-landing .as-sec-signup { background: radial-gradient(ellipse 120% 90% at 50% 120%, rgba(101, 0, 159, 0.42) 0%, rgba(13, 7, 19, 0) 68%); }
+
+.as-landing .as-sec-signup .as-sec-in { align-items: center; gap: 28px; }
+
+.as-landing .as-signup {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* The embed owns its own markup; this reaches the wrapper and the plain
+   controls inside it, and stops there. */
+.as-landing .as-signup > div { width: 100%; }
+
+.as-landing .as-signup input[type='email'],
+.as-landing .as-signup input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  background: rgba(4, 2, 7, 0.6);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  padding: 13px 20px;
+}
+
+.as-landing .as-signup button {
+  border: none;
+  border-radius: 100px;
+  background: var(--accent);
+  color: #0d0713;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 13px 26px;
+  cursor: pointer;
+}

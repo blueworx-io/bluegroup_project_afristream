@@ -81,4 +81,16 @@
 
     recalc();
   }
+
+  // --------------------------------------------------------------- faq
+
+  root.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-faq] button');
+    if (!btn || !root.contains(btn)) return;
+    var answer = btn.parentNode.querySelector('[data-faq-answer]');
+    if (!answer) return;
+    var open = btn.getAttribute('aria-expanded') === 'true';
+    btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+    answer.hidden = open;
+  });
 })();

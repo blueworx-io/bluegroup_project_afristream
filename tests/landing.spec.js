@@ -146,3 +146,46 @@ test('a selection worth less than AfriStream shows no saving, not a negative one
   await pick(page, /Amazon Prime/).click();
   expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
 });
+
+test('the FAQ opens with the first answer showing and toggles the rest', async ({ page }) => {
+  const faq = page.getByTestId('landing-faq');
+  const items = faq.locator('[data-faq]');
+  await expect(items).toHaveCount(7);
+
+  const first = items.first();
+  await expect(first.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+  await expect(first.locator('[data-faq-answer]')).toBeVisible();
+
+  const third = items.nth(2);
+  await expect(third.getByRole('button')).toHaveAttribute('aria-expanded', 'false');
+  await expect(third.locator('[data-faq-answer]')).toBeHidden();
+
+  await third.getByRole('button').click();
+  await expect(third.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+  await expect(third.locator('[data-faq-answer]')).toBeVisible();
+  await expect(third).toContainText('BT, SKY, BBC');
+
+  // Opening one does not close another — these are independent, not a
+  // single-open accordion.
+  await expect(first.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
+
+  await third.getByRole('button').click();
+  await expect(third.locator('[data-faq-answer]')).toBeHidden();
+});
+
+test('the signup section hosts the newsletter embed', async ({ page }) => {
+  const signup = page.getByTestId('landing-signup');
+  await expect(signup).toContainText('Unlock the power of AfriStream today');
+  await expect(signup.locator('#surecontact-form-afristream-newsletter-sign-up')).toHaveCount(1);
+  await expect(signup).toContainText('14 Day Money Back Guarantee');
+});
+
+test('every call to action on the page resolves to a section that exists', async ({ page }) => {
+  const hrefs = await page.locator('.as-landing a[href^="#"]').evaluateAll(
+    (links) => links.map((a) => a.getAttribute('href'))
+  );
+  expect(hrefs.length).toBeGreaterThan(0);
+  for (const href of [...new Set(hrefs)]) {
+    await expect(page.locator(href), `${href} has no target`).toHaveCount(1);
+  }
+});

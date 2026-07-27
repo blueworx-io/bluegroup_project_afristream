@@ -222,6 +222,8 @@ function afristream_landing_body() {
 		. afristream_landing_calculator()
 		. afristream_landing_pricing()
 		. afristream_landing_testimonials()
+		. afristream_landing_faq()
+		. afristream_landing_signup()
 		. afristream_landing_footer()
 		. '</div>';
 }
@@ -555,6 +557,91 @@ function afristream_landing_calculator() {
           <div class="as-calc-input"><span aria-hidden="true">R</span><input id="as-calc-other" data-testid="calc-other" type="number" min="0" step="1" placeholder="0 annually" inputmode="numeric"></div>
         </div>
       </div>
+    </div>
+  </div>
+</section>';
+}
+
+const AFRISTREAM_LANDING_FAQ = array(
+	array(
+		'q' => 'What does AfriStream actually provide?',
+		'a' => 'AfriStream provides you with an IPTV app. This app allows you to access content from multiple locations to watch directly.',
+	),
+	array(
+		'q' => 'How does AfriStream access the content?',
+		'a' => 'Most streaming platforms offer packages where you can buy a single license to use across multiple devices. AfriStream purchases bundled subscriptions and shares them between our users, reducing the cost for everyone.',
+	),
+	array(
+		'q' => 'Can I watch Live TV & sport?',
+		'a' => 'Yes! You will be able to watch BT, SKY, BBC and more — hundreds of live channels.',
+	),
+	array(
+		'q' => 'Can I watch movies & series?',
+		'a' => 'Yes! AfriStream pulls together Netflix, Amazon, Disney, Apple, Hulu and more to bring you over 19 000+ different movies & series.',
+	),
+	array(
+		'q' => 'Do I need other subscriptions?',
+		'a' => 'No! Once you have installed the app and are happy with the service, you can cancel your other subscriptions.',
+	),
+	array(
+		'q' => 'Are IPTV streams legal?',
+		'a' => 'The legality of IPTV depends on the content provided by the service and your location. Our IPTV services operate legally by acquiring proper licenses for the content we offer.',
+	),
+	array(
+		'q' => 'Do I need a VPN for AfriStream?',
+		'a' => "A VPN isn't necessary for using IPTV apps, but it's recommended for privacy, security, and to avoid potential ISP throttling or regional restrictions.",
+	),
+);
+
+/**
+ * The FAQ. Items open and close independently — a single-open accordion would
+ * shut an answer someone is still reading to show the one they just clicked.
+ * The first opens by default so the section never reads as an empty list.
+ */
+function afristream_landing_faq() {
+	$items = '';
+	foreach ( AFRISTREAM_LANDING_FAQ as $i => $entry ) {
+		$open   = 0 === $i;
+		$id     = 'as-faq-' . (int) $i;
+		$items .= '
+      <div class="as-faq-item" data-faq>
+        <button type="button" aria-expanded="' . ( $open ? 'true' : 'false' ) . '" aria-controls="' . esc_attr( $id ) . '">
+          <span>' . esc_html( $entry['q'] ) . '</span>
+          <span class="as-faq-mark" aria-hidden="true"></span>
+        </button>
+        <div class="as-faq-answer" id="' . esc_attr( $id ) . '" data-faq-answer' . ( $open ? '' : ' hidden' ) . '>' . esc_html( $entry['a'] ) . '</div>
+      </div>';
+	}
+
+	return '
+<section id="faq" class="as-sec as-sec-faq" data-testid="landing-faq">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'FAQ',
+			'Learn more about us',
+			'Do you have questions? Read below to find out more.'
+		) . '
+    <div class="as-faq">' . $items . '</div>
+  </div>
+</section>';
+}
+
+/**
+ * Signup. The form itself is SureContact's embed — the container is ours, the
+ * markup inside it is theirs, so the CSS reaches only as far as the wrapper.
+ */
+function afristream_landing_signup() {
+	return '
+<section id="signup" class="as-sec as-sec-signup" data-testid="landing-signup">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'Get Started',
+			'Unlock the power of AfriStream today',
+			'Stop guessing what to watch! Thousands of movies, series and live TV — all in one platform.'
+		) . '
+    <div class="as-signup">
+      <div id="surecontact-form-afristream-newsletter-sign-up" data-testid="surecontact-container"></div>
+      <span class="as-fine">14 Day Money Back Guarantee. No spam, ever.</span>
     </div>
   </div>
 </section>';
