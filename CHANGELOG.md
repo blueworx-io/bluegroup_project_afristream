@@ -22,6 +22,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - The Fire TV route no longer names the store app it installs from; it
   points at the welcome email instead.
+- The "Why you need a device" three-card explainer that used to open the
+  Setup tab. It answered a question the new one-step device grid no longer
+  asks.
+- The "Open Account" shortcut from the setup steps to the Account tab. It
+  belonged to the old flow's dead end; the new one ends on a finished card
+  that hands over to What to Watch instead.
+- Two of the four retailer links in the buying-advice panel: both listings
+  for the Xiaomi TV Box S, including the only Amazon.co.za link. The two
+  Takealot stick links stay.
 
 ## [0.20.1] - 2026-07-27
 
