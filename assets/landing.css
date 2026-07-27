@@ -338,8 +338,13 @@ body.afristream-landing-page {
   flex: none;
 }
 
-/* The constellation: six platform tiles orbiting a hub, with the wordmark
-   rising underneath. Decorative — aria-hidden in the markup. */
+/* The constellation: six platform tiles wiring into a hub, with the wordmark
+   rising underneath. Decorative — aria-hidden in the markup.
+
+   Timings come from the design's three scenes on an 8s loop — Arrive 2.4s
+   (0-30%), Connect 2.2s (30-57.5%), Converge 3.4s (57.5-100%) — so a
+   scene-relative progress p reads as (start + p * duration) / 8s. The
+   comment beside each keyframe names the scene and p it came from. */
 
 .as-landing .as-stage {
   position: relative;
@@ -360,6 +365,63 @@ body.afristream-landing-page {
   inset: 0;
   background: radial-gradient(ellipse at 50% 120%, #3d0a5e 0%, rgba(13, 7, 19, 0) 70%);
 }
+
+/* The design's dot grid: inset 100/150/100/110 of its 1920x1080 stage, 26px
+   pitch, masked to an ellipse so it fades out before the edges. The pitch is
+   halved because the stage renders at half the design's width. */
+.as-landing .as-stage-grid {
+  position: absolute;
+  left: 5.21%;
+  right: 5.21%;
+  top: 13.89%;
+  bottom: 10.19%;
+  background-image: radial-gradient(var(--accent) 0.55px, transparent 0.6px);
+  background-size: 13px 13px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 30%, transparent 78%);
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 30%, transparent 78%);
+  opacity: 0;
+  animation: as-grid 8s linear infinite;
+}
+
+/* Connector wires. The SVG carries the design's own coordinate space, so the
+   path data is its connectorPath() output unchanged. */
+.as-landing .as-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.as-landing .as-wire,
+.as-landing .as-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+.as-landing .as-wire {
+  stroke-width: 2.4;
+  animation: as-wire 8s linear infinite;
+}
+
+/* One short dash, 14% of the path, chasing its own length past the end. */
+.as-landing .as-pulse {
+  stroke-width: 3.6;
+  stroke-dasharray: 0.14 0.86;
+  filter: drop-shadow(0 0 8px rgba(205, 45, 245, 0.9));
+  animation: as-pulse 8s linear infinite;
+}
+
+/* The design staggers the draw by 0.04 of its progress per wire, which is
+   65ms of the 2.2s Connect scene. */
+.as-landing .as-wire-2, .as-landing .as-pulse-2 { animation-delay: 0.065s; }
+.as-landing .as-wire-3, .as-landing .as-pulse-3 { animation-delay: 0.130s; }
+.as-landing .as-wire-4, .as-landing .as-pulse-4 { animation-delay: 0.195s; }
+.as-landing .as-wire-5, .as-landing .as-pulse-5 { animation-delay: 0.260s; }
+.as-landing .as-wire-6, .as-landing .as-pulse-6 { animation-delay: 0.325s; }
 
 .as-landing .as-tile {
   position: absolute;
@@ -384,15 +446,18 @@ body.afristream-landing-page {
   font-size: clamp(7px, 1vw, 13px);
   line-height: 1.25;
   color: var(--text-2);
-  animation: as-tile 9s ease-in-out infinite;
+  animation: as-tile 8s linear infinite;
 }
 
-.as-landing .as-tile-1 { left: 27.08%; top: 32.5%; animation-delay: -4.50s; }
-.as-landing .as-tile-2 { left: 18.75%; top: 52.41%; animation-delay: -4.41s; }
-.as-landing .as-tile-3 { left: 27.08%; top: 72.31%; animation-delay: -4.32s; }
-.as-landing .as-tile-4 { left: 72.92%; top: 32.5%; animation-delay: -4.23s; }
-.as-landing .as-tile-5 { left: 81.25%; top: 52.41%; animation-delay: -4.14s; }
-.as-landing .as-tile-6 { left: 72.92%; top: 72.31%; animation-delay: -4.05s; }
+/* Converge pulls each tile toward the hub — 26px across and half that down
+   the design's 132px tile, so as fractions of the tile: 19.7% and 9.85%,
+   signed inward. The middle pair are already level with the hub. */
+.as-landing .as-tile-1 { left: 27.08%; top: 32.5%;  --pull-x: 19.7%;  --pull-y: 9.85%;  animation-delay: 0s; }
+.as-landing .as-tile-2 { left: 18.75%; top: 52.41%; --pull-x: 19.7%;  --pull-y: 0%;     animation-delay: 0.18s; }
+.as-landing .as-tile-3 { left: 27.08%; top: 72.31%; --pull-x: 19.7%;  --pull-y: -9.85%; animation-delay: 0.36s; }
+.as-landing .as-tile-4 { left: 72.92%; top: 32.5%;  --pull-x: -19.7%; --pull-y: 9.85%;  animation-delay: 0.54s; }
+.as-landing .as-tile-5 { left: 81.25%; top: 52.41%; --pull-x: -19.7%; --pull-y: 0%;     animation-delay: 0.72s; }
+.as-landing .as-tile-6 { left: 72.92%; top: 72.31%; --pull-x: -19.7%; --pull-y: -9.85%; animation-delay: 0.90s; }
 
 .as-landing .as-hub {
   position: absolute;
@@ -404,8 +469,7 @@ body.afristream-landing-page {
   border-radius: 22%;
   background: var(--card);
   box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 70px rgba(205, 45, 245, 0.35);
-  animation: as-hub 9s ease-in-out infinite;
-  animation-delay: -4.5s;
+  animation: as-hub 8s linear infinite;
 }
 
 .as-landing .as-hub::after {
@@ -433,8 +497,7 @@ body.afristream-landing-page {
   line-height: 1;
   letter-spacing: -0.036em;
   color: var(--text);
-  animation: as-word 9s ease-in-out infinite;
-  animation-delay: -4.5s;
+  animation: as-word 8s linear infinite;
 }
 
 .as-landing .as-wordmark small {
@@ -447,29 +510,87 @@ body.afristream-landing-page {
   color: var(--text-2);
 }
 
+/* Arrive: tiles drop in from 34px above (26% of the tile) on easeOutBack,
+   p 0.08 -> 0.5. Converge: they dim and pull toward the hub, p 0.34 -> 0.62. */
 @keyframes as-tile {
-  0% { opacity: 0; transform: translateY(26%) scale(0.72); }
-  9% { opacity: 1; transform: translateY(0) scale(1); }
-  64% { opacity: 1; transform: translateY(0) scale(1); }
-  74% { opacity: 0.16; transform: translateY(0) scale(0.84); }
-  96% { opacity: 0.16; transform: translateY(0) scale(0.84); }
-  100% { opacity: 0; transform: translateY(26%) scale(0.72); }
+  0% {
+    opacity: 0;
+    transform: translate(0, -26%) scale(0.72);
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  15% { opacity: 1; transform: translate(0, 0) scale(1); }
+  71.95% { opacity: 1; transform: translate(0, 0) scale(1); }
+  83.85% { opacity: 0.18; transform: translate(var(--pull-x, 0), var(--pull-y, 0)) scale(0.84); }
+  97% { opacity: 0.18; transform: translate(var(--pull-x, 0), var(--pull-y, 0)) scale(0.84); }
+  100% { opacity: 0; transform: translate(var(--pull-x, 0), var(--pull-y, 0)) scale(0.84); }
 }
 
+/* Connect: the hub pops in, p 0.04 -> 0.42. Converge: it rises 60px (34% of
+   the hub) and doubles, p 0.4 -> 0.78. */
 @keyframes as-hub {
-  0%, 17% { opacity: 0; transform: translateY(0) scale(0.4); }
-  27% { opacity: 1; transform: translateY(0) scale(1); }
-  66% { opacity: 1; transform: translateY(0) scale(1); }
-  80% { opacity: 1; transform: translateY(-34%) scale(2.05); }
-  96% { opacity: 1; transform: translateY(-34%) scale(2.05); }
-  100% { opacity: 0; transform: translateY(0) scale(0.4); }
+  0%, 31.1% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4);
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  35.5% { opacity: 1; }
+  41.55% { opacity: 1; transform: translateY(0) scale(1); }
+  74.5% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  90.65% { opacity: 1; transform: translateY(-34%) scale(2.05); }
+  97% { opacity: 1; transform: translateY(-34%) scale(2.05); }
+  100% { opacity: 0; transform: translateY(-34%) scale(2.05); }
 }
 
+/* Converge: the wordmark lands last, p 0.6 -> 0.9. */
 @keyframes as-word {
-  0%, 68% { opacity: 0; transform: translateY(22px); }
-  82% { opacity: 1; transform: translateY(0); }
-  96% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(22px); }
+  0%, 83% {
+    opacity: 0;
+    transform: translateY(22px);
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  95.75% { opacity: 1; transform: translateY(0); }
+  97% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Connect: each wire draws itself, p 0.12 -> 0.86 on easeInOutCubic.
+   Converge: they dim out with the tiles. */
+@keyframes as-wire {
+  0%, 30% { opacity: 0; stroke-dashoffset: 1; }
+  33.3% {
+    opacity: 0.3;
+    stroke-dashoffset: 1;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  53.65% { opacity: 0.3; stroke-dashoffset: 0; }
+  71.95% { opacity: 0.3; stroke-dashoffset: 0; }
+  83.85%, 100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+/* Converge: one pulse runs every wire into the hub, p 0.02 -> 0.42, its
+   opacity a half-sine so it fades in and out rather than blinking. */
+@keyframes as-pulse {
+  0%, 58.35% { opacity: 0; stroke-dashoffset: 1; }
+  62.6% { opacity: 0.72; }
+  66.85% { opacity: 0.95; }
+  71.1% { opacity: 0.72; }
+  75.35% { opacity: 0; stroke-dashoffset: -0.14; }
+  100% { opacity: 0; stroke-dashoffset: -0.14; }
+}
+
+/* Arrive: the grid fades in over p 0 -> 0.35. Converge: it drops to 45% of
+   its opacity as the tiles dim. */
+@keyframes as-grid {
+  0% { opacity: 0; }
+  10.5% { opacity: 0.28; }
+  71.95% { opacity: 0.28; }
+  83.85% { opacity: 0.126; }
+  97% { opacity: 0.126; }
+  100% { opacity: 0; }
 }
 
 /* ---------------------------------------------------------- integrations */
@@ -522,7 +643,10 @@ body.afristream-landing-page {
   .as-landing .as-marquee-run,
   .as-landing .as-tile,
   .as-landing .as-hub,
-  .as-landing .as-wordmark {
+  .as-landing .as-wordmark,
+  .as-landing .as-stage-grid,
+  .as-landing .as-wire,
+  .as-landing .as-pulse {
     animation: none;
   }
   .as-landing .as-tile,
@@ -531,6 +655,10 @@ body.afristream-landing-page {
     opacity: 1;
     transform: none;
   }
+  /* The still frame is the assembled diagram: grid, drawn wires, no pulse. */
+  .as-landing .as-stage-grid { opacity: 0.28; }
+  .as-landing .as-wire { opacity: 0.3; stroke-dashoffset: 0; }
+  .as-landing .as-pulse { opacity: 0; }
 }
 
 /* -------------------------------------------------------------- sections */

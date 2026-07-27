@@ -260,16 +260,23 @@ const AFRISTREAM_LANDING_PLATFORMS = array(
  * decorative panel, so it is drawn in CSS from a short list of tiles rather
  * than hand-written per tile.
  *
- * Two deliberate simplifications against the spec, undocumented until now:
- * the spec calls for a dimmed EPG grid backdrop behind two gradient scrims;
- * this ships one linear gradient (.as-hero background) plus one radial glow
- * (.as-stage-glow) — a full EPG-grid texture was judged not worth the extra
- * asset/markup for a decorative backdrop most visitors see for a second
- * before scrolling. The spec also describes the tiles "wiring into" the hub
- * with connector lines; those are left out because the CSS keyframes already
- * carry the same "assembling into one hub" idea through motion (as-tile,
- * as-hub) without static lines that would need to survive every viewport
- * width the tiles reflow at.
+ * The geometry and timing come from the "AfriStream hub animation" design,
+ * which runs three scenes on an 8s loop: Arrive (2.4s, tiles drop in),
+ * Connect (2.2s, the hub appears and the wires draw), Converge (3.4s, a pulse
+ * runs the wires, the tiles dim and pull inward, the hub rises and the
+ * wordmark lands). Every percentage in the keyframes is that timeline: a
+ * scene-relative progress p maps to (scene start + p * scene duration) / 8s.
+ *
+ * The wire paths are the design's own connector geometry, in its 1920x1080
+ * coordinate space, so the SVG carries that viewBox and the tiles are placed
+ * as the same fractions of it. An earlier revision left the wires out and
+ * relied on tile motion alone to carry the "assembling into one hub" idea;
+ * that read as a different animation, so they are drawn now.
+ *
+ * One simplification against the spec remains: it calls for a dimmed EPG grid
+ * backdrop behind two gradient scrims, and this ships one linear gradient
+ * (.as-hero background), one radial glow (.as-stage-glow) and the design's
+ * dot grid (.as-stage-grid) rather than a full EPG texture.
  */
 function afristream_landing_hero() {
 	$proof = array(
@@ -279,6 +286,19 @@ function afristream_landing_hero() {
 	);
 	$tiles = array( 'Netflix', 'Showmax', 'SuperSport', 'Prime Video', 'Disney+', 'Apple TV+' );
 
+	// The design's connectorPath() output, tile by tile, in its 1920x1080 space.
+	// Order matches the tiles above: left column top-to-bottom, then right.
+	// The middle pair run straight into the hub edge; the corners run
+	// horizontally, turn through a quadratic elbow, then drop or rise into it.
+	$wires = array(
+		'M 596 351 H 850 Q 914 351 914 395 V 470',
+		'M 436 566 H 862',
+		'M 596 781 H 850 Q 914 781 914 737 V 662',
+		'M 1324 351 H 1070 Q 1006 351 1006 395 V 470',
+		'M 1484 566 H 1058',
+		'M 1324 781 H 1070 Q 1006 781 1006 737 V 662',
+	);
+
 	$proof_html = '';
 	foreach ( $proof as $item ) {
 		$proof_html .= '<span class="as-proof" data-proof>' . esc_html( $item ) . '</span>';
@@ -287,6 +307,15 @@ function afristream_landing_hero() {
 	$tiles_html = '';
 	foreach ( $tiles as $i => $tile ) {
 		$tiles_html .= '<span class="as-tile as-tile-' . (int) ( $i + 1 ) . '">' . esc_html( $tile ) . '</span>';
+	}
+
+	// Two paths per wire: the line that draws itself, and the short dash that
+	// runs along it once the hub is up.
+	$wires_html = '';
+	foreach ( $wires as $i => $d ) {
+		$n           = (int) ( $i + 1 );
+		$wires_html .= '<path class="as-wire as-wire-' . $n . '" d="' . esc_attr( $d ) . '" pathLength="1"></path>';
+		$wires_html .= '<path class="as-pulse as-pulse-' . $n . '" d="' . esc_attr( $d ) . '" pathLength="1"></path>';
 	}
 
 	return '
@@ -302,6 +331,8 @@ function afristream_landing_hero() {
     <div class="as-proofs">' . $proof_html . '</div>
     <div class="as-stage" aria-hidden="true">
       <div class="as-stage-glow"></div>
+      <div class="as-stage-grid"></div>
+      <svg class="as-wires" viewBox="0 0 1920 1080" focusable="false">' . $wires_html . '</svg>
       ' . $tiles_html . '
       <span class="as-hub"></span>
       <span class="as-wordmark">AfriStream<small>Every platform. One app.</small></span>

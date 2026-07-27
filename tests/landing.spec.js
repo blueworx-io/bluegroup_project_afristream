@@ -43,17 +43,77 @@ test('the full-width CTAs sit inside the cards that hold them', async ({ page })
 test('the six platform tiles in the constellation are all the same square', async ({ page }) => {
   // Two-line labels used to grow their tile taller: aspect-ratio gives way to
   // the content's minimum height unless the overflow is clipped.
+  // offsetWidth/Height, not getBoundingClientRect: the tiles are mid-animation
+  // at staggered scales, and the invariant under test is the layout box.
   const boxes = await page.locator('.as-tile').evaluateAll(els =>
-    els.map(el => {
-      const r = el.getBoundingClientRect();
-      return { w: Math.round(r.width), h: Math.round(r.height) };
-    }));
+    els.map(el => ({ w: el.offsetWidth, h: el.offsetHeight })));
   expect(boxes).toHaveLength(6);
   for (const box of boxes) {
     expect(box.w).toBe(boxes[0].w);
     expect(box.h).toBe(boxes[0].h);
     expect(box.h).toBe(box.w);
   }
+});
+
+test('the constellation runs the design’s three scenes in order', async ({ page }) => {
+  // Arrive (0-2.4s) tiles only, Connect (2.4-4.6s) hub then wires, Converge
+  // (4.6-8s) pulse, dim, wordmark. Scrubbing the timeline is the only way to
+  // assert a sequence — a live screenshot catches one arbitrary frame.
+  const frames = await page.evaluate(() => {
+    const anims = document.getAnimations();
+    const o = sel => +getComputedStyle(document.querySelector(sel)).opacity;
+    const off = sel => parseFloat(getComputedStyle(document.querySelector(sel)).strokeDashoffset);
+    return [1000, 3500, 5300, 7000].map(t => {
+      anims.forEach(a => { a.pause(); a.currentTime = t; });
+      return {
+        t,
+        tile: o('.as-tile-1'), hub: o('.as-hub'), word: o('.as-wordmark'),
+        wire: o('.as-wire-1'), wireOff: off('.as-wire-1'), pulse: o('.as-pulse-1')
+      };
+    });
+  });
+  const [arrive, connect, converge, land] = frames;
+
+  // Arrive: tiles are up, nothing else is.
+  expect(arrive.tile).toBe(1);
+  expect(arrive.hub).toBe(0);
+  expect(arrive.wire).toBe(0);
+
+  // Connect: the hub is up and the wires are part-drawn.
+  expect(connect.hub).toBe(1);
+  expect(connect.wire).toBeGreaterThan(0);
+  expect(connect.wireOff).toBeGreaterThan(0);
+  expect(connect.wireOff).toBeLessThan(1);
+
+  // Converge: wires fully drawn, a pulse running them, tiles still lit.
+  expect(converge.wireOff).toBe(0);
+  expect(converge.pulse).toBeGreaterThan(0.5);
+
+  // Land: tiles dimmed, wordmark arriving.
+  expect(land.tile).toBeLessThan(0.3);
+  expect(land.word).toBeGreaterThan(0);
+});
+
+test('with reduced motion preferred, the constellation is a still assembled diagram', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/landing');
+  const state = await page.evaluate(() => {
+    const cs = sel => getComputedStyle(document.querySelector(sel));
+    return {
+      tile: +cs('.as-tile-1').opacity,
+      hub: +cs('.as-hub').opacity,
+      wire: +cs('.as-wire-1').opacity,
+      wireOff: parseFloat(cs('.as-wire-1').strokeDashoffset),
+      pulse: +cs('.as-pulse-1').opacity,
+      running: document.getAnimations().length
+    };
+  });
+  expect(state.tile).toBe(1);
+  expect(state.hub).toBe(1);
+  expect(state.wire).toBeGreaterThan(0);
+  expect(state.wireOff).toBe(0); // drawn, not mid-draw
+  expect(state.pulse).toBe(0);
+  expect(state.running).toBe(0);
 });
 
 test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {

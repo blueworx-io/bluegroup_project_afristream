@@ -32,6 +32,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `header.php`.
 - Jumping to a section from any in-page link no longer lands its heading
   underneath the sticky header.
+- The hero constellation now runs the animation the design specifies. The
+  connector wires between the tiles and the hub were missing entirely, along
+  with the pulse that runs them, the dot grid and the inward pull on the
+  tiles, and the loop ran on its own 9s timing rather than the design's three
+  scenes over 8s.
 - The savings calculator input has a visible keyboard focus ring again.
 - The platform tiles in the hero constellation are all the same square. Tiles
   with two-line labels were taller than the rest.
