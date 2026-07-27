@@ -370,6 +370,11 @@ body.afristream-landing-page {
   justify-content: center;
   padding: 4%;
   box-sizing: border-box;
+  /* aspect-ratio yields to the content's minimum height while overflow is
+     visible, so the two-line labels ("Prime Video", "Apple TV+") grew their
+     tiles taller than the one-line ones. Clipping the overflow makes the
+     ratio binding and every tile the same square. */
+  overflow: hidden;
   text-align: center;
   font-family: var(--mono);
   font-size: clamp(7px, 1vw, 13px);
@@ -402,11 +407,15 @@ body.afristream-landing-page {
 .as-landing .as-hub::after {
   content: '';
   position: absolute;
-  left: 34%;
-  top: 24%;
-  border-style: solid;
-  border-width: 13% 0 13% 22%;
-  border-color: transparent transparent transparent var(--accent);
+  left: 36%;
+  top: 26%;
+  width: 30%;
+  height: 48%;
+  /* border-width does not accept percentages, so the old border triangle was
+     an invalid declaration — it fell back to the 3px default and rendered as
+     a speck. clip-path takes percentages and scales with the hub. */
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
 }
 
 .as-landing .as-wordmark {
@@ -658,7 +667,19 @@ body.afristream-landing-page {
   flex: none;
 }
 
-.as-landing .as-plan-cta { width: 100%; margin-top: 6px; }
+/* Full-width CTAs are blocks, not pills: the inline button's 100px radius
+   reads as a stretched capsule at card width, so they take the card's own
+   corner radius and a taller tap target. */
+.as-landing .as-plan-cta,
+.as-landing .as-calc-cta {
+  width: 100%;
+  border-radius: 12px;
+  padding: 15px 20px;
+  font-size: 15px;
+  white-space: normal;
+}
+
+.as-landing .as-plan-cta { margin-top: 6px; }
 
 .as-landing .as-plan .as-fine { margin-top: 0; line-height: 1.5; }
 
@@ -744,7 +765,6 @@ body.afristream-landing-page {
 .as-landing .as-calc-rows span:first-child { color: var(--text-3); }
 .as-landing .as-calc-rows span:last-child { color: var(--text-2); white-space: nowrap; }
 
-.as-landing .as-calc-cta { width: 100%; }
 
 .as-landing .as-calc-pick { display: flex; flex-direction: column; gap: 12px; }
 
