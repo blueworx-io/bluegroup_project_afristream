@@ -1642,6 +1642,11 @@ function checked( $a, $b = true, $echo = true ) { return $a === $b ? ' checked' 
 function plugins_url( $path = '', $file = '' ) { return '/wp-content/plugins/' . ltrim( (string) $path, '/' ); }
 function rest_url( $path = '' ) { return '/wp-json/' . ltrim( (string) $path, '/' ); }
 function add_query_arg( $key, $value, $url = '' ) { return $url . '?' . $key . '=' . $value; }
+
+/** Whether the site has its own Site Icon set in the Customizer. */
+function has_site_icon( $blog_id = 0 ) {
+	return (int) get_option( 'site_icon', 0 ) > 0;
+}
 function plugin_dir_path( $file ) { return dirname( $file ) . '/'; }
 function plugin_basename( $file ) { return basename( dirname( $file ) ) . '/' . basename( $file ); }
 /**

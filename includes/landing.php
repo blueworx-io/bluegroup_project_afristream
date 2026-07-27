@@ -205,7 +205,15 @@ add_action( 'admin_init', 'afristream_landing_register_settings' );
 /** Where the Get Started destination is stored. */
 const AFRISTREAM_LANDING_CTA_OPTION = 'afristream_landing_cta_url';
 
-/** Where every Get Started button points until that setting is filled in. */
+/**
+ * Where every Get Started button points until that setting is filled in.
+ *
+ * Every one of them — header, mobile menu, pricing card, calculator, closing
+ * section — resolves through afristream_landing_cta_url(), so setting it once
+ * moves all five. They used to jump to each other (#signup, #pricing), which
+ * meant a visitor could press Get Started twice and still not be buying
+ * anything.
+ */
 const AFRISTREAM_LANDING_CTA_FALLBACK = '#pricing';
 
 /**
@@ -289,7 +297,6 @@ function afristream_landing_body() {
 		. afristream_landing_features()
 		. afristream_landing_calculator()
 		. afristream_landing_pricing()
-		. afristream_landing_testimonials()
 		. afristream_landing_picks_teaser()
 		. afristream_landing_faq()
 		. afristream_landing_signup()
@@ -584,6 +591,7 @@ function afristream_landing_teasers() {
  */
 function afristream_landing_header() {
 	$portal = afristream_landing_portal_url();
+	$cta    = afristream_landing_cta_url();
 	$links  = array(
 		'#features'     => 'Features',
 		'#integrations' => 'Integrations',
@@ -617,12 +625,12 @@ function afristream_landing_header() {
       <img src="' . esc_url( afristream_landing_asset( 'afristream-icon.svg' ) ) . '" alt="AfriStream" width="26" height="27">AfriStream
     </a>
     <nav class="as-nav-full" data-testid="landing-nav">' . $nav . '</nav>
-    <div class="as-head-cta">' . $dashboard . '<a class="as-btn as-btn-primary" href="#signup">Get Started</a></div>
+    <div class="as-head-cta">' . $dashboard . '<a class="as-btn as-btn-primary" data-testid="header-cta" href="' . esc_url( $cta ) . '">Get Started</a></div>
     <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
   </div>
-  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" href="#signup">Get Started</a></div>
+  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" href="' . esc_url( $cta ) . '">Get Started</a></div>
 </header>';
 }
 
@@ -713,51 +721,9 @@ function afristream_landing_pricing() {
       <span class="as-plan-price">R1599<small>/ year</small></span>
       <span class="as-plan-tag">One simple subscription, fire and forget!</span>
       <ul class="as-plan-features">' . $rows . '</ul>
-      <a class="as-btn as-btn-primary as-plan-cta" href="#signup">Get Started</a>
+      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
       <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
     </div>
-  </div>
-</section>';
-}
-
-/** Testimonials. Real customer quotes, carried over from the design handoff. */
-const AFRISTREAM_LANDING_QUOTES = array(
-	array(
-		'text' => '“I cancelled four subscriptions the week after installing. Everything we watch is in one place now.”',
-		'name' => 'Thandi M.',
-		'meta' => 'Johannesburg',
-	),
-	array(
-		'text' => '“Live EPL, F1 and all the movies my kids want. One bill a year and I stopped thinking about it.”',
-		'name' => 'Pieter v.d. W.',
-		'meta' => 'Cape Town',
-	),
-	array(
-		'text' => '“The savings calculator said R6 000 a year. It was right.”',
-		'name' => 'Naledi K.',
-		'meta' => 'Durban',
-	),
-);
-
-function afristream_landing_testimonials() {
-	$figures = '';
-	foreach ( AFRISTREAM_LANDING_QUOTES as $quote ) {
-		$figures .= '
-      <figure>
-        <blockquote>' . esc_html( $quote['text'] ) . '</blockquote>
-        <figcaption><span class="as-quote-name">' . esc_html( $quote['name'] ) . '</span><span class="as-quote-meta">' . esc_html( $quote['meta'] ) . '</span></figcaption>
-      </figure>';
-	}
-
-	return '
-<section id="testimonials" class="as-sec as-sec-testimonials" data-testid="landing-testimonials">
-  <div class="as-sec-in" data-reveal>'
-		. afristream_landing_section_header(
-			'Testimonials',
-			'Watched everywhere, paid once',
-			'What viewers say after switching to one subscription.'
-		) . '
-    <div class="as-quotes">' . $figures . '</div>
   </div>
 </section>';
 }
@@ -815,7 +781,7 @@ function afristream_landing_calculator() {
           <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
           <div><span>AfriStream</span><span>R' . (int) AFRISTREAM_LANDING_PRICE . ' / year</span></div>
         </div>
-        <a class="as-btn as-btn-primary as-calc-cta" href="#pricing">Get AfriStream for R' . (int) AFRISTREAM_LANDING_PRICE . '!</a>
+        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) AFRISTREAM_LANDING_PRICE . '!</a>
         <span class="as-fine">14 Day Money Back Guarantee.</span>
       </div>
       <div class="as-calc-pick">
@@ -899,9 +865,7 @@ function afristream_landing_faq() {
  * The closing call to action, and the page's last section.
  *
  * This held a newsletter embed until 0.23.0. It asks for the sale directly now,
- * so the destination comes from the Get Started URL setting — and falls back to
- * the pricing section, never to nothing, because this button is what every
- * other "Get Started" on the page leads to.
+ * through the same Get Started URL every other call to action on the page uses.
  */
 function afristream_landing_signup() {
 	return '
