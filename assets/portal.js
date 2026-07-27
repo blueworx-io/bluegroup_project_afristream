@@ -1388,7 +1388,7 @@
     // so "this is not my device" is answerable before reading any of them.
     function setupChosenRow(device) {
       return `
-  <div data-testid="setup-chosen" style="display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.09);border-radius:15px;padding:13px 16px;margin:0 2px 22px">
+  <div data-testid="setup-chosen" style="display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:15px;padding:13px 16px;margin:0 2px 22px">
     <span style="font-size:15px;font-weight:800">${esc(device.title)}</span>
     <span style="flex:1 1 20px"></span>
     <button class="as-hover-ghost" data-act="setup-restart" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:11px;padding:9px 16px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">Change device</button>
@@ -1398,7 +1398,7 @@
     function setupNav(device) {
       const last = state.setupScreen >= device.screens.length - 1;
       return `
-  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(11,21,51,.09);margin:26px 2px 0;padding-top:22px">
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(11,21,51,.08);margin:26px 2px 0;padding-top:22px">
     <button class="as-hover-ghost" data-testid="setup-back" data-act="setup-back" style="background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:#65009F">Back</button>
     <button data-testid="setup-next" data-act="setup-next" style="background:linear-gradient(120deg,#65009F,#CD2DF5);border:none;border-radius:12px;padding:13px 28px;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;color:#fff">${last ? 'Done — I am watching' : 'Done, what is next'}</button>
   </div>`;
@@ -1417,7 +1417,7 @@
       <button data-testid="setup-back" data-act="setup-back" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">Back to the steps</button>
     </div>
   </div>
-  <div style="margin:16px 2px 0;border-radius:13px;border:1px solid rgba(11,21,51,.09);background:#fff;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.7)">Picture freezing or an app that will not connect? Nine times out of ten it is WiFi. Email <a href="mailto:support@afristream.io">support@afristream.io</a> and we will walk through it with you.</div>`;
+  <div style="margin:16px 2px 0;border-radius:13px;border:1px solid rgba(11,21,51,.08);background:#fff;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.7)">Picture freezing or an app that will not connect? Nine times out of ten it is WiFi. Email <a href="mailto:support@afristream.io">support@afristream.io</a> and we will walk through it with you.</div>`;
     }
 
     function setupSection() {
