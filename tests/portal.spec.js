@@ -1019,6 +1019,74 @@ test('the Android box route adds the plug-it-in step ahead of the shared ones', 
   await expect(steps.getByRole('listitem').first()).toContainText('spare HDMI port');
 });
 
+test('the three screens advance to the finished card and back again', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+
+  await expect(page.getByText('Step 2 of 4')).toBeVisible();
+  await page.getByTestId('setup-next').click();
+  await expect(page.getByRole('heading', { name: 'Install the Downloader app' })).toBeVisible();
+  await expect(page.getByText('Step 3 of 4')).toBeVisible();
+
+  await page.getByTestId('setup-next').click();
+  await expect(page.getByRole('heading', { name: 'Install AfriStream and sign in' })).toBeVisible();
+  await expect(page.getByTestId('setup-next')).toContainText('Done — I am watching');
+
+  await page.getByTestId('setup-next').click();
+  await expect(page.getByTestId('setup-done')).toContainText('You are all set');
+  await expect(page.getByText('All done')).toBeVisible();
+
+  // Back from the finished card returns to the last screen, not the first.
+  await page.getByTestId('setup-back').click();
+  await expect(page.getByRole('heading', { name: 'Install AfriStream and sign in' })).toBeVisible();
+});
+
+test('back from the first screen returns to the device grid', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Android box/ }).click();
+  await expect(page.getByTestId('setup-steps')).toBeVisible();
+
+  await page.getByTestId('setup-back').click();
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
+});
+
+test('change device returns to the grid from part-way through a route', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Amazon Fire TV Stick/ }).click();
+  await page.getByTestId('setup-next').click();
+
+  await expect(page.getByTestId('setup-chosen')).toContainText('Amazon Fire TV Stick');
+  await page.getByRole('button', { name: 'Change device' }).click();
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+
+  // And picking a different one starts that route from its own first screen.
+  await page.getByRole('button', { name: /Android phone or tablet/ }).click();
+  await expect(page.getByRole('heading', { name: 'One minute of getting ready' })).toBeVisible();
+});
+
+test('the finished card sends you to What to Watch', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+
+  await page.getByRole('button', { name: 'See what to watch' }).click();
+  await expect(page.locator('[data-screen-label="What to Watch"]')).toBeVisible();
+});
+
+test('the copy button on the Downloader code reports back', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+
+  await expect(page.getByTestId('setup-code')).toHaveText('6573365');
+  await page.getByRole('button', { name: 'Copy code' }).click();
+  await expect(page.getByRole('button', { name: 'Copied' })).toBeVisible();
+});
+
 test('the Download tab covers both mobile platforms', async ({ page }) => {
   await page.getByRole('button', { name: 'Download' }).click();
   await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();

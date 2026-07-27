@@ -1384,17 +1384,57 @@
   </ol>`;
     }
 
+    // Which device you are on, and the way back out of it. Sits above the steps
+    // so "this is not my device" is answerable before reading any of them.
+    function setupChosenRow(device) {
+      return `
+  <div data-testid="setup-chosen" style="display:flex;align-items:center;gap:10px 12px;flex-wrap:wrap;background:#fff;border:1px solid rgba(11,21,51,.09);border-radius:15px;padding:13px 16px;margin:0 2px 22px">
+    <span style="font-size:15px;font-weight:800">${esc(device.title)}</span>
+    <span style="flex:1 1 20px"></span>
+    <button class="as-hover-ghost" data-act="setup-restart" style="flex:none;background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:11px;padding:9px 16px;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;color:#65009F">Change device</button>
+  </div>`;
+    }
+
+    function setupNav(device) {
+      const last = state.setupScreen >= device.screens.length - 1;
+      return `
+  <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;border-top:1px solid rgba(11,21,51,.09);margin:26px 2px 0;padding-top:22px">
+    <button class="as-hover-ghost" data-testid="setup-back" data-act="setup-back" style="background:#fff;border:1px solid rgba(11,21,51,.14);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:#65009F">Back</button>
+    <button data-testid="setup-next" data-act="setup-next" style="background:linear-gradient(120deg,#65009F,#CD2DF5);border:none;border-radius:12px;padding:13px 28px;font-family:inherit;font-weight:800;font-size:15px;cursor:pointer;color:#fff">${last ? 'Done — I am watching' : 'Done, what is next'}</button>
+  </div>`;
+    }
+
+    // The finished card. "See what to watch" reuses the nav action rather than
+    // a bespoke one, so it lands on the same tab the top bar would.
+    function setupDoneCard() {
+      return `
+  <div data-testid="setup-done" style="border-radius:22px;background:linear-gradient(120deg,#65009F 0%,#a01ad0 60%,#CD2DF5 130%);padding:clamp(24px,5vw,40px);display:flex;flex-direction:column;gap:14px;margin:0 2px;color:#fff">
+    <span class="as-on-dark" style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.75)">Setup complete</span>
+    <span class="as-on-dark" style="font-size:clamp(21px,3.4vw,28px);font-weight:800;letter-spacing:-0.015em;line-height:1.2;color:#fff">You are all set — now find something to watch</span>
+    <span class="as-on-dark" style="font-size:14.5px;line-height:1.6;color:rgba(255,255,255,.85);max-width:520px">Your app is installed and signed in. Open the app on your device and everything is there — films, series, sport and live TV in one list.</span>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <button class="as-hover-light" data-act="nav" data-val="watch" style="background:#fff;color:#65009F;border:none;border-radius:12px;padding:13px 26px;font-family:inherit;font-weight:800;font-size:14.5px;cursor:pointer">See what to watch</button>
+      <button data-testid="setup-back" data-act="setup-back" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:13px 24px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">Back to the steps</button>
+    </div>
+  </div>
+  <div style="margin:16px 2px 0;border-radius:13px;border:1px solid rgba(11,21,51,.09);background:#fff;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.7)">Picture freezing or an app that will not connect? Nine times out of ten it is WiFi. Email <a href="mailto:support@afristream.io">support@afristream.io</a> and we will walk through it with you.</div>`;
+    }
+
     function setupSection() {
       const stage = setupStage();
       const head = setupHeading();
       const screen = setupScreenOf();
 
-      const body = stage === 'device'
-        ? setupDeviceGrid()
-        : stage === 'steps' && screen
-          ? setupStepList(screen) + (screen.note
+      const device = setupDeviceOf();
+      const body = stage === 'steps' && screen && device
+        ? setupChosenRow(device)
+          + setupStepList(screen)
+          + (screen.note
             ? `<div data-testid="setup-step-note" style="margin:22px 2px 0;border-radius:13px;border:1px solid rgba(101,0,159,.2);background:#F7E9FF;padding:16px 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.75)">${esc(screen.note)}</div>`
             : '')
+          + setupNav(device)
+        : stage === 'done'
+          ? setupDoneCard()
           : setupDeviceGrid();
 
       return `
@@ -1969,6 +2009,26 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'apps-reset': setState({ appsContent: 'All' }); break;
         case 'setup-device': setState({ setupDevice: val, setupScreen: 0, setupDone: false }); break;
         case 'setup-copy': copy(val, 'setup-' + val); break;
+        case 'setup-next': {
+          const device = setupDeviceOf();
+          if (!device || !device.screens) break;
+          setState(state.setupScreen >= device.screens.length - 1
+            ? { setupDone: true }
+            : { setupScreen: state.setupScreen + 1 });
+          break;
+        }
+        case 'setup-back': {
+          const device = setupDeviceOf();
+          if (state.setupDone && device && device.screens) {
+            setState({ setupDone: false, setupScreen: device.screens.length - 1 });
+          } else if (state.setupScreen === 0) {
+            setState({ setupDevice: '', setupScreen: 0, setupDone: false });
+          } else {
+            setState({ setupScreen: state.setupScreen - 1 });
+          }
+          break;
+        }
+        case 'setup-restart': setState({ setupDevice: '', setupScreen: 0, setupDone: false }); break;
         case 'go-profile': setState({ section: 'profile' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
