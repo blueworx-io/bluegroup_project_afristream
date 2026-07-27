@@ -131,13 +131,16 @@ test('the Fire TV route unlocks the stick first and never names the store app', 
   await expect(page.locator('body')).not.toContainText('Firesend');
 });
 
-test('a step carrying a code shows it with a working copy button', async ({ page }) => {
+test('a screen with no code to type shows no code pill', async ({ page }) => {
   await openSetup(page);
   await page.getByRole('button', { name: /Android phone or tablet/ }).click();
 
-  // Screen 1 of the phone route has no code; the copy control only exists
-  // alongside one, so its absence here is the thing worth pinning down.
+  // The code pill and its copy button only exist alongside a step that carries
+  // a code. The phone route's first screen has none, so nothing should render.
+  // (The pill's own content and copy button are covered in Task 2, once
+  // navigation can reach the screen that has one.)
   await expect(page.getByTestId('setup-code')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Copy code' })).toHaveCount(0);
 });
 
 test('the Android box route adds the plug-it-in step ahead of the shared ones', async ({ page }) => {
