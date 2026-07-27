@@ -10,6 +10,16 @@
 //
 //   npm run sync-watchlist
 //
+// As of July 2026 IMDb escalates to an INTERACTIVE "Human Verification" page
+// (HTTP 202) that no user-agent or headed browser clears on its own — it waits
+// for a person. When that happens the run fails with instructions to use:
+//
+//   npm run sync-watchlist -- --supervised
+//
+// which opens a real window, gives you five minutes to click through the check,
+// then continues unattended and saves the cleared session to .imdb-session.json
+// (git-ignored) so later plain runs usually need no human at all.
+//
 // The watchlist URL comes from the IMDB_WATCHLIST_URL env var, falling back to
 // DEFAULT_URL below. On success it overwrites data/editor-picks-ids.txt; if no
 // IDs are found it exits non-zero and leaves the existing file untouched.
@@ -20,7 +30,7 @@
 // shrink the watchlist, which is exactly how a 130-title list once became 25.
 
 import { chromium } from 'playwright';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 import { bakePicks } from './bake-picks.mjs';
@@ -32,6 +42,15 @@ const OUT = join(process.cwd(), 'data', 'editor-picks-ids.txt');
 // 250 rows a page, so this is a 10,000-title ceiling — a backstop against a
 // pagination loop that never terminates, not a real limit on the watchlist.
 const MAX_PAGES = 40;
+
+// IMDb now escalates to an interactive "Human Verification" page that no
+// user-agent gets past — it waits for a person to click through. --supervised
+// opens a real window so that person can, then carries on unattended.
+const SUPERVISED = process.argv.includes('--supervised');
+const CHALLENGE_TIMEOUT = 5 * 60 * 1000;
+// Where the cleared challenge is kept. Git-ignored: it is a session cookie for
+// an account, not source.
+const STATE = join(process.cwd(), '.imdb-session.json');
 
 const HEADER = `# Editor Picks — IMDb title IDs, in watchlist order.
 #
@@ -106,14 +125,21 @@ function extractEntries() {
 
 async function main() {
   console.log(`Syncing IMDb watchlist:\n  ${WATCHLIST_URL}`);
-  const browser = await chromium.launch();
+  if (SUPERVISED) {
+    console.log('Supervised run: a browser window will open. Complete IMDb\'s');
+    console.log('"Human Verification" check in it; the scrape continues by itself.');
+  }
+  const browser = await chromium.launch({ headless: !SUPERVISED });
   try {
     // A realistic user-agent/locale/viewport is what gets us past IMDb's WAF —
     // the default headless "HeadlessChrome" UA is challenged and never resolves.
+    // When IMDb escalates to its interactive challenge no user-agent helps: the
+    // page waits for a human, which is what --supervised is for.
     const context = await browser.newContext({
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
       locale: 'en-US',
       viewport: { width: 1280, height: 900 },
+      storageState: existsSync(STATE) ? STATE : undefined,
     });
     const page = await context.newPage();
     // IMDb renders at most 250 rows per page and paginates the rest behind
@@ -128,16 +154,35 @@ async function main() {
       if (pageNo > 1) url.searchParams.set('page', String(pageNo));
       await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
       // Wait for the WAF challenge to clear and the list to start rendering.
+      // Supervised runs wait far longer on the first page, because that is the
+      // one a human may have to click through.
+      const settle = SUPERVISED && pageNo === 1 ? CHALLENGE_TIMEOUT : 60000;
       try {
         await page.waitForFunction(
           () => /Watchlist/i.test(document.title) &&
             document.querySelectorAll('li.ipc-metadata-list-summary-item').length > 0,
           null,
-          { timeout: 60000 }
+          { timeout: settle }
         );
       } catch {
-        if (pageNo === 1) throw new Error('The watchlist never rendered any rows.');
+        if (pageNo === 1) {
+          const title = await page.title().catch(() => '');
+          if (/verification|robot|captcha/i.test(title)) {
+            throw new Error(
+              `IMDb served its interactive challenge ("${title}") and it was not cleared.\n` +
+              '  This one needs a person: re-run as `npm run sync-watchlist -- --supervised`,\n' +
+              '  click through the check in the window that opens, and the scrape carries on.'
+            );
+          }
+          throw new Error('The watchlist never rendered any rows.');
+        }
         break; // past the last page
+      }
+
+      // Keep the cleared challenge, so later runs start already trusted and
+      // usually need no human at all.
+      if (pageNo === 1) {
+        await context.storageState({ path: STATE }).catch(() => {});
       }
 
       // Scroll this page until its rows stop arriving. Two things a simpler loop
@@ -151,16 +196,28 @@ async function main() {
       let stalls = 0;
       for (let i = 0; i < 120; i++) {
         ({ rows, total } = await page.evaluate(() => {
-          // The label is a two-item inline list: "1 - 250" then "302 titles".
-          // Read the items separately — its plain textContent runs them together
-          // as "1 - 250302 titles", which is where a six-figure total came from.
+          // This label has changed shape twice, and BOTH failures were silent
+          // under-counts rather than errors, so it is parsed defensively.
+          //   - a two-item inline list, "1 - 250" then "302 titles", whose plain
+          //     textContent runs together as "1 - 250302 titles" (a six-figure
+          //     total);
+          //   - one node reading "1-250of 333", where taking the first number
+          //     yields a total of 1, and the caller's "collected >= total" test
+          //     then stops after page one and reports success.
+          // So: prefer the count the label names as the total, and never fall
+          // back to the first number in a range.
           const totalEl = document.querySelector('[data-testid="list-page-mc-total-items"]');
           const items = totalEl ? [...totalEl.querySelectorAll('li')].map((li) => li.textContent.trim()) : [];
-          const label = items.length ? items[items.length - 1] : (totalEl ? totalEl.textContent : '');
-          const m = String(label).match(/([\d,]+)/);
+          const label = String(items.length ? items[items.length - 1] : (totalEl ? totalEl.textContent : ''));
+          const num = (m) => (m ? Number(m[1].replace(/,/g, '')) : 0);
+          const total = num(label.match(/\bof\s*([\d,]+)/i)) ||
+            num(label.match(/([\d,]+)\s*titles?\b/i)) ||
+            // Last resort: the largest number present, which beats the first in
+            // every layout seen so far.
+            (label.match(/[\d,]+/g) || []).reduce((a, s) => Math.max(a, Number(s.replace(/,/g, ''))), 0);
           return {
             rows: document.querySelectorAll('li.ipc-metadata-list-summary-item').length,
-            total: m ? Number(m[1].replace(/,/g, '')) : 0,
+            total,
           };
         }));
         stalls = rows === prev ? stalls + 1 : 0;

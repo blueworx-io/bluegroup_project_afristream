@@ -37,6 +37,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   with the pulse that runs them, the dot grid and the inward pull on the
   tiles, and the loop ran on its own 9s timing rather than the design's three
   scenes over 8s.
+- **The watchlist sync was silently stopping after one page.** IMDb changed
+  the label that reports the list total from two list items ("1 - 250", "302
+  titles") to one node reading "1-250of 333". The parser took the first number
+  in it, so the total came out as 1, the "collected everything" test passed
+  immediately, and page two was never fetched — reported as success. Editor
+  Picks had been stuck at 302 titles; it now holds all 333.
+- The sync also handles IMDb's new interactive "Human Verification" challenge,
+  which no user-agent clears. `npm run sync-watchlist -- --supervised` opens a
+  window to click through it once and reuses the cleared session afterwards;
+  an unsupervised run now says so instead of reporting no rows.
 - The savings summary card no longer sticks on narrow screens, where it was
   scrolling over the subscription checkboxes it summarises.
 - The savings calculator input has a visible keyboard focus ring again.

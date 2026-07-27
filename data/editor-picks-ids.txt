@@ -8,11 +8,9 @@
 # into data/editor-picks.json, which is what actually gets served. Only the
 # first N (see the read-side cap) are used.
 #
-# The sync only ever ADDS. IMDb shows at most 250 rows of a public watchlist, so
-# each scrape is a window onto the list rather than all of it — merging keeps
-# titles that have scrolled out of that window and means a failed or partial
-# scrape can never shrink the list. To drop a title, delete its line here by
-# hand (and its entry in editor-picks.json, or re-run bake-picks --refresh).
+# The sync only ever ADDS: merging means a failed or partial scrape can never
+# shrink the list. To drop a title, delete its line here by hand and re-run
+# `npm run bake-picks -- --refresh`.
 #
 # Note: this is the public IMDb community rating, not the watchlist owner's
 # personal rating — a shared watchlist does not expose the owner's own ratings
@@ -319,3 +317,34 @@ tt0317705 8
 tt0395169 8.1
 tt1979320 8.1
 tt0092005 8.1
+tt7395114 7.1
+tt19861162 6.3
+tt0119282 7.3
+tt0332452 7.3
+tt1213641 7.3
+tt33305711 7.5
+tt28013708 7.9
+tt0374463 8.3
+tt9288030 8
+tt5057054 8
+tt0144084 7.6
+tt1877830 7.8
+tt0829482 7.6
+tt0361862 7.6
+tt7131622 7.6
+tt0100157 7.8
+tt0098635 7.7
+tt7405458 7.5
+tt5362988 7.7
+tt1197624 7.4
+tt0320661 7.3
+tt0758774 7
+tt1855199 7.6
+tt1210166 7.6
+tt0132477 7.8
+tt0195685 7.5
+tt2361509 7.1
+tt0210945 7.8
+tt3659388 8
+tt0758758 8
+tt4555426 7.4
