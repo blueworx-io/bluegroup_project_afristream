@@ -229,11 +229,12 @@ function afristream_landing_body() {
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
-		. afristream_landing_teasers()
+		. afristream_landing_watch_teaser()
 		. afristream_landing_features()
 		. afristream_landing_calculator()
 		. afristream_landing_pricing()
 		. afristream_landing_testimonials()
+		. afristream_landing_picks_teaser()
 		. afristream_landing_faq()
 		. afristream_landing_signup()
 		. afristream_landing_footer()
@@ -489,24 +490,35 @@ function afristream_landing_teaser_row( $id, $eyebrow, $heading, $lede, $items )
 }
 
 /**
- * Both teaser rows. Either can come back empty — Editor Picks when the baked
- * file is missing, What to Watch when the catalogue cache is cold — and the
- * page reads correctly with one row, or with none.
+ * The two teaser rows sit apart on the page — What to Watch straight after the
+ * ticker, Editor Picks much further down, after the testimonials — so they are
+ * separate functions rather than one block. Either can come back empty: Editor
+ * Picks when the baked file is missing, What to Watch when the catalogue cache
+ * is cold. The page reads correctly with one row, or with none.
  */
-function afristream_landing_teasers() {
+function afristream_landing_watch_teaser() {
 	return afristream_landing_teaser_row(
 		'watch',
 		'What to Watch',
 		'Trending right now',
 		'A glimpse of what is playing this week. Subscribers get the full list, updated daily.',
 		afristream_landing_watch_teaser_items()
-	) . afristream_landing_teaser_row(
+	);
+}
+
+function afristream_landing_picks_teaser() {
+	return afristream_landing_teaser_row(
 		'picks',
 		'Editor Picks',
 		'Hand-picked by us',
 		'A running list of what we think is worth your evening. Hundreds more inside.',
 		afristream_landing_picks_teaser_items()
 	);
+}
+
+/** Both rows, in page order — used by the tests that check them together. */
+function afristream_landing_teasers() {
+	return afristream_landing_watch_teaser() . afristream_landing_picks_teaser();
 }
 
 /**

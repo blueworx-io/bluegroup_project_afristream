@@ -9,10 +9,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - **What to Watch and Editor Picks teasers on the landing page.** Two rows of
-  eight posters, between the platform ticker and the features, showing that the
-  catalogue is real. Display only: nothing is clickable, and the row is clipped
-  and faded at its trailing edge rather than made scrollable, so it reads as a
-  sample instead of a catalogue to browse.
+  eight posters showing that the catalogue is real — What to Watch just under
+  the platform ticker, Editor Picks further down between the testimonials and
+  the FAQ. Display only: nothing is clickable, and the row is clipped and faded
+  at its trailing edge rather than made scrollable, so it reads as a sample
+  instead of a catalogue to browse.
 - Editor Picks comes from the file baked at deploy time, so it costs the page
   nothing. What to Watch is read from the TMDB cache the portal already fills,
   and never fetched during a page render — a public page must not be what waits
