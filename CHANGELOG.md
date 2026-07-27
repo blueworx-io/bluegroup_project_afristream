@@ -4,6 +4,227 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-07-27
+
+### Added
+
+- **What to Watch and Editor Picks teasers on the landing page.** Two rows of
+  eight posters showing that the catalogue is real — What to Watch just under
+  the platform ticker, Editor Picks further down between the testimonials and
+  the FAQ. Display only: nothing is clickable, and the row is clipped and faded
+  at its trailing edge rather than made scrollable, so it reads as a sample
+  instead of a catalogue to browse.
+- Editor Picks comes from the file baked at deploy time, so it costs the page
+  nothing. What to Watch is read from the TMDB cache the portal already fills,
+  and never fetched during a page render — a public page must not be what waits
+  on TMDB. When that cache is cold the row is left out and a one-off job is
+  queued to fill it, so the next visitor sees it.
+
+### Changed
+
+- **The newsletter signup is now a call to action.** The closing section asked
+  for an email address; it asks for the sale instead, with a single "Get
+  AfriStream for R1599" button. The SureContact embed and the third-party
+  script it loaded are gone.
+- Settings → AfriStream Portal gains a **Get Started URL** — a checkout, order
+  form, WhatsApp or mailto link — which that button follows. Left empty it
+  scrolls to the pricing section, so the button every other "Get Started" on
+  the page leads to is never inert. Only http, https, mailto and tel links are
+  accepted, and a rejected value keeps the previous one rather than silently
+  clearing the field.
+- The page background is one continuous field rather than a glow per section.
+  Each section used to carry its own radial gradient, which reached full
+  strength inside the section and stopped at its edge, so every join showed as
+  a line. The blooms now sit on the page wrapper and drift across boundaries.
+- The dividing rules that remain — around the platform ticker and above the
+  footer — fade out towards their ends instead of running edge to edge, and
+  the hero dissolves into the page instead of handing over at a hard stop.
+- The SALE badge is superscripted off the top-right corner of the Pricing nav
+  link, and that link no longer underlines on hover: the underline ran the
+  width of the link plus the badge and read as a mistake. The link also
+  reserves the badge's width, which it previously did not — the badge was
+  overlapping the FAQ link beside it by 7px.
+
+## [0.22.0] - 2026-07-27
+
+### Added
+
+- The public landing page now ships with the plugin, as a page template
+  ("AfriStream Landing" on a page's Template dropdown). It renders the whole
+  document itself, so no theme header or footer wraps it and Elementor is no
+  longer needed to build the page. `[afristream_landing]` renders the same
+  sections inside an existing page for anyone who wants that instead.
+- Eight sections: hero, the platform ticker, features, a savings calculator,
+  pricing, testimonials, the FAQ, and the newsletter signup.
+- The savings calculator totals sixteen annualised subscription prices
+  against AfriStream's R1599 and shows the difference, clamped at zero.
+- The newsletter signup hosts the SureContact embed.
+- Settings → AfriStream Portal gains a Portal page setting, which the landing
+  page's Dashboard links point at. Left on "Detect automatically" it finds the
+  first published page containing `[afristream_portal]`.
+
+### Fixed
+
+- The newsletter signup embed now actually renders on the page template. It
+  was being enqueued before its script was registered, so the render call was
+  silently dropped and the "Get Started" CTAs led to an empty box.
+- The page template now prints a `<title>` tag and fires `wp_body_open()`
+  itself, since it renders the whole document and never runs the theme's
+  `header.php`.
+- Jumping to a section from any in-page link no longer lands its heading
+  underneath the sticky header.
+- The hero constellation now runs the animation the design specifies. The
+  connector wires between the tiles and the hub were missing entirely, along
+  with the pulse that runs them, the dot grid and the inward pull on the
+  tiles, and the loop ran on its own 9s timing rather than the design's three
+  scenes over 8s.
+- **The watchlist sync was silently stopping after one page.** IMDb changed
+  the label that reports the list total from two list items ("1 - 250", "302
+  titles") to one node reading "1-250of 333". The parser took the first number
+  in it, so the total came out as 1, the "collected everything" test passed
+  immediately, and page two was never fetched — reported as success. Editor
+  Picks had been stuck at 302 titles; it now holds all 333.
+- The sync also handles IMDb's new interactive "Human Verification" challenge,
+  which no user-agent clears. `npm run sync-watchlist -- --supervised` opens a
+  window to click through it once and reuses the cleared session afterwards;
+  an unsupervised run now says so instead of reporting no rows.
+- The savings summary card no longer sticks on narrow screens, where it was
+  scrolling over the subscription checkboxes it summarises.
+- The savings calculator input has a visible keyboard focus ring again.
+- The platform tiles in the hero constellation are all the same square. Tiles
+  with two-line labels were taller than the rest.
+- The AfriStream play mark now renders in the middle of the constellation. It
+  was drawn with percentage border widths, which CSS does not allow, so it
+  came out as a three-pixel speck.
+- The two full-width CTAs — "Get AfriStream" and "Get Started" — use the
+  card's corner radius instead of the inline button's pill radius, which read
+  as a stretched capsule across a whole block.
+- The local preview harness can now walk between the landing page and the
+  portal in both directions. Its two halves pointed at URLs the harness did
+  not serve, so both links dead-ended — a harness gap only, since WordPress
+  resolves those two URLs from the portal-page setting and `home_url()`.
+- The mobile menu can be closed with Escape, and the burger button now points
+  `aria-controls` at the panel it opens.
+- Entering an amount in "Any other subscriptions?" with nothing else selected
+  no longer shows "your selection below" beside a non-zero saving.
+
+## [0.21.0] - 2026-07-27
+
+### Changed
+
+- The Setup tab asks one question instead of three. Five device cards lead
+  straight to that device's steps, replacing the family → model → install
+  method flow, which asked twice more before showing a single instruction
+  and only ever arrived at the same handful of routes.
+- Setup steps are one screen at a time with a four-stage progress bar, a
+  Back that steps out to the device grid from the first screen, and a
+  finished card that hands over to What to Watch.
+- Buying advice, the retailer links and the WiFi tips are one collapsible
+  panel beneath the device grid, rather than being spread through step 2.
+- All four player codes are offered together on the install step, each with
+  its own copy button, rather than one recommended code with the other three
+  in a footnote. The same username and password signs in to any of them, so
+  they are alternatives to choose between, not a fallback ladder.
+- The Download tab follows the same shape as Setup: pick the device you are
+  holding, then read only the steps for it. Both platforms used to sit side
+  by side, so every reader skipped half the page to find their half.
+- The header carries a Home link back to the site, beside the plan pill.
+- Setup's four stages are a numbered stepper rather than a progress bar with
+  captions beneath it: finished stages carry a tick, the current one is
+  filled and haloed, and the ones ahead are outlined. The captions read as a
+  label for the bar rather than as steps you move through. On a narrow
+  screen the numbers stand alone, since the heading above already names the
+  stage you are on.
+
+### Removed
+
+- The Fire TV route no longer names the store app it installs from; it
+  points at the welcome email instead.
+- The "Why you need a device" three-card explainer that used to open the
+  Setup tab. It answered a question the new one-step device grid no longer
+  asks.
+- The "Open Account" shortcut from the setup steps to the Account tab. It
+  belonged to the old flow's dead end; the new one ends on a finished card
+  that hands over to What to Watch instead.
+- Two of the four retailer links in the buying-advice panel: both listings
+  for the Xiaomi TV Box S, including the only Amazon.co.za link. The two
+  Takealot stick links stay.
+- The "iPhone, iPad or Roku" device card. Those devices cannot install the
+  app at all, so the card only ever led to a panel saying so — the smart TV
+  card still covers the hardware we register by hand.
+- The Free Streaming tab, from the portal nav. The section itself stays in
+  the plugin and is still reachable with
+  `[afristream_portal default_tab="apps"]`, the same way Tips & Tricks and
+  Troubleshooting already are.
+
+## [0.20.1] - 2026-07-27
+
+### Fixed
+
+- **Licences are no longer readable from outside the site.** A licence's title is a customer's streaming username, and the licence post type had been registered as public since it was first set up in ACF. That gave every licence its own front-end address, listed licences in the site's own search box, and — through `GET /wp-json/wp/v2/license` — returned every customer's username in a single response to anyone who asked, with no login. Licences are now private and administered only from the admin, which changes nothing about how they are managed. The stale `/license/<username>/` routes left behind in the database are cleared once, the next time an administrator loads an admin page.
+
+## [0.20.0] - 2026-07-26
+
+### Added
+
+- **A Configurations page.** A new top-level menu listing everything the plugin adds to the site — every shortcode, REST route, admin column, licence field, hook and integration — with a live status against each: how many licences are free, whether TMDB is connected, whether anyone is waiting for a licence. It is read-only, and the list is built by each file declaring its own entries rather than being written on the page, so it cannot drift from the code the way a hand-maintained list does the first time a feature is added in a hurry.
+
+- **An ACF readiness check that can say it doesn't know.** Before Advanced Custom Fields can safely be switched off, the Configurations page scans the site for anything that still depends on it — Elementor dynamic tags, other plugins' code, ACF blocks and `[acf]` shortcodes saved into content, and direct calls such as `the_sub_field` and `get_fields` — and answers with three states rather than two: **safe**, **needs cleanup** (ACF's own field groups and post type are still sitting on the site, which is a tidy-up rather than a real dependency, and is now called out on its own instead of buried under a "safe" verdict), or **undetermined**, when a check could not finish, naming exactly which one rather than reading as a clean site by default. The scan also covers the parent theme, must-use plugins and network-activated plugins on multisite, not only the active theme and per-site plugins, and no longer mistakes a third-party plugin that merely depends on ACF for ACF itself. The result is cached per site and dropped automatically the moment a plugin is activated or deactivated or the theme is switched, with a manual "Recheck now" link for forcing a fresh answer on demand.
+
+- **Licences are assigned automatically when someone pays.** A customer gets one licence per active subscription, taken from the stock closest to expiring. If nothing is free they are queued rather than quietly missed, flagged on every admin screen, and served the moment a licence is published or freed. The routine tops up to the entitlement instead of granting per event, so a repeated or replayed payment webhook cannot hand out a second licence.
+
+- **A history on every licence.** Assigned, unassigned, created, updated — each with the date, the customer, and who or what did it. Shown on the licence editor, as a Last Assigned column on the licence list, and as a recent-events feed on the Configurations page. It exists for the moment a licence needs reassigning by hand and the question is who had it last.
+
+- **Customers can hold more than one licence.** The old field was capped at one; each licence a customer holds now becomes its own profile in the portal.
+
+### Changed
+
+- **Advanced Custom Fields is no longer required.** The licence post type, its four fields and the customer's licence assignment all belong to the plugin now. Nothing moved in the database — the same meta keys hold the same values in the same formats — so the change is invisible to anyone using the site.
+
+- **A licence records who holds it, rather than each customer recording which licences they hold.** The old arrangement kept assignments as a list on the customer, which two simultaneous changes could silently overwrite and which allowed the same licence to appear against two people. A licence now names its own holder, so one licence can only ever have one owner, and the customer-side list is rebuilt from it for anything that still reads the old shape.
+
+- The Connected User column reads the holder off the licence instead of searching every user on the site for it.
+
+### Fixed
+
+- Two customers checking out at the same moment can no longer be handed the same licence.
+
+- **A licence taken out of publication no longer disappears from the customer holding it.** Whether a licence is published decides whether anybody new can be given one — it was never meant to decide whether the person who already paid for it still has it. Moving an assigned licence to draft or to the trash took the profile out of that customer's portal and, worse, made the plugin believe they held one fewer than they do, so the next payment event handed them another licence on top. Ownership is now read independently of the licence's editorial state, while stock is still strictly published-only, and a licence that is assigned but unpublished is counted and named as its own thing on the Configurations page rather than quietly missing from the totals.
+
+- **Deleting a customer can no longer strand a licence with no way to get it back.** If freeing one of their licences was refused — usually a second request holding the assignment lock for a moment — the licence stayed owned by an account that no longer existed: permanently out of stock, and invisible to every report. The release is now retried, the record of what that account held is kept whenever anything could not be freed rather than wiped regardless, and any licence left in that state is listed on the Configurations page with a **Release it** link that puts it straight back into the pool and records it in the licence's own history.
+
+- **Sorting the licence list by Expiry Date no longer hides every licence that has no expiry date.** Sorting on a field WordPress stores separately quietly excludes the rows that do not have it, so clicking the column header made licences look deleted.
+
+- The reverse lookup of "which licences does this customer hold" is now a single indexed query rather than a walk over every licence reading each one in turn. It runs on every row of the Users screen, on every portal load, and once per candidate while a licence is being handed out.
+
+- The licence history now stores names and field values cleaned rather than relying on every screen that shows them to clean them at the point of display.
+
+- The preview harness now reports credentials the same way the live plugin does. It had been left saying `acf` after the plugin stopped, so the front end was being tested against a state production can no longer produce; the test suite now checks the two agree.
+
+### Security
+
+- **Every customer's streaming username and password were readable by anyone, without logging in.** The licence's four fields were registered as visible to the WordPress REST API, and WordPress does not capability-check reading them, so a single unauthenticated request to `/wp-json/wp/v2/license` returned the lot — usernames and passwords in plain text, for every customer. The fields are no longer exposed to that API at all. Nothing in the portal ever used it: a customer's own credentials are served by a separate route that requires them to be logged in and returns only their own. Note that a licence's title is a username, and the licence post type is public in the same way it was under ACF, so titles remain visible to anyone who looks — changing that affects the admin screens' addresses and is deliberately left as a decision to take on its own.
+
+- **Anyone who could draft a blog post could change a customer's password.** Licences inherited ordinary post permissions, which a Contributor holds, and the fields themselves were writable by anyone with the same. Both now sit at the level of the people who administer the site, and the field check asks about the specific licence rather than about posts in general.
+
+- **The licence field on a user's profile now uses a token tied to that user.** It was scoped to nothing in particular, so one obtained while editing one customer stayed valid against any other for as long as it lived.
+
+- **The one-off data migration can no longer be set running by an anonymous request.** It hangs off a WordPress hook that also fires on the site's AJAX endpoint, which serves logged-out visitors. It now runs only for a logged-in administrator on a real admin page load.
+
+## [0.19.0] - 2026-07-23
+
+### Added
+
+- **Buy links on the affiliate card.** The two AfriStream checkout links sit under the referral link with the affiliate's referral code already appended, so a sale made through one is credited to them. Each is labelled with who it is for — **AfriStream Subscription** (for users that have their own device) and **AfriStream Subscription & Setup** (for users that need us to buy a device for them). The code is read off their own referral link rather than hardcoded, so if SureCart renames the tracking parameter the buy links follow it instead of quietly attributing to nobody.
+
+  The link is shown shortened — `afristream.io/checkout/?…&ref=YOURCODE` — because the real one is a wall of percent-encoded price ids that reads as noise and cannot be checked at a glance. Shortened it still shows the two things that matter: that it goes to AfriStream's checkout, and that it carries their code. It is a live link, so it can be opened and tested, and Copy link puts the full, exact URL on the clipboard.
+
+- **Sub-categories on Editor Picks.** A Category row offers Action, Adventure, Animation, Comedy, Romance and Thriller, alphabetically, alongside the existing type and rating filters. Every pick answers to exactly one of them: TMDB returns a far wider genre list than six, so crime, mystery, horror and drama fold into Thriller, the speculative genres and family into Adventure, war and westerns into Action, and anything with no near neighbour — documentaries, history, music — falls back to Adventure rather than dropping out of the filter. Cards still show their real genre.
+
+### Changed
+
+- The affiliate card's heading, rate line and dashboard button share one line, and the button now reads **Open Dashboard**. Below roughly 380px the button drops under the text rather than squeezing the rate sentence.
+
 ## [0.18.1] - 2026-07-23
 
 ### Fixed

@@ -1,0 +1,1231 @@
+/* AfriStream landing page. Dark, self-contained: the page template renders the
+   whole document, so nothing here has to survive a theme's stylesheet. */
+
+.as-landing {
+  --page: #0b0510;
+  --canvas: #0d0713;
+  --card: #120a1a;
+  --royal: #65009F;
+  --accent: #cd2df5;
+  --text: #fcfcfc;
+  --text-2: #c4bece;
+  --text-3: #8b8595;
+  --hairline: #2c2138;
+  --mono: 'Space Mono', ui-monospace, Menlo, monospace;
+
+  color: var(--text);
+  font-family: 'Geist', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+
+  /* One background for the whole page rather than one per section. The blooms
+     are placed as percentages of the full document height, so each one drifts
+     across section boundaries instead of stopping at them — sections used to
+     carry their own radial gradient, which made every join a visible edge.
+     background-attachment is deliberately NOT fixed: that would hold the glow
+     still while the page moves past it, which reads as a stuck overlay. */
+  background-color: var(--page);
+  background-image:
+    radial-gradient(ellipse 90% 22% at 12% 16%, rgba(101, 0, 159, 0.26) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 80% 18% at 88% 34%, rgba(205, 45, 245, 0.13) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 95% 20% at 6% 52%, rgba(101, 0, 159, 0.22) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 85% 18% at 92% 70%, rgba(101, 0, 159, 0.2) 0%, rgba(13, 7, 19, 0) 70%),
+    radial-gradient(ellipse 90% 20% at 20% 88%, rgba(205, 45, 245, 0.1) 0%, rgba(13, 7, 19, 0) 70%);
+  background-repeat: no-repeat;
+}
+
+body.afristream-landing-page {
+  margin: 0;
+  background: #0b0510;
+}
+
+.as-landing a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.as-landing a:hover {
+  text-decoration: underline;
+}
+
+.as-landing :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Every CTA on the page is an in-page anchor, and the header is sticky at
+   min-height: 56px — without this, jumping to a section lands its eyebrow
+   underneath the bar. */
+.as-landing section {
+  scroll-margin-top: 64px;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.as-landing .as-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(4, 2, 7, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.as-landing .as-head-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 8px clamp(16px, 4vw, 40px);
+  display: flex;
+  align-items: center;
+  gap: 12px 24px;
+  min-height: 56px;
+}
+
+.as-landing .as-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  color: var(--text);
+  flex: none;
+}
+
+.as-landing .as-brand:hover {
+  text-decoration: none;
+}
+
+.as-landing .as-nav-full {
+  display: flex;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 1;
+}
+
+.as-landing .as-nav-full a,
+.as-landing .as-head-cta .as-dash {
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* The link carrying the badge is positioned so the badge can hang off its
+   top-right corner, and never underlines: the underline would run the width of
+   the link plus the badge, which reads as a mistake rather than a hover.
+   An explicit class rather than :has(.as-sale) — where :has() is unsupported
+   the badge would still be absolute and would position itself against the
+   sticky header instead, landing in the page's top-right corner. */
+.as-landing a.as-nav-sale,
+.as-landing a.as-nav-sale:hover {
+  position: relative;
+  text-decoration: none;
+  /* Room for the badge. It is absolutely positioned, so without this the nav
+     lays out as if it were not there and it overlaps the next link. */
+  padding-right: 27px;
+}
+
+/* Superscripted off the top-right corner rather than sitting on the baseline. */
+.as-landing .as-sale {
+  position: absolute;
+  right: 0;
+  top: -0.2em;
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+  text-decoration: none;
+  pointer-events: none;
+}
+
+.as-landing .as-head-cta {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex: none;
+}
+
+.as-landing .as-burger {
+  display: none;
+  margin-left: auto;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  background: rgba(205, 45, 245, 0.06);
+  cursor: pointer;
+  flex: none;
+}
+
+.as-landing .as-menu {
+  border-top: 1px solid var(--hairline);
+  background: rgba(4, 2, 7, 0.96);
+  padding: 12px clamp(16px, 4vw, 40px) 20px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.as-landing .as-menu[hidden] {
+  display: none;
+}
+
+.as-landing .as-menu a {
+  color: var(--text);
+  font-size: 16px;
+  padding: 13px 0;
+}
+
+@media (max-width: 859px) {
+  .as-landing .as-nav-full,
+  .as-landing .as-head-cta {
+    display: none;
+  }
+  .as-landing .as-burger {
+    display: flex;
+  }
+  .as-landing .as-menu:not([hidden]) {
+    display: flex;
+  }
+}
+
+@media (min-width: 860px) {
+  /* The panel is markup-present at every width so a resize cannot strand it
+     open; above the breakpoint the full nav is the only navigation shown. */
+  .as-landing .as-menu {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.as-landing .as-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* Without this, width:100% resolves to the container's CONTENT width and
+     the button's own padding and border are added on top — the full-width
+     CTAs spilled 12px past the card border they sit in. */
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 100px;
+  padding: 12px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.as-landing .as-btn:hover {
+  text-decoration: none;
+}
+
+.as-landing .as-btn-primary {
+  background: var(--accent);
+  color: #0d0713;
+  font-weight: 600;
+}
+
+.as-landing .as-btn-ghost {
+  background: transparent;
+  border-color: var(--hairline);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------- footer */
+
+/* Fades up into the page rather than starting at a hairline. */
+.as-landing .as-foot {
+  position: relative;
+  background: linear-gradient(rgba(6, 3, 9, 0) 0%, rgba(6, 3, 9, 0.85) 38%, #060309 100%);
+}
+
+.as-landing .as-foot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, var(--hairline) 25%, var(--hairline) 75%, transparent 100%);
+}
+
+.as-landing .as-foot-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px clamp(20px, 5vw, 40px) 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 32px;
+}
+
+.as-landing .as-foot-brand,
+.as-landing .as-foot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-landing .as-foot a {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.as-landing .as-muted {
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.as-landing .as-fine {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 16px;
+}
+
+.as-landing .as-eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.72px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.as-landing .as-eyebrow-muted {
+  color: var(--text-3);
+}
+
+/* ------------------------------------------------------------------ hero */
+
+.as-landing .as-hero {
+  position: relative;
+  overflow: hidden;
+  /* Ends transparent rather than on the page colour, so the hero dissolves into
+     the page-wide glow instead of handing over at a line. */
+  background: linear-gradient(195deg, #14041f 0%, rgba(11, 5, 16, 0.55) 62%, rgba(11, 5, 16, 0) 100%);
+}
+
+.as-landing .as-hero-in {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(48px, 9vw, 80px) clamp(20px, 5vw, 40px) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+}
+
+.as-landing .as-eyebrow-dot::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.as-landing h1 {
+  margin: 0;
+  font-weight: 400;
+  font-size: clamp(44px, 7.5vw, 80px);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+  max-width: 900px;
+}
+
+.as-landing .as-lede {
+  margin: 0;
+  font-size: clamp(17px, 2.2vw, 20px);
+  line-height: 1.5;
+  color: var(--text-2);
+  max-width: 560px;
+}
+
+.as-landing .as-hero-cta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.as-landing .as-proofs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.as-landing .as-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  background: rgba(4, 2, 7, 0.85);
+  padding: 9px 16px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.as-landing .as-proof::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+/* The constellation: six platform tiles wiring into a hub, with the wordmark
+   rising underneath. Decorative — aria-hidden in the markup.
+
+   Timings come from the design's three scenes on an 8s loop — Arrive 2.4s
+   (0-30%), Connect 2.2s (30-57.5%), Converge 3.4s (57.5-100%) — so a
+   scene-relative progress p reads as (start + p * duration) / 8s. The
+   comment beside each keyframe names the scene and p it came from. */
+
+.as-landing .as-stage {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  margin-top: 24px;
+  border: 1px solid var(--hairline);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  background: var(--canvas);
+  box-shadow: inset 0 0 0 1px var(--royal), 0 0 60px rgba(101, 0, 159, 0.25);
+  overflow: hidden;
+}
+
+.as-landing .as-stage-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 120%, #3d0a5e 0%, rgba(13, 7, 19, 0) 70%);
+}
+
+/* The design's dot grid: inset 100/150/100/110 of its 1920x1080 stage, 26px
+   pitch, masked to an ellipse so it fades out before the edges. The pitch is
+   halved because the stage renders at half the design's width. */
+.as-landing .as-stage-grid {
+  position: absolute;
+  left: 5.21%;
+  right: 5.21%;
+  top: 13.89%;
+  bottom: 10.19%;
+  background-image: radial-gradient(var(--accent) 0.55px, transparent 0.6px);
+  background-size: 13px 13px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 30%, transparent 78%);
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 30%, transparent 78%);
+  opacity: 0;
+  animation: as-grid 8s linear infinite;
+}
+
+/* Connector wires. The SVG carries the design's own coordinate space, so the
+   path data is its connectorPath() output unchanged. */
+.as-landing .as-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.as-landing .as-wire,
+.as-landing .as-pulse {
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+
+.as-landing .as-wire {
+  stroke-width: 2.4;
+  animation: as-wire 8s linear infinite;
+}
+
+/* One short dash, 14% of the path, chasing its own length past the end. */
+.as-landing .as-pulse {
+  stroke-width: 3.6;
+  stroke-dasharray: 0.14 0.86;
+  filter: drop-shadow(0 0 8px rgba(205, 45, 245, 0.9));
+  animation: as-pulse 8s linear infinite;
+}
+
+/* The design staggers the draw by 0.04 of its progress per wire, which is
+   65ms of the 2.2s Connect scene. */
+.as-landing .as-wire-2, .as-landing .as-pulse-2 { animation-delay: 0.065s; }
+.as-landing .as-wire-3, .as-landing .as-pulse-3 { animation-delay: 0.130s; }
+.as-landing .as-wire-4, .as-landing .as-pulse-4 { animation-delay: 0.195s; }
+.as-landing .as-wire-5, .as-landing .as-pulse-5 { animation-delay: 0.260s; }
+.as-landing .as-wire-6, .as-landing .as-pulse-6 { animation-delay: 0.325s; }
+
+.as-landing .as-tile {
+  position: absolute;
+  width: 9.2%;
+  aspect-ratio: 1;
+  margin: -4.6% 0 0 -4.6%;
+  border-radius: 21%;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px rgba(101, 0, 159, 0.9), 0 0 34px rgba(101, 0, 159, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4%;
+  box-sizing: border-box;
+  /* aspect-ratio yields to the content's minimum height while overflow is
+     visible, so the two-line labels ("Prime Video", "Apple TV+") grew their
+     tiles taller than the one-line ones. Clipping the overflow makes the
+     ratio binding and every tile the same square. */
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: clamp(7px, 1vw, 13px);
+  line-height: 1.25;
+  color: var(--text-2);
+  animation: as-tile 8s linear infinite;
+}
+
+/* Converge pulls each tile toward the hub — 26px across and half that down
+   the design's 132px tile, so as fractions of the tile: 19.7% and 9.85%,
+   signed inward. The middle pair are already level with the hub. */
+.as-landing .as-tile-1 { left: 27.08%; top: 32.5%;  --pull-x: 19.7%;  --pull-y: 9.85%;  animation-delay: 0s; }
+.as-landing .as-tile-2 { left: 18.75%; top: 52.41%; --pull-x: 19.7%;  --pull-y: 0%;     animation-delay: 0.18s; }
+.as-landing .as-tile-3 { left: 27.08%; top: 72.31%; --pull-x: 19.7%;  --pull-y: -9.85%; animation-delay: 0.36s; }
+.as-landing .as-tile-4 { left: 72.92%; top: 32.5%;  --pull-x: -19.7%; --pull-y: 9.85%;  animation-delay: 0.54s; }
+.as-landing .as-tile-5 { left: 81.25%; top: 52.41%; --pull-x: -19.7%; --pull-y: 0%;     animation-delay: 0.72s; }
+.as-landing .as-tile-6 { left: 72.92%; top: 72.31%; --pull-x: -19.7%; --pull-y: -9.85%; animation-delay: 0.90s; }
+
+.as-landing .as-hub {
+  position: absolute;
+  left: 50%;
+  top: 52.41%;
+  width: 9.17%;
+  aspect-ratio: 1;
+  margin: -4.58% 0 0 -4.58%;
+  border-radius: 22%;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 70px rgba(205, 45, 245, 0.35);
+  animation: as-hub 8s linear infinite;
+}
+
+.as-landing .as-hub::after {
+  content: '';
+  position: absolute;
+  left: 36%;
+  top: 26%;
+  width: 30%;
+  height: 48%;
+  /* border-width does not accept percentages, so the old border triangle was
+     an invalid declaration — it fell back to the 3px default and rendered as
+     a speck. clip-path takes percentages and scales with the hub. */
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.as-landing .as-wordmark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 68%;
+  text-align: center;
+  font-weight: 600;
+  font-size: clamp(24px, 4.6vw, 88px);
+  line-height: 1;
+  letter-spacing: -0.036em;
+  color: var(--text);
+  animation: as-word 8s linear infinite;
+}
+
+.as-landing .as-wordmark small {
+  display: block;
+  margin-top: 2%;
+  font-size: clamp(11px, 1.6vw, 30px);
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: -0.4px;
+  color: var(--text-2);
+}
+
+/* Arrive: tiles drop in from 34px above (26% of the tile) on easeOutBack,
+   p 0.08 -> 0.5. Converge: they dim and pull toward the hub, p 0.34 -> 0.62. */
+@keyframes as-tile {
+  0% {
+    opacity: 0;
+    transform: translate(0, -26%) scale(0.72);
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  15% { opacity: 1; transform: translate(0, 0) scale(1); }
+  71.95% { opacity: 1; transform: translate(0, 0) scale(1); }
+  83.85% { opacity: 0.18; transform: translate(var(--pull-x, 0), var(--pull-y, 0)) scale(0.84); }
+  97% { opacity: 0.18; transform: translate(var(--pull-x, 0), var(--pull-y, 0)) scale(0.84); }
+  100% { opacity: 0; transform: translate(var(--pull-x, 0), var(--pull-y, 0)) scale(0.84); }
+}
+
+/* Connect: the hub pops in, p 0.04 -> 0.42. Converge: it rises 60px (34% of
+   the hub) and doubles, p 0.4 -> 0.78. */
+@keyframes as-hub {
+  0%, 31.1% {
+    opacity: 0;
+    transform: translateY(0) scale(0.4);
+    animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  35.5% { opacity: 1; }
+  41.55% { opacity: 1; transform: translateY(0) scale(1); }
+  74.5% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  90.65% { opacity: 1; transform: translateY(-34%) scale(2.05); }
+  97% { opacity: 1; transform: translateY(-34%) scale(2.05); }
+  100% { opacity: 0; transform: translateY(-34%) scale(2.05); }
+}
+
+/* Converge: the wordmark lands last, p 0.6 -> 0.9. */
+@keyframes as-word {
+  0%, 83% {
+    opacity: 0;
+    transform: translateY(22px);
+    animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1);
+  }
+  95.75% { opacity: 1; transform: translateY(0); }
+  97% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Connect: each wire draws itself, p 0.12 -> 0.86 on easeInOutCubic.
+   Converge: they dim out with the tiles. */
+@keyframes as-wire {
+  0%, 30% { opacity: 0; stroke-dashoffset: 1; }
+  33.3% {
+    opacity: 0.3;
+    stroke-dashoffset: 1;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  53.65% { opacity: 0.3; stroke-dashoffset: 0; }
+  71.95% { opacity: 0.3; stroke-dashoffset: 0; }
+  83.85%, 100% { opacity: 0; stroke-dashoffset: 0; }
+}
+
+/* Converge: one pulse runs every wire into the hub, p 0.02 -> 0.42, its
+   opacity a half-sine so it fades in and out rather than blinking. */
+@keyframes as-pulse {
+  0%, 58.35% { opacity: 0; stroke-dashoffset: 1; }
+  62.6% { opacity: 0.72; }
+  66.85% { opacity: 0.95; }
+  71.1% { opacity: 0.72; }
+  75.35% { opacity: 0; stroke-dashoffset: -0.14; }
+  100% { opacity: 0; stroke-dashoffset: -0.14; }
+}
+
+/* Arrive: the grid fades in over p 0 -> 0.35. Converge: it drops to 45% of
+   its opacity as the tiles dim. */
+@keyframes as-grid {
+  0% { opacity: 0; }
+  10.5% { opacity: 0.28; }
+  71.95% { opacity: 0.28; }
+  83.85% { opacity: 0.126; }
+  97% { opacity: 0.126; }
+  100% { opacity: 0; }
+}
+
+/* ---------------------------------------------------------- integrations */
+
+.as-landing .as-integrations {
+  display: flex;
+  align-items: center;
+  /* Was a hairline top and bottom, edge to edge. Those two lines were the
+     hardest divisions on the page. The band now fades in and out vertically
+     and its rules fade out towards the edges, so it reads as a change in the
+     background rather than a boundary drawn across it. */
+  position: relative;
+  background: linear-gradient(rgba(4, 2, 7, 0) 0%, rgba(4, 2, 7, 0.45) 22%, rgba(4, 2, 7, 0.45) 78%, rgba(4, 2, 7, 0) 100%);
+}
+
+.as-landing .as-integrations::before,
+.as-landing .as-integrations::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, var(--hairline) 22%, var(--hairline) 78%, transparent 100%);
+}
+
+.as-landing .as-integrations::before { top: 0; }
+.as-landing .as-integrations::after { bottom: 0; }
+
+.as-landing .as-integrations-label {
+  flex: none;
+  padding: 16px clamp(14px, 4vw, 24px) 16px clamp(20px, 5vw, 40px);
+  border-right: 1px solid var(--hairline);
+}
+
+.as-landing .as-marquee {
+  flex: 1;
+  overflow: hidden;
+  padding: 16px 0;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+
+.as-landing .as-marquee-run {
+  display: flex;
+  gap: 48px;
+  width: max-content;
+  animation: as-marquee 32s linear infinite;
+}
+
+.as-landing .as-marquee-run span {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.72px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+@keyframes as-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Everything that moves, stopped at rest. */
+@media (prefers-reduced-motion: reduce) {
+  .as-landing .as-marquee-run,
+  .as-landing .as-tile,
+  .as-landing .as-hub,
+  .as-landing .as-wordmark,
+  .as-landing .as-stage-grid,
+  .as-landing .as-wire,
+  .as-landing .as-pulse {
+    animation: none;
+  }
+  .as-landing .as-tile,
+  .as-landing .as-hub,
+  .as-landing .as-wordmark {
+    opacity: 1;
+    transform: none;
+  }
+  /* The still frame is the assembled diagram: grid, drawn wires, no pulse. */
+  .as-landing .as-stage-grid { opacity: 0.28; }
+  .as-landing .as-wire { opacity: 0.3; stroke-dashoffset: 0; }
+  .as-landing .as-pulse { opacity: 0; }
+}
+
+/* -------------------------------------------------------------- sections */
+
+.as-landing .as-sec-in {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(48px, 9vw, 64px) clamp(20px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.as-landing .as-sec-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.as-landing .as-sec-head h2 {
+  margin: 0;
+  font-weight: 400;
+  font-size: clamp(30px, 4.4vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+  max-width: 760px;
+}
+
+.as-landing .as-sec-head p {
+  margin: 0;
+  font-size: clamp(15px, 1.8vw, 17px);
+  line-height: 1.6;
+  color: var(--text-3);
+  max-width: 640px;
+}
+
+/* These three used to carry a radial gradient each, which is what made their
+   joins visible: the glow reached full strength inside the section and cut off
+   at its edge. The page-wide background on .as-landing replaces all three. */
+
+/* --------------------------------------------------------------- teasers */
+
+/* A sample of the catalogue, not a browsable one: one row, no controls,
+   nothing clickable. The row is clipped rather than scrollable and fades out
+   at the trailing edge, so it reads as "there is more inside" without
+   inviting anyone to drag it. */
+
+.as-landing .as-teaser {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: clamp(40px, 7vw, 56px) 0 clamp(40px, 7vw, 56px) clamp(20px, 5vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.as-landing .as-teaser h2 {
+  margin: 0;
+  font-weight: 400;
+  font-size: clamp(24px, 3.4vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.as-landing .as-teaser-lede {
+  margin: 0 0 18px;
+  font-size: clamp(14px, 1.7vw, 16px);
+  line-height: 1.6;
+  color: var(--text-3);
+  max-width: 560px;
+}
+
+.as-landing .as-teaser-row {
+  display: flex;
+  gap: clamp(10px, 1.6vw, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* The row is deliberately wider than the section and clipped by it. */
+  -webkit-mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 72%, transparent 100%);
+}
+
+.as-landing .as-teaser-card {
+  flex: 0 0 auto;
+  width: clamp(104px, 13vw, 148px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.as-landing .as-teaser-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.as-landing .as-teaser-title {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--text-2);
+  /* Two lines, then ellipsis — a long title must not shove the row's baseline
+     around or push the card taller than its neighbours. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.as-landing .as-teaser-meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-3);
+}
+
+/* -------------------------------------------------------------- features */
+
+.as-landing .as-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 32px 24px;
+}
+
+.as-landing .as-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.as-landing .as-feature h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.as-landing .as-feature p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* --------------------------------------------------------------- pricing */
+
+.as-landing .as-sec-pricing .as-sec-in { align-items: center; }
+
+.as-landing .as-plan {
+  width: min(420px, 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 24px;
+  padding: clamp(24px, 4vw, 34px);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--royal), 0 0 60px rgba(101, 0, 159, 0.25);
+}
+
+.as-landing .as-plan-badge {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(205, 45, 245, 0.35);
+  border-radius: 100px;
+  padding: 5px 12px;
+}
+
+.as-landing .as-plan-name { font-size: 15px; color: var(--text-2); }
+
+.as-landing .as-plan-price {
+  font-size: clamp(40px, 6vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.as-landing .as-plan-price small {
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--text-3);
+  margin-left: 8px;
+}
+
+.as-landing .as-plan-tag { font-size: 14.5px; color: var(--text-2); }
+
+.as-landing .as-plan-features {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 18px;
+}
+
+.as-landing .as-plan-features li {
+  display: flex;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.as-landing .as-plan-features li::before {
+  content: '✓';
+  color: var(--accent);
+  flex: none;
+}
+
+/* Full-width CTAs are blocks, not pills: the inline button's 100px radius
+   reads as a stretched capsule at card width, so they take the card's own
+   corner radius and a taller tap target. */
+.as-landing .as-plan-cta,
+.as-landing .as-calc-cta {
+  width: 100%;
+  border-radius: 12px;
+  padding: 15px 20px;
+  font-size: 15px;
+  white-space: normal;
+}
+
+.as-landing .as-plan-cta { margin-top: 6px; }
+
+.as-landing .as-plan .as-fine { margin-top: 0; line-height: 1.5; }
+
+/* ---------------------------------------------------------- testimonials */
+
+.as-landing .as-quotes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 48px 32px;
+}
+
+.as-landing .as-quotes figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--hairline);
+}
+
+.as-landing .as-quotes blockquote {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.as-landing .as-quotes figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.as-landing .as-quote-name { font-size: 14px; font-weight: 500; }
+.as-landing .as-quote-meta { font-size: 12px; color: var(--text-3); }
+
+/* ------------------------------------------------------------ calculator */
+
+/* Glow moved to the page-wide background on .as-landing. */
+
+.as-landing .as-calc {
+  display: grid;
+  grid-template-columns: minmax(320px, 400px) minmax(320px, 1fr);
+  gap: clamp(24px, 4vw, 40px);
+  align-items: start;
+}
+
+.as-landing .as-calc-card {
+  position: sticky;
+  top: 96px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 24px;
+  padding: clamp(20px, 4vw, 32px);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--royal), 0 0 60px rgba(101, 0, 159, 0.25);
+}
+
+/* Below the two-column breakpoint the card sits above the checkboxes instead
+   of beside them, so sticking it would park it on top of the list the reader
+   is trying to tick. This must stay AFTER the rule above: same specificity,
+   so source order is what decides it. */
+@media (max-width: 859px) {
+  .as-landing .as-calc { grid-template-columns: 1fr; }
+  .as-landing .as-calc-card { position: static; }
+}
+
+.as-landing .as-calc-saving {
+  font-size: clamp(40px, 6vw, 64px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.as-landing .as-calc-basis { font-size: 13px; color: var(--text-3); }
+
+.as-landing .as-calc-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 16px;
+  font-size: 14px;
+}
+
+.as-landing .as-calc-rows div { display: flex; justify-content: space-between; gap: 12px; }
+.as-landing .as-calc-rows span:first-child { color: var(--text-3); }
+.as-landing .as-calc-rows span:last-child { color: var(--text-2); white-space: nowrap; }
+
+
+.as-landing .as-calc-pick { display: flex; flex-direction: column; gap: 12px; }
+
+.as-landing .as-calc-q { font-size: 14px; font-weight: 500; }
+
+.as-landing .as-subs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+  gap: 8px;
+}
+
+.as-landing .as-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.as-landing .as-sub[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(205, 45, 245, 0.06);
+  color: var(--text);
+}
+
+.as-landing .as-sub-box {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 5px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.as-landing .as-sub[aria-pressed='true'] .as-sub-box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.as-landing .as-sub[aria-pressed='true'] .as-sub-box::after {
+  content: '✓';
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d0713;
+}
+
+.as-landing .as-sub-text { display: flex; flex-direction: column; min-width: 0; }
+.as-landing .as-sub-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-landing .as-sub-price { font-size: 11px; color: var(--text-3); }
+
+.as-landing .as-calc-other { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.as-landing .as-calc-other label { font-size: 14px; font-weight: 500; }
+
+.as-landing .as-calc-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0 14px;
+  background: rgba(4, 2, 7, 0.6);
+  color: var(--text-3);
+}
+
+.as-landing .as-calc-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  padding: 13px 0;
+}
+
+.as-landing .as-calc-input:focus-within { border-color: var(--accent); }
+
+/* The border-colour change above is not enough on its own against the dark
+   background — this restores a real focus ring so the field is still
+   findable by anyone tabbing through rather than reading the page. */
+.as-landing .as-calc-input input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------------- faq */
+
+/* Glow moved to the page-wide background on .as-landing. */
+
+.as-landing .as-faq { display: flex; flex-direction: column; }
+
+.as-landing .as-faq-item { border-top: 1px solid var(--hairline); }
+.as-landing .as-faq-item:last-child { border-bottom: 1px solid var(--hairline); }
+
+.as-landing .as-faq-item button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 22px 0;
+  font-family: inherit;
+  font-size: clamp(16px, 2vw, 18px);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.as-landing .as-faq-mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+
+.as-landing .as-faq-mark::before,
+.as-landing .as-faq-mark::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.as-landing .as-faq-mark::after { transform: rotate(90deg); }
+
+.as-landing .as-faq-item button[aria-expanded='true'] .as-faq-mark::after { transform: rotate(0deg); }
+
+.as-landing .as-faq-answer {
+  padding: 0 0 22px;
+  max-width: 780px;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+
+.as-landing .as-faq-answer[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- signup */
+
+/* The one bloom kept per-section: it is centred below the section, so it rises
+   from the bottom edge and never draws a line of its own. */
+.as-landing .as-sec-signup { background: radial-gradient(ellipse 120% 120% at 50% 135%, rgba(101, 0, 159, 0.38) 0%, rgba(13, 7, 19, 0) 72%); }
+
+.as-landing .as-sec-signup .as-sec-in { align-items: center; gap: 28px; }
+
+.as-landing .as-signup {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+/* The closing CTA. Bigger than the inline buttons in the header — this is the
+   one the whole page has been leading to — but not full width: stretched
+   across 520px it would read as a banner rather than a button. */
+.as-landing .as-signup-cta {
+  font-size: 16px;
+  padding: 15px 34px;
+}
+
+/* The input and button rules that used to live here styled the newsletter
+   embed's own controls. The embed is gone as of 0.23.0 and nothing else in
+   this section renders a form control, so they went with it. */

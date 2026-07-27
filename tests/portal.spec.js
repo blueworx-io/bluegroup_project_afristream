@@ -22,6 +22,19 @@ test('profile section renders credentials with working copy feedback', async ({ 
   await expect(page.getByText('BabyBlue-TV')).toBeVisible();
 });
 
+test('a customer holding two licences gets a profile tab for each', async ({ page }) => {
+  // Two licences is the case the old ACF field could not express — it was
+  // capped at one — so both tabs existing together, each with its own
+  // exclusive set of credentials, is the case worth pinning down.
+  await expect(page.getByRole('button', { name: 'Profile 1' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Profile 2' })).toBeVisible();
+
+  await expect(page.getByText('BabyBlue123')).toBeVisible();
+  await page.getByRole('button', { name: 'Profile 2' }).click();
+  await expect(page.getByText('BabyBlue-TV')).toBeVisible();
+  await expect(page.getByText('BabyBlue123')).toBeHidden();
+});
+
 test('on mobile the top bar is a horizontally scrollable tab list', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
@@ -62,10 +75,9 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
     };
   }, id);
 
-  // A tab with room on both sides lands dead centre. Free Streaming no longer
-  // has one (the affiliate-only tab it used to have on its right is gone by
-  // design), so it sits with the clamped tabs below instead.
-  for (const id of ['watch', 'editor']) {
+  // A tab with room on both sides lands dead centre. Since Free Streaming left
+  // the nav, What to Watch is the only one with room on both sides.
+  for (const id of ['watch']) {
     await page.locator(`.as-tabs [data-act="nav"][data-val="${id}"]`).click();
     const m = await measure(id);
     expect(Math.abs(m.offCentre), `${id} should be centred`).toBeLessThanOrEqual(1);
@@ -85,13 +97,12 @@ test('the active tab scrolls to the centre of the bar, clamped at both ends', as
   expect(last.left).toBe(last.max);
   expect(last.offCentre).toBeGreaterThan(0);
 
-  // Free Streaming sits one tab before Download, but the strip is now narrow
-  // enough that centring it would scroll past the end of the range, so it
-  // clamps to the same right edge as the last tab rather than landing centred.
-  await page.locator('.as-tabs [data-act="nav"][data-val="apps"]').click();
-  const apps = await measure('apps');
-  expect(apps.left).toBe(apps.max);
-  expect(apps.offCentre).toBeGreaterThan(0);
+  // Editor Picks sits one tab before Download, and the strip is narrow enough
+  // that centring it would scroll past the end of the range, so it clamps to
+  // the same right edge as the last tab rather than landing centred.
+  await page.locator('.as-tabs [data-act="nav"][data-val="editor"]').click();
+  const editor = await measure('editor');
+  expect(editor.left).toBe(editor.max);
 });
 
 test('the tab bar can be dragged with a mouse without navigating', async ({ page }) => {
@@ -603,6 +614,61 @@ test('editor picks offers only the three content types, not a genre dump', async
   await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
 });
 
+// Fixture genres are Drama, Thriller, Comedy, Documentary and Drama. None of
+// them is an Action, Adventure or Animation title outright, so this also proves
+// the fallback mapping: the two Dramas answer to Thriller and the Documentary,
+// which has no shelf of its own, lands on Adventure.
+test('editor picks offers sub-categories alphabetically, with every pick on one', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  const categoryRow = section.getByRole('group', { name: 'Filter by category' });
+
+  await expect(categoryRow.getByRole('button')).toHaveText(['All', 'Adventure', 'Comedy', 'Thriller']);
+
+  // Thriller holds the real thriller and both dramas.
+  await categoryRow.getByRole('button', { name: 'Thriller', exact: true }).click();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Five')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+  await expect(page.getByText('Fixture Pick Four')).toHaveCount(0);
+
+  await categoryRow.getByRole('button', { name: 'Comedy', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+  await expect(page.getByText('Fixture Pick One')).toHaveCount(0);
+
+  // The documentary has no shelf of its own and falls back rather than vanishing.
+  await categoryRow.getByRole('button', { name: 'Adventure', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Four')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+
+  await categoryRow.getByRole('button', { name: 'All', exact: true }).click();
+  await expect(page.getByText('Fixture Pick One')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toBeVisible();
+});
+
+test('the category and type filters narrow each other', async ({ page }) => {
+  await page.goto('/preview/fixture.html');
+  await page.getByRole('button', { name: 'Editor Picks' }).click();
+  const section = page.locator('[data-screen-label="Editor Picks"]');
+  const typeRow = section.getByRole('group', { name: 'Filter by type' });
+  const categoryRow = section.getByRole('group', { name: 'Filter by category' });
+
+  // Documentaries holds one pick, mapped to Adventure — so that is the only
+  // shelf the row may offer once the type is narrowed to it.
+  await typeRow.getByRole('button', { name: 'Documentaries', exact: true }).click();
+  await expect(categoryRow.getByRole('button')).toHaveText(['All', 'Adventure']);
+
+  // Series holds the Thriller and one Drama, both on the Thriller shelf.
+  await typeRow.getByRole('button', { name: 'Series', exact: true }).click();
+  await expect(categoryRow.getByRole('button')).toHaveText(['All', 'Thriller']);
+  await categoryRow.getByRole('button', { name: 'Thriller', exact: true }).click();
+  await expect(page.getByText('Fixture Pick Two')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Five')).toBeVisible();
+  await expect(page.getByText('Fixture Pick Three')).toHaveCount(0);
+});
+
 // Bands are exclusive, not thresholds: picking 8 must not drag the 9.1 pick in
 // with it. Fixture ratings are 6.4, 7.6, 8.1, 8.5 and 9.1 — one per band, with
 // two in the 8s so a band can hold more than one.
@@ -724,6 +790,31 @@ test('profile tab shows the logged-in user credentials from the endpoint', async
   await expect(page.getByText('afri_fixture_tv')).toBeVisible();
 });
 
+test('the preview harness serves the same credentials source words as the plugin', async ({ request }) => {
+  // The harness exists to stand in for the WordPress mount, and the front end
+  // branches on this exact string — payload.source === 'fallback' is what makes
+  // it show "no profile assigned" instead of credentials. When the plugin
+  // stopped saying 'acf' and started saying 'assigned', the harness went on
+  // serving the old word, so every Profile test was exercising a state
+  // production can no longer produce. Read out of both files — through the
+  // harness itself, which serves the repo — so the two cannot drift apart again
+  // without this failing.
+  const plugin = await (await request.get('/bluegroup-project-afristream.php')).text();
+  const harness = await (await request.get('/scripts/preview-server.mjs')).text();
+
+  const pluginSource = plugin.match(/'source'\s*=>\s*\$profiles\s*\?\s*'([a-z-]+)'\s*:\s*'([a-z-]+)'/);
+  expect(pluginSource, 'the plugin still answers /credentials with a source').not.toBeNull();
+  const [, assigned, fallback] = pluginSource;
+
+  const fixtureSource = harness.match(/const CREDENTIALS_FIXTURE = \{\s*source: '([a-z-]+)'/);
+  expect(fixtureSource, 'the harness still has a credentials fixture').not.toBeNull();
+  expect(fixtureSource[1]).toBe(assigned);
+
+  const emptySource = harness.match(/:\s*\{ source: '([a-z-]+)', profiles: \[\] \}/);
+  expect(emptySource, 'the harness still has an empty-credentials answer').not.toBeNull();
+  expect(emptySource[1]).toBe(fallback);
+});
+
 test('poster grids stay multi-column on a phone inside a padded theme container', async ({ page }) => {
   // A host theme wraps shortcode output in a container with its own gutter, and
   // the portal adds its own on top. That doubled gutter is what used to drop the
@@ -760,7 +851,7 @@ test('portal never widens the page past the viewport inside a padded theme conta
   await page.goto('/');
   await page.addStyleTag({ content: 'body{padding:0 24px}' });
 
-  for (const tab of ['Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download']) {
+  for (const tab of ['Account', 'Setup', 'What to Watch', 'Editor Picks', 'Download']) {
     await page.getByRole('button', { name: tab, exact: true }).click();
     const overflow = await page.evaluate(() => {
       const de = document.documentElement;
@@ -828,13 +919,28 @@ test('the Affiliates tab is absent for a non-affiliate, not an outbound link', a
 
 // ------------------------------------------------------------ account, setup
 
-test('the nav offers exactly the visible tabs, with tips and troubleshooting hidden', async ({ page }) => {
+test('the nav offers exactly the visible tabs, with the hidden sections absent', async ({ page }) => {
   const tabs = page.locator('.as-tabs');
   await expect(tabs.getByRole('button')).toHaveText([
-    'Account', 'Setup', 'What to Watch', 'Editor Picks', 'Free Streaming', 'Download',
+    'Account', 'Setup', 'What to Watch', 'Editor Picks', 'Download',
   ]);
   await expect(tabs.getByRole('button', { name: 'Tips & Tricks' })).toHaveCount(0);
   await expect(tabs.getByRole('button', { name: 'Troubleshooting' })).toHaveCount(0);
+  await expect(tabs.getByRole('button', { name: 'Free Streaming' })).toHaveCount(0);
+});
+
+test('a hidden section is still reachable through the shortcode default tab', async ({ page }) => {
+  // Free Streaming left the nav but not the plugin: a host page pinning it
+  // with [afristream_portal default_tab="apps"] still lands on it.
+  await page.goto('/?tab=apps');
+  await expect(page.getByRole('heading', { name: 'Free Streaming' })).toBeVisible();
+});
+
+test('the header offers a way back to the site, beside the plan pill', async ({ page }) => {
+  const home = page.getByTestId('header-home');
+  await expect(home).toBeVisible();
+  await expect(home).toHaveAttribute('href', '/landing');
+  await expect(page.locator('.as-plan')).toContainText('Annual · Active');
 });
 
 test('the Account tab explains what the credentials do not unlock', async ({ page }) => {
@@ -863,260 +969,261 @@ test('the Account tab spells out the one-screen and same-household rules', async
   expect(noticeY).toBeLessThan(userY);
 });
 
-// Setup is now one tab doing what Setup and Devices used to do between them:
-// family -> which one -> install -> app, with the buying advice at step 2.
+// ------------------------------------------------------------------- setup
+// One question — which device — then three screens of steps. Devices we set
+// up by hand branch to a support card instead.
 
 const openSetup = async (page) => page.getByRole('button', { name: 'Setup' }).click();
 
-test('the Setup tab starts at step 1 with only the family picker', async ({ page }) => {
+test('the stepper numbers the stages, ticks the finished ones and marks the current', async ({ page }) => {
   await openSetup(page);
-  await expect(page.getByRole('heading', { name: 'Set Up AfriStream' })).toBeVisible();
+  const stepper = page.getByTestId('setup-progress');
 
-  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
-  await expect(page.getByTestId('setup-sub-picker')).toHaveCount(0);
+  // Nothing done yet: four numbered stages, the first current, no ticks.
+  await expect(stepper.getByRole('listitem')).toHaveCount(4);
+  await expect(stepper).toContainText('1');
+  await expect(stepper).not.toContainText('✓');
+  await expect(stepper.locator('[aria-current="step"]')).toContainText('Your device');
+
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await expect(stepper.locator('[aria-current="step"]')).toContainText('Get ready');
+  // The stage just left behind is ticked rather than numbered.
+  await expect(stepper.getByRole('listitem').first()).toContainText('✓');
+
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+  await expect(stepper.locator('[aria-current="step"]')).toContainText('AfriStream app');
+  // Three behind it, all ticked, and exactly one stage current at any time.
+  await expect(stepper.getByText('✓')).toHaveCount(3);
+  await expect(stepper.locator('[aria-current="step"]')).toHaveCount(1);
+});
+
+test('the Setup tab opens on the device grid with a four-stage progress bar', async ({ page }) => {
+  await openSetup(page);
+
+  await expect(page.getByRole('heading', { name: 'Which of these do you have?' })).toBeVisible();
+  await expect(page.getByTestId('setup-progress')).toContainText('Your device');
+  await expect(page.getByTestId('setup-progress')).toContainText('AfriStream app');
   await expect(page.getByTestId('setup-steps')).toHaveCount(0);
-  await expect(page.getByTestId('setup-codes')).toHaveCount(0);
 
-  // Three families, no more — TVs & Sticks, Android Boxes, Android Devices.
-  await expect(page.getByTestId('setup-device-picker').getByRole('button')).toHaveText([
-    /TVs & Sticks/, /Android Boxes/, /Android Devices/,
-  ]);
+  const picker = page.getByTestId('setup-device-picker');
+  await expect(picker.getByRole('button')).toHaveCount(5);
+  await expect(picker.getByRole('button', { name: /EASIEST/ })).toHaveCount(1);
+  await expect(picker.getByRole('button', { name: /EASIEST/ })).toContainText('Google TV');
 });
 
-test('the Devices tab is gone, folded into Setup', async ({ page }) => {
-  await expect(page.locator('.as-tabs').getByRole('button', { name: 'Devices' })).toHaveCount(0);
+test('picking Google TV opens step 2 of 4 with its first screen', async ({ page }) => {
   await openSetup(page);
-  // Its buying advice now lives at step 2 rather than on a tab of its own.
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
-  await expect(page.getByTestId('setup-buying')).toBeVisible();
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+
+  await expect(page.getByText('Step 2 of 4')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Two settings, then we are away' })).toBeVisible();
+
+  const steps = page.getByTestId('setup-steps');
+  await expect(steps.getByRole('listitem')).toHaveCount(3);
+  await expect(steps).toContainText('Unknown sources');
+  await expect(page.getByTestId('setup-step-note')).toContainText('only setting you touch');
 });
 
-test('step 2 offers the sub-devices with the three recommended sticks flagged', async ({ page }) => {
+test('the Fire TV route unlocks the stick first and never names the store app', async ({ page }) => {
   await openSetup(page);
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
-
-  const picker = page.getByTestId('setup-sub-picker');
-  await expect(picker).toBeVisible();
-  await expect(picker.getByRole('button')).toHaveCount(4);
-  // Three sticks carry a Recommended badge; the bare Smart TV does not.
-  await expect(picker.getByRole('button', { name: /Recommended/ })).toHaveCount(3);
-  await expect(picker.getByRole('button', { name: /Smart TV, no stick/ })).not.toContainText('Recommended');
-
-  // Steps stay hidden until a sub-device is picked.
-  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
-});
-
-test('step 2 carries the buying advice and the WiFi guidance', async ({ page }) => {
-  await openSetup(page);
-  await page.getByRole('button', { name: /Android Boxes/ }).click();
-
-  const buying = page.getByTestId('setup-buying');
-  await expect(buying).toBeVisible();
-  await expect(buying).toContainText('Android TV or Google TV');
-  await expect(buying).toContainText('memory');
-
-  // Almost everyone watches over WiFi, so that advice is in the flow — in
-  // plain words, since the people reading it are not technical.
-  const wifi = page.getByTestId('setup-wifi');
-  await expect(wifi).toBeVisible();
-  await expect(wifi).toContainText('ending in 5G');
-  await expect(wifi).toContainText('Walls');
-});
-
-test('sticks and boxes link straight to something you can buy', async ({ page }) => {
-  for (const [family, expected] of [[/TVs & Sticks/, 2], [/Android Boxes/, 2]]) {
-    await page.goto('/');
-    await openSetup(page);
-    await page.getByRole('button', { name: family }).click();
-
-    const links = page.getByTestId('setup-buy-links').locator('[data-buy-link]');
-    await expect(links).toHaveCount(expected);
-
-    for (let i = 0; i < expected; i++) {
-      const href = await links.nth(i).getAttribute('href');
-      // Real South African retailers, and safe to open in a new tab.
-      expect(href).toMatch(/^https:\/\/(www\.takealot\.com|www\.amazon\.co\.za)\//);
-      await expect(links.nth(i)).toHaveAttribute('target', '_blank');
-      await expect(links.nth(i)).toHaveAttribute('rel', /noopener/);
-    }
-  }
-
-  // Phones and tablets are something people already own — nothing to sell them.
-  await page.goto('/');
-  await openSetup(page);
-  await page.getByRole('button', { name: /Android Devices/ }).click();
-  await expect(page.getByTestId('setup-buy-links')).toHaveCount(0);
-});
-
-test('a Fire TV stick gets the Firesend route and both codes', async ({ page }) => {
-  await openSetup(page);
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
   await page.getByRole('button', { name: /Amazon Fire TV Stick/ }).click();
 
-  const steps = page.getByTestId('setup-steps');
-  await expect(steps.getByRole('heading', { name: 'Turn on Developer Options' })).toBeVisible();
-  await expect(steps.getByRole('heading', { name: 'Install Firesend and unlock the app list' })).toBeVisible();
-  await expect(steps.getByRole('heading', { name: 'Install your app and sign in' })).toBeVisible();
-
-  // The room code is called out; the app code comes from the list below.
-  await expect(steps.locator('[data-setup-code]')).toHaveText(['10325']);
-  await expect(steps.locator('[data-setup-note]').first()).toContainText('seven times');
-
-  // Amazon's newest sticks cannot install our app at all — that has to be
-  // said before someone buys the wrong one, in words a customer understands.
-  await expect(page.getByTestId('setup-buy-warning')).toContainText('4K Max');
+  await expect(page.getByRole('heading', { name: 'Unlock your stick first' })).toBeVisible();
+  await expect(page.getByTestId('setup-steps')).toContainText('ADB Debugging');
+  await expect(page.locator('body')).not.toContainText('Firesend');
 });
 
-test('a Google TV stick skips Firesend and goes straight to Downloader', async ({ page }) => {
+test('a screen with no code to type shows no code pill', async ({ page }) => {
   await openSetup(page);
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
-  await page.getByRole('button', { name: /Xiaomi TV Stick/ }).click();
+  await page.getByRole('button', { name: /Android phone or tablet/ }).click();
 
-  const steps = page.getByTestId('setup-steps');
-  await expect(steps).toContainText('Downloader');
-  await expect(steps).not.toContainText('Firesend');
-  await expect(steps.getByRole('heading', { name: 'Get Downloader' })).toBeVisible();
+  // The code pill and its copy button only exist alongside a step that carries
+  // a code. The phone route's first screen has none, so nothing should render.
+  // (The pill's own content and copy button are covered in Task 2, once
+  // navigation can reach the screen that has one.)
+  await expect(page.getByTestId('setup-code')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Copy code' })).toHaveCount(0);
 });
 
-test('an Android phone installs from the browser, not a store or Downloader', async ({ page }) => {
+test('the Android box route adds the plug-it-in step ahead of the shared ones', async ({ page }) => {
   await openSetup(page);
-  await page.getByRole('button', { name: /Android Devices/ }).click();
-  await page.getByRole('button', { name: /Android Phone/ }).click();
+  await page.getByRole('button', { name: /Android box/ }).click();
 
   const steps = page.getByTestId('setup-steps');
-  await expect(steps).toContainText('web browser');
-  await expect(steps).not.toContainText('Downloader');
-  // The app list gives addresses rather than bare codes on this route.
-  await expect(page.getByTestId('setup-codes')).toContainText('aftv.news/617725');
+  await expect(steps.getByRole('listitem')).toHaveCount(4);
+  await expect(steps.getByRole('listitem').first()).toContainText('spare HDMI port');
 });
 
-test('a bare Smart TV is told it has to be registered by us', async ({ page }) => {
+test('the three screens advance to the finished card and back again', async ({ page }) => {
   await openSetup(page);
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
-  await page.getByRole('button', { name: /Smart TV, no stick/ }).click();
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
 
-  const steps = page.getByTestId('setup-steps');
-  await expect(steps).toContainText('MAC address');
-  await expect(steps).toContainText('support@afristream.io');
-  // No Downloader codes on this route — the apps come from the TV's own store.
-  await expect(page.getByTestId('setup-codes')).not.toContainText('617725');
-  await expect(page.getByTestId('setup-codes')).toContainText('IBO Player');
+  await expect(page.getByText('Step 2 of 4')).toBeVisible();
+  await page.getByTestId('setup-next').click();
+  await expect(page.getByRole('heading', { name: 'Install the Downloader app' })).toBeVisible();
+  await expect(page.getByText('Step 3 of 4')).toBeVisible();
+
+  await page.getByTestId('setup-next').click();
+  await expect(page.getByRole('heading', { name: 'Install AfriStream and sign in' })).toBeVisible();
+  await expect(page.getByTestId('setup-next')).toContainText('Done — I am watching');
+
+  await page.getByTestId('setup-next').click();
+  await expect(page.getByTestId('setup-done')).toContainText('You are all set');
+  await expect(page.getByText('All done')).toBeVisible();
+
+  // Back from the finished card returns to the last screen, not the first.
+  await page.getByTestId('setup-back').click();
+  await expect(page.getByRole('heading', { name: 'Install AfriStream and sign in' })).toBeVisible();
 });
 
-test('the app list always offers three apps to fall back through', async ({ page }) => {
+test('back from the first screen returns to the device grid', async ({ page }) => {
   await openSetup(page);
-  await page.getByRole('button', { name: /Android Boxes/ }).click();
-  await page.getByRole('button', { name: /Google TV box/ }).click();
-
-  const codes = page.getByTestId('setup-codes');
-  await expect(codes.locator('[data-setup-code-row]')).toHaveCount(3);
-  await expect(codes).toContainText('617725');
-  await expect(codes).toContainText('9469460');
-  await expect(codes).toContainText('6573365');
-  await expect(codes).toContainText('IBO Player');
-});
-
-test('the progress rail tracks the flow and walks back through it', async ({ page }) => {
-  await openSetup(page);
-  const rail = page.getByTestId('setup-rail');
-  await expect(rail.getByRole('listitem')).toHaveCount(3);
-
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
-  await page.getByRole('button', { name: /Xiaomi TV Stick/ }).click();
+  await page.getByRole('button', { name: /Android box/ }).click();
   await expect(page.getByTestId('setup-steps')).toBeVisible();
-  await expect(page.getByTestId('setup-chosen')).toContainText('Xiaomi TV Stick 4K');
 
-  // Back to step 2 keeps the family, drops the model.
-  await rail.getByRole('button', { name: 'Back to Which one' }).click();
-  await expect(page.getByTestId('setup-sub-picker')).toBeVisible();
-  await expect(page.getByTestId('setup-chosen')).toContainText('TVs & Sticks');
-
-  // Start again clears both.
-  await page.getByRole('button', { name: 'Start again' }).click();
+  await page.getByTestId('setup-back').click();
   await expect(page.getByTestId('setup-device-picker')).toBeVisible();
-  await expect(page.getByTestId('setup-chosen')).toHaveCount(0);
+  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
 });
 
-test('Setup explains why a device is needed, and only at step 1', async ({ page }) => {
+test('change device returns to the grid from part-way through a route', async ({ page }) => {
   await openSetup(page);
-  const why = page.getByTestId('why-a-device');
-  await expect(why).toBeVisible();
-  await expect(why).toContainText('a login, not a box');
-  await expect(why).toContainText('player app');
-  await expect(why).toContainText('has to run on something');
-
-  // Once you are in the flow the rationale is just clutter.
-  await page.getByRole('button', { name: /Android Devices/ }).click();
-  await expect(page.getByTestId('why-a-device')).toHaveCount(0);
-});
-
-test('the flow is three steps, with the app list folded into the last one', async ({ page }) => {
-  await openSetup(page);
-  await expect(page.getByTestId('setup-rail').getByRole('listitem')).toHaveCount(3);
-
-  await page.getByRole('button', { name: /Android Devices/ }).click();
-  await page.getByRole('button', { name: /Android Phone/ }).click();
-
-  // One current step, and choosing an app sits inside it rather than being a
-  // step of its own — it is part of installing, not separate from it.
-  const current = page.getByTestId('setup-rail').locator('[data-rail-current="1"]');
-  await expect(current).toHaveCount(1);
-  await expect(current).toContainText('Install it');
-
-  await expect(page.locator('[data-setup-step="3"]')).toContainText('Step 3 of 3');
-  await expect(page.locator('[data-setup-step="4"]')).toHaveCount(0);
-  await expect(page.locator('[data-setup-step="3"]').getByTestId('setup-apps')).toBeVisible();
-});
-
-test('the progress rail sticks below the top bar while the steps scroll', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await openSetup(page);
-  await page.getByRole('button', { name: /TVs & Sticks/ }).click();
   await page.getByRole('button', { name: /Amazon Fire TV Stick/ }).click();
+  await page.getByTestId('setup-next').click();
 
-  await page.evaluate(() => window.scrollTo(0, 1400));
-  const geom = await page.evaluate(() => {
-    const rail = document.querySelector('.as-setup-rail');
-    const header = document.querySelector('.afristream-portal header');
-    const cs = getComputedStyle(rail);
-    return {
-      gapUnderHeader: Math.round(rail.getBoundingClientRect().top - header.getBoundingClientRect().bottom),
-      paddingTop: cs.paddingTop,
-      paddingBottom: cs.paddingBottom,
-      opaque: cs.backgroundColor,
-    };
-  });
+  await expect(page.getByTestId('setup-chosen')).toContainText('Amazon Fire TV Stick');
+  await page.getByRole('button', { name: 'Change device' }).click();
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
 
-  expect(geom.gapUnderHeader).toBeLessThanOrEqual(1);
-  // Even space above and below, and opaque so the steps do not show through.
-  expect(geom.paddingTop).toBe(geom.paddingBottom);
-  expect(geom.opaque).not.toBe('rgba(0, 0, 0, 0)');
+  // And picking a different one starts that route from its own first screen.
+  await page.getByRole('button', { name: /Android phone or tablet/ }).click();
+  await expect(page.getByRole('heading', { name: 'One minute of getting ready' })).toBeVisible();
 });
 
-test('the setup flow links back to the Account tab for the login details', async ({ page }) => {
+test('the finished card sends you to What to Watch', async ({ page }) => {
   await openSetup(page);
-  await page.getByRole('button', { name: /Android Devices/ }).click();
-  await page.getByRole('button', { name: /Android Tablet/ }).click();
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
 
-  await page.getByRole('button', { name: 'Open Account' }).click();
-  await expect(page.getByRole('heading', { name: 'Your AfriStream App Profile Details' })).toBeVisible();
+  await page.getByRole('button', { name: 'See what to watch' }).click();
+  await expect(page.locator('[data-screen-label="What to Watch"]')).toBeVisible();
 });
 
-test('the Download tab covers both mobile platforms', async ({ page }) => {
-  await page.getByRole('button', { name: 'Download' }).click();
+test('the copy button on the Downloader code reports back', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await page.getByTestId('setup-next').click();
+  await page.getByTestId('setup-next').click();
+
+  // All four players are offered together, not one code with the rest in a
+  // footnote — any of them signs in with the same username and password.
+  await expect(page.getByTestId('setup-code')).toHaveText(['6573365', '617725', '9469460', '569138']);
+  await expect(page.getByTestId('setup-code-options')).toContainText('IPTV Player');
+  await expect(page.getByTestId('setup-code-options')).toContainText('Sky Live');
+  await expect(page.getByTestId('setup-steps')).toContainText('Any of the four works');
+
+  await page.getByRole('button', { name: 'Copy code' }).nth(2).click();
+  await expect(page.getByRole('button', { name: 'Copied' })).toHaveCount(1);
+  await expect(page.getByTestId('setup-step-note')).toContainText('work in all of them');
+});
+
+test('a smart TV branches to the support card instead of steps', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Smart TV, nothing plugged in/ }).click();
+
+  await expect(page.getByTestId('setup-support')).toContainText('We do this part for you');
+  await expect(page.getByRole('heading', { name: 'We set this one up for you' })).toBeVisible();
+  await expect(page.getByTestId('setup-steps')).toHaveCount(0);
+  await expect(page.getByTestId('setup-next')).toHaveCount(0);
+
+  await expect(page.getByRole('link', { name: 'Email support' }))
+    .toHaveAttribute('href', 'mailto:support@afristream.io');
+
+  // The support card's only way onward, other than the email, is back to the grid.
+  await page.getByRole('button', { name: 'Change device' }).click();
+  await expect(page.getByTestId('setup-device-picker')).toBeVisible();
+});
+
+test('the device grid offers nothing we cannot actually set up', async ({ page }) => {
+  await openSetup(page);
+
+  // iPhone, iPad and Roku were dropped: they cannot install the app at all,
+  // so offering them only led people to a card telling them so.
+  await expect(page.getByTestId('setup-device-picker')).not.toContainText('iPhone');
+  await expect(page.getByTestId('setup-device-picker')).not.toContainText('Roku');
+});
+
+test('the buying advice sits collapsed under the device grid until asked for', async ({ page }) => {
+  await openSetup(page);
+
+  const panel = page.getByTestId('setup-buying');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Buying a device? What to look for');
+  await expect(panel.getByRole('listitem')).toHaveCount(0);
+
+  await panel.getByRole('button').click();
+  await expect(panel.getByRole('listitem').first()).toContainText('WiFi 6');
+  await expect(panel).toContainText('4K Max and 4K Plus are the last that work');
+});
+
+test('the buying advice keeps the retailer links and the WiFi tips', async ({ page }) => {
+  await openSetup(page);
+  await page.getByTestId('setup-buying').getByRole('button').click();
+
+  const links = page.getByTestId('setup-buy-links').getByRole('link');
+  await expect(links).toHaveCount(2);
+  await expect(links.first()).toHaveAttribute('target', '_blank');
+  await expect(links.first()).toHaveAttribute('rel', /noopener/);
+
+  await expect(page.getByTestId('setup-wifi')).toContainText('ending in 5G');
+});
+
+test('the buying advice is only on the device grid, not part-way through a route', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Google TV or Android TV stick/ }).click();
+  await expect(page.getByTestId('setup-buying')).toHaveCount(0);
+});
+
+// The Download tab follows the Setup tab's shape: pick the device you are
+// holding, then read only the steps for it.
+
+const openDownload = async (page) => page.getByRole('button', { name: 'Download' }).click();
+
+test('the Download tab opens on a platform picker, not both platforms at once', async ({ page }) => {
+  await openDownload(page);
   await expect(page.getByRole('heading', { name: 'Add AfriStream to Your Device' })).toBeVisible();
 
-  const ios = page.getByTestId('download-ios');
-  await expect(ios).toContainText('Safari');
-  await expect(ios).toContainText('Add to Home Screen');
-
-  const android = page.getByTestId('download-android');
-  await expect(android).toContainText('Chrome');
-  await expect(android).toContainText('Add to Home screen');
+  await expect(page.getByTestId('download-picker').getByRole('button')).toHaveCount(2);
+  await expect(page.getByTestId('download-steps')).toHaveCount(0);
 
   // It points at Setup for the thing it is not: installing the streaming app.
   await expect(page.locator('[data-screen-label="Download"]')).toContainText('Setup');
+});
+
+test('picking iPhone shows the Safari route and nothing about Chrome', async ({ page }) => {
+  await openDownload(page);
+  await page.getByTestId('download-ios').click();
+
+  const steps = page.getByTestId('download-steps');
+  await expect(steps.getByRole('listitem')).toHaveCount(5);
+  await expect(steps).toContainText('Add to Home Screen');
+  await expect(steps).not.toContainText('three-dot');
+  await expect(page.getByTestId('download-note')).toContainText('must use Safari');
+});
+
+test('picking Android shows the Chrome route, and Back returns to the picker', async ({ page }) => {
+  await openDownload(page);
+  await page.getByTestId('download-android').click();
+
+  await expect(page.getByTestId('download-steps')).toContainText('Install app');
+  await expect(page.getByTestId('download-chosen')).toContainText('Android phone or tablet');
+
+  await page.getByTestId('download-back').click();
+  await expect(page.getByTestId('download-picker')).toBeVisible();
+  await expect(page.getByTestId('download-steps')).toHaveCount(0);
 });
 
 // ---------------------------------------------------------------- apps data
@@ -1188,7 +1295,7 @@ test('no content category carries more than four apps', async ({ request }) => {
 });
 
 test('the Apps tab renders the app grid from the database', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await expect(page.getByRole('heading', { name: 'Free Streaming' })).toBeVisible();
 
   const grid = page.getByTestId('apps-grid');
@@ -1202,7 +1309,7 @@ test('the Apps tab renders the app grid from the database', async ({ page }) => 
 test('the Apps tab reports a failed database load instead of rendering an empty grid', async ({ page }) => {
   await page.route('**/data/apps.json', (route) => route.fulfill({ status: 500, body: 'boom' }));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
 
   await expect(page.getByTestId('apps-error')).toBeVisible();
   await expect(page.getByTestId('apps-grid')).toHaveCount(0);
@@ -1210,7 +1317,7 @@ test('the Apps tab reports a failed database load instead of rendering an empty 
 });
 
 test('the content filter narrows the app grid to that category', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const grid = page.getByTestId('apps-grid');
   await expect(grid).toBeVisible();
 
@@ -1226,14 +1333,14 @@ test('the content filter narrows the app grid to that category', async ({ page }
 test('the region and device controls are both gone', async ({ page }) => {
   // Category is the only filter left. Devices are still shown on each card and
   // stepped through in the drawer — picking one is the Setup tab's job.
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await expect(page.getByTestId('apps-grid')).toBeVisible();
   await expect(page.getByLabel('Region')).toHaveCount(0);
   await expect(page.getByTestId('apps-device-filters')).toHaveCount(0);
 });
 
 test('the content filters offer only Movies, Series and Sport', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await expect(page.getByTestId('apps-content-filters').getByRole('button'))
     .toHaveText(['All', 'Movies', 'Series', 'Sport']);
 });
@@ -1258,7 +1365,7 @@ test('a category with nothing behind it shows an empty state that resets', async
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(stub) }));
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-content-filters').getByRole('button', { name: 'Movies', exact: true }).click();
 
   const empty = page.getByTestId('apps-empty');
@@ -1271,7 +1378,7 @@ test('a category with nothing behind it shows an empty state that resets', async
 });
 
 test('the active content pill is marked pressed for assistive tech', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const pills = page.getByTestId('apps-content-filters');
   await expect(pills.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await pills.getByRole('button', { name: 'Series', exact: true }).click();
@@ -1280,7 +1387,7 @@ test('the active content pill is marked pressed for assistive tech', async ({ pa
 });
 
 test('app cards show cost, blurb, content and devices', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await expect(card).toBeVisible();
 
@@ -1294,7 +1401,7 @@ test('app cards show cost, blurb, content and devices', async ({ page }) => {
 });
 
 test('clicking an app card opens a drawer with install steps and an official link', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const drawer = page.getByTestId('detail-drawer');
@@ -1311,7 +1418,7 @@ test('clicking an app card opens a drawer with install steps and an official lin
 });
 
 test('the app drawer lists a step for every device the app supports', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
 
   const { apps } = await (await page.request.get('/data/apps.json')).json();
@@ -1329,7 +1436,7 @@ test('the app drawer shows an install override where one exists and the default 
   const plain = app.devices.filter((d) => d !== 'consoles');
   expect(plain.length).toBeGreaterThan(0);
 
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="red-bull-tv"]').click();
   const drawer = page.getByTestId('detail-drawer');
   await expect(drawer).toBeVisible();
@@ -1348,7 +1455,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
   const detailCalls = [];
   page.on('request', (r) => { if (r.url().includes('/api/detail')) detailCalls.push(r.url()); });
 
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   await page.getByTestId('apps-grid').locator('[data-app-id="tubi"]').click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
 
@@ -1356,7 +1463,7 @@ test('the app drawer never requests a TMDB synopsis', async ({ page }) => {
 });
 
 test('the app drawer closes on Escape and returns focus to its card', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const card = page.getByTestId('apps-grid').locator('[data-app-id="tubi"]');
   await card.click();
   await expect(page.getByTestId('detail-drawer')).toBeVisible();
@@ -1367,7 +1474,7 @@ test('the app drawer closes on Escape and returns focus to its card', async ({ p
 });
 
 test('an app card opens its drawer from the keyboard', async ({ page }) => {
-  await page.getByRole('button', { name: 'Free Streaming', exact: true }).click();
+  await page.goto('/?tab=apps');
   const card = page.getByTestId('apps-grid').locator('[data-app-id="plex"]');
   await card.focus();
   await page.keyboard.press('Enter');
@@ -1569,9 +1676,61 @@ test('an affiliate gets the tab, their referral link and their rate', async ({ p
   await expect(page.getByTestId('affiliate-referral')).toHaveText('https://afristream.io/?ref=FIXTURE1');
   await expect(page.getByTestId('affiliate-rate')).toHaveText('You earn 30% of every payment, for as long as they stay subscribed.');
   await expect(page.getByTestId('affiliate-portal-link')).toHaveAttribute('href', 'https://afristream.surecart.com/affiliates/');
+  await expect(page.getByTestId('affiliate-portal-link')).toHaveText('Open Dashboard ↗');
 
-  await page.getByRole('button', { name: 'Copy link' }).click();
+  // First of the three copy buttons on the card — the referral link's own.
+  await page.getByRole('button', { name: 'Copy link' }).first().click();
   await expect(page.getByRole('button', { name: 'Copied!' })).toBeVisible();
+});
+
+test('the heading and the dashboard button share a line', async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto('/preview/affiliate.html');
+
+  const heading = await page.getByRole('heading', { name: 'Your affiliate dashboard' }).boundingBox();
+  const button = await page.getByTestId('affiliate-portal-link').boundingBox();
+  // Side by side: the button starts to the right of the heading, not under it.
+  expect(button.x).toBeGreaterThan(heading.x + heading.width);
+  expect(button.y).toBeLessThan(heading.y + heading.height + button.height);
+});
+
+test('on a narrow screen the dashboard button drops under the text', async ({ page }) => {
+  await page.setViewportSize({ width: 380, height: 900 });
+  await page.goto('/preview/affiliate.html');
+
+  const rate = await page.getByTestId('affiliate-rate').boundingBox();
+  const button = await page.getByTestId('affiliate-portal-link').boundingBox();
+  expect(button.y).toBeGreaterThanOrEqual(rate.y + rate.height);
+});
+
+test('the buy links sit under the referral link carrying the referral code', async ({ page }) => {
+  await page.goto('/preview/affiliate.html');
+
+  const subscription = 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=e204f70c-35dc-498c-b2b4-e850e6d84ac8&line_items%5B0%5D%5Bquantity%5D=1&ref=FIXTURE1';
+  const setup = 'https://afristream.io/checkout/?line_items%5B0%5D%5Bprice_id%5D=8b2a7b7a-cf23-4f96-97f6-47acfe925412&line_items%5B0%5D%5Bquantity%5D=1&ref=FIXTURE1';
+
+  // Shown shortened so it can be read at a glance, but the link itself — and
+  // what the copy button hands over — is the full, exact URL.
+  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveAttribute('href', subscription);
+  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveAttribute('href', setup);
+  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveText('afristream.io/checkout/?…&ref=FIXTURE1');
+  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveText('afristream.io/checkout/?…&ref=FIXTURE1');
+
+  const buys = page.getByTestId('affiliate-buy-links');
+  await expect(buys).toContainText('AfriStream Subscription (For users that have their own device)');
+  await expect(buys).toContainText('AfriStream Subscription & Setup (For users that need us to buy a device for them)');
+
+  const referralBox = await page.getByTestId('affiliate-referral').boundingBox();
+  const buysBox = await buys.boundingBox();
+  expect(buysBox.y).toBeGreaterThan(referralBox.y);
+
+  // Three copy buttons on the card: referral, then the two buy links. Copying
+  // a buy link turns that one — and only that one — into "Copied!".
+  const copyButtons = page.getByRole('button', { name: 'Copy link' });
+  await expect(copyButtons).toHaveCount(3);
+  await copyButtons.nth(1).click();
+  await expect(page.getByRole('button', { name: 'Copied!' })).toHaveCount(1);
+  await expect(copyButtons).toHaveCount(2);
 });
 // Subscriptions are annual. £120 a year at 30% is £36 a renewal. Sign up five
 // people a year and every one of them renews: year 1 is five payments (£180),

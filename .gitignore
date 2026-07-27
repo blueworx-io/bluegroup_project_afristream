@@ -7,3 +7,7 @@ test-results/
 
 # Build-time cache for the sports TV guide grabber (npm run sync-listings).
 .cache/
+
+# The cleared IMDb challenge from `npm run sync-watchlist -- --supervised`.
+# Session cookies for an account — never commit.
+.imdb-session.json

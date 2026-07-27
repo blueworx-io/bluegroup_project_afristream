@@ -454,3 +454,35 @@ function afristream_affiliate_rate_field() {
 	);
 	echo '<p class="description">' . esc_html__( 'The commission rate you set as the store default in SureCart. Affiliates with a custom rate use theirs — this only fills in for everyone else, because SureCart does not expose the store default to plugins. Saving takes effect immediately; a rate changed in SureCart itself appears within a minute.', 'bluegroup-project-afristream' ) . '</p>';
 }
+
+/**
+ * Declare the affiliate integration on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_affiliate_registry( $items ) {
+	$items[] = array(
+		'group'  => 'Affiliates',
+		'name'   => 'SureCart affiliation lookup',
+		'type'   => 'integration',
+		'handle' => '\SureCart\Models\Affiliation',
+		'file'   => 'includes/affiliates.php',
+		'status' => class_exists( '\SureCart\Models\Affiliation' )
+			? array( 'state' => 'ok', 'label' => __( 'SureCart active', 'bluegroup-project-afristream' ) )
+			: array( 'state' => 'off', 'label' => __( 'SureCart inactive — the affiliate tab is hidden', 'bluegroup-project-afristream' ) ),
+	);
+
+	// Confirmed against the register_setting() call above: the option this
+	// plugin actually reads and writes is afristream_affiliate_default_rate.
+	$items[] = array(
+		'group'  => 'Affiliates',
+		'name'   => 'Default commission rate',
+		'type'   => 'setting',
+		'handle' => 'afristream_affiliate_default_rate',
+		'file'   => 'includes/affiliates.php',
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_affiliate_registry' );

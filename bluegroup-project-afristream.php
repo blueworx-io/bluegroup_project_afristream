@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.18.1
+ * Version:     0.23.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -13,7 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AFRISTREAM_PORTAL_VERSION', '0.18.1' );
+if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.23.0' );
+}
 
 /**
  * Most Editor Picks to resolve. One TMDB round-trip per pick on a cold cache,
@@ -22,9 +24,15 @@ define( 'AFRISTREAM_PORTAL_VERSION', '0.18.1' );
  */
 define( 'AFRISTREAM_PORTAL_PICK_CAP', 300 );
 
+require_once plugin_dir_path( __FILE__ ) . 'includes/fields.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/license-log.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/license-admin.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/licenses.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/shortcodes.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/affiliates.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/auto-assign.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/configurations.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/landing.php';
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
@@ -79,7 +87,7 @@ function afristream_portal_shortcode( $atts ) {
 	wp_add_inline_style( 'bluegroup-project-afristream', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s" data-home-url="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
@@ -88,7 +96,8 @@ function afristream_portal_shortcode( $atts ) {
 		esc_url( rest_url( 'afristream/v1/credentials' ) ),
 		esc_url( rest_url( 'afristream/v1/affiliate' ) ),
 		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
-		esc_attr( wp_create_nonce( 'wp_rest' ) )
+		esc_attr( wp_create_nonce( 'wp_rest' ) ),
+		esc_url( home_url( '/' ) )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
@@ -957,16 +966,16 @@ function afristream_portal_register_rest_routes() {
 }
 
 /**
- * The current user's app credentials, one entry per assigned license, for the
+ * The current user's app credentials, one entry per assigned licence, for the
  * portal's Profile tab. Returns source:"fallback" with an empty list when no
- * license is assigned (or ACF is unavailable), so the front-end can show a
- * clear "no profile assigned" state instead of stale placeholders.
+ * licence is assigned, so the front-end can show a clear "no profile assigned"
+ * state instead of stale placeholders.
  */
 function afristream_portal_credentials_data() {
 	$profiles = afristream_portal_user_credentials();
 	return rest_ensure_response(
 		array(
-			'source'   => $profiles ? 'acf' : 'fallback',
+			'source'   => $profiles ? 'assigned' : 'fallback',
 			'profiles' => $profiles,
 		)
 	);
@@ -1132,3 +1141,97 @@ function afristream_portal_action_links( $links ) {
 	return $links;
 }
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'afristream_portal_action_links' );
+
+/**
+ * Declare the portal's own surface on the Configurations page.
+ *
+ * @param array $items Registry entries so far.
+ * @return array
+ */
+function afristream_register_portal_registry( $items ) {
+	$items[] = array(
+		'group'  => 'Portal',
+		'name'   => 'Portal shortcode',
+		'type'   => 'shortcode',
+		'handle' => 'afristream_portal',
+		'file'   => 'bluegroup-project-afristream.php',
+		'status' => array(
+			'state' => 'ok',
+			'label' => __( 'Attributes: default_tab, show_sport', 'bluegroup-project-afristream' ),
+		),
+	);
+
+	$routes = array(
+		'afristream/v1/watch'        => 'What to Watch data',
+		'afristream/v1/editor-picks' => 'Editor Picks data',
+		'afristream/v1/detail'       => 'Title detail lookup',
+		'afristream/v1/credentials'  => 'Customer app credentials',
+		'afristream/v1/affiliate'    => 'Affiliate status and rates',
+	);
+	foreach ( $routes as $handle => $name ) {
+		$items[] = array(
+			'group'  => 'Portal',
+			'name'   => $name,
+			'type'   => 'rest',
+			'handle' => $handle,
+			'file'   => 'bluegroup-project-afristream.php',
+		);
+	}
+
+	$has_key = '' !== (string) afristream_portal_tmdb_key();
+	$items[] = array(
+		'group'  => 'Content sources',
+		'name'   => 'TMDB catalogue',
+		'type'   => 'setting',
+		'handle' => 'afristream_tmdb_api_key',
+		'file'   => 'bluegroup-project-afristream.php',
+		'status' => $has_key
+			? array( 'state' => 'ok', 'label' => __( 'Connected — trending titles are live', 'bluegroup-project-afristream' ) )
+			: array( 'state' => 'warn', 'label' => __( 'No key — the built-in lists are showing', 'bluegroup-project-afristream' ) ),
+	);
+
+	$picks = count( afristream_portal_editor_ids() );
+	$items[] = array(
+		'group'  => 'Content sources',
+		'name'   => 'Editor Picks list',
+		'type'   => 'setting',
+		'handle' => 'afristream_editor_picks_ids',
+		'file'   => 'bluegroup-project-afristream.php',
+		'status' => array(
+			'state' => $picks ? 'ok' : 'warn',
+			/* translators: %d: number of curated titles. */
+			'label' => sprintf( _n( '%d curated title', '%d curated titles', $picks, 'bluegroup-project-afristream' ), $picks ),
+		),
+	);
+
+	$items[] = array(
+		'group'  => 'Content sources',
+		'name'   => 'Sport fixtures and broadcasters',
+		'type'   => 'integration',
+		'handle' => 'ESPN + TheSportsDB + baked listings',
+		'file'   => 'bluegroup-project-afristream.php',
+		'status' => array(
+			'state' => 'ok',
+			'label' => __( 'Keyless public feeds — no configuration', 'bluegroup-project-afristream' ),
+		),
+	);
+
+	$items[] = array(
+		'group'  => 'Admin UI',
+		'name'   => 'Settings page',
+		'type'   => 'page',
+		'handle' => 'options-general.php?page=bluegroup-project-afristream',
+		'file'   => 'bluegroup-project-afristream.php',
+	);
+
+	$items[] = array(
+		'group'  => 'Admin UI',
+		'name'   => 'Configurations page',
+		'type'   => 'page',
+		'handle' => 'admin.php?page=afristream-configurations',
+		'file'   => 'includes/configurations.php',
+	);
+
+	return $items;
+}
+add_filter( 'afristream_registry', 'afristream_register_portal_registry' );

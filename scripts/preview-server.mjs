@@ -102,10 +102,14 @@ const EDITOR_FIXTURE = {
   ],
 };
 
-// Deterministic credentials fixture for the Profile tab (mirrors the plugin's
-// afristream/v1/credentials, which is ACF-backed and per-user in production).
+// Deterministic credentials fixture for the Profile tab. Mirrors the plugin's
+// afristream/v1/credentials, which is per-user in production and reports
+// source: 'assigned' when the customer holds at least one licence, 'fallback'
+// when they hold none — the value this harness serves has to be the same word,
+// or the front end is exercised against a state production never produces.
+// tests/portal.spec.js asserts the two agree, so they cannot drift apart again.
 const CREDENTIALS_FIXTURE = {
-  source: 'acf',
+  source: 'assigned',
   profiles: [
     { label: 'Profile 1', user: 'afri_fixture', pass: 'Fx9Kp2Lm' },
     { label: 'Profile 2', user: 'afri_fixture_tv', pass: 'Tv4Qr8Zn' },
@@ -665,7 +669,23 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    if (path === '/' || path === '/index.html') path = '/preview/index.html';
+    // Sections hidden from the portal nav — Free Streaming, Tips, Troubleshooting
+    // — are still reachable in WordPress through the shortcode's default_tab.
+    // ?tab= is how the harness reaches them, since there is no nav button to
+    // click any more.
+    if (path === '/landing' || path === '/landing/') path = '/preview/landing.html';
+    // The landing mirror links its Dashboard button at the portal page's
+    // permalink, which in WordPress is whatever page hosts the shortcode. The
+    // harness has no pages, so /portal/ is that permalink here.
+    if (path === '/portal' || path === '/portal/') path = '/';
+    if (path === '/' || path === '/index.html') {
+      const tab = url.searchParams.get('tab');
+      const html = (await readFile(join(ROOT, 'preview', 'index.html'), 'utf8'))
+        .replace('data-default-tab="profile"', `data-default-tab="${encodeURIComponent(tab || 'profile')}"`);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+      return;
+    }
 
     const file = normalize(join(ROOT, path));
     if (!file.startsWith(ROOT + sep)) {
