@@ -25,6 +25,31 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   in the log was handed out by `backfill` or `profile`, never once by
   `auto-assign`.
 
+### Removed
+
+- **The ACF readiness scanner.** It walked every active plugin, the must-use
+  directory, the active theme and its parent, and ran three table scans over
+  Elementor's stored JSON and post content, to answer one question: is it safe
+  to deactivate ACF yet?
+
+  ACF was deactivated on 27 July. From then on every branch of the panel gave
+  advice about a decision already taken — the live site read *"Something still
+  uses ACF — do not deactivate it yet"* for four days after ACF was switched
+  off. A warning that is plainly stale is one people learn to scroll past,
+  which is worse than no warning.
+
+  A review confirmed there is nothing left for it to find. This plugin makes no
+  ACF calls; `includes/fields.php` replaced every one. Of the two dependants the
+  scanner ever flagged, the headless enhancements plugin guards both its call
+  sites with `function_exists( 'get_fields' )` and degrades to an empty result,
+  and SureCart has run without a fatal since ACF went.
+
+  What replaces it is the one hazard that was ever specific to this plugin: if
+  ACF is reinstalled it would register the licence post type alongside this
+  plugin's own and the editor would show every field twice. That is now a
+  function-name check and a short note, in place of roughly 670 lines of
+  scanner and 290 lines of the test scaffolding that stood it up.
+
 ## [0.24.0] - 2026-07-27
 
 ### Added

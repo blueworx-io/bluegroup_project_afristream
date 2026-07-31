@@ -23,7 +23,6 @@ define( 'MB_IN_BYTES', 1048576 );
  * common case, and the scan has to treat a missing directory as nothing to read
  * rather than as something it failed to read.
  */
-define( 'WP_PLUGIN_DIR', __DIR__ . '/fixtures/plugins' );
 define( 'WPMU_PLUGIN_DIR', __DIR__ . '/fixtures/mu-plugins' );
 define( 'AF_FIXTURE_THEMES', __DIR__ . '/fixtures/themes' );
 
@@ -923,61 +922,25 @@ class AF_Fake_WPDB {
 	/** @var string Table name, interpolated into the statement by the plugin. */
 	public $postmeta = 'wp_postmeta';
 
-	/** @var string The other table name the ACF audit's joins name. */
-	public $posts = 'wp_posts';
-
 	/**
 	 * @var string What the last statement went wrong with, '' when it did not.
-	 *             Real $wpdb clears this at the start of every query and sets it
-	 *             on failure, and the ACF audit reads it to tell a genuinely
-	 *             empty result apart from a query that never ran.
+	 *             Real $wpdb clears this at the start of every query, so this
+	 *             does too — code that reads it after a call must see this
+	 *             call's result and not the one before it.
 	 */
 	public $last_error = '';
-
-	/** @var string Which modelled SELECT to fail, '' for none, '*' for all. */
-	private $fail_query = '';
-
-	/** @var string What to report in last_error when one fails. */
-	private $fail_message = '';
 
 	/** @var bool True while a query is running, so nested ones fire no actions. */
 	private $in_query = false;
 
 	/**
-	 * Disarm any seeded failure and clear the error, between tests.
+	 * Clear the error between tests, so one test's failed statement cannot be
+	 * read as the next test's.
 	 */
 	public function af_reset() {
-		$this->fail_query   = '';
-		$this->fail_message = '';
 		$this->last_error   = '';
 	}
 
-	/**
-	 * Make a modelled SELECT fail the way a timed-out query does: null back, and
-	 * a message in last_error.
-	 *
-	 * @param string $which        elementor, acf_posts, content, or '*' for all.
-	 * @param string $message      What last_error should report.
-	 */
-	public function af_fail_query( $which = '*', $message = 'MySQL server has gone away' ) {
-		$this->fail_query   = (string) $which;
-		$this->fail_message = (string) $message;
-	}
-
-	/**
-	 * Make a modelled SELECT fail the way $wpdb->ready being false does: null
-	 * back from get_results(), but last_error left empty, because query() never
-	 * ran far enough to set it. Deliberately distinct from af_fail_query(),
-	 * which always leaves a message behind — this is the shape that used to be
-	 * indistinguishable from "nothing found" because last_error was the only
-	 * thing the audit checked.
-	 *
-	 * @param string $which elementor, acf_posts, content, or '*' for all.
-	 */
-	public function af_fail_query_silently( $which = '*' ) {
-		$this->fail_query   = (string) $which;
-		$this->fail_message = '';
-	}
 
 	/**
 	 * Substitute %s and %d exactly as many times as there are arguments. A
@@ -1091,263 +1054,9 @@ class AF_Fake_WPDB {
 		return addcslashes( (string) $text, '_%\\' );
 	}
 
-	/**
-	 * The three SELECTs the ACF-readiness audit issues, and nothing else.
-	 *
-	 * Modelled to the same standard as the UPDATE above: narrow on purpose, and
-	 * it throws at anything it does not recognise rather than guessing at an
-	 * answer. The point of these three is that they can fail — a leading-wildcard
-	 * LIKE across postmeta is the query that times out on a real site — so this
-	 * returns null and sets last_error when armed, because null cast to an empty
-	 * array is precisely how a timeout used to be reported as a clean site.
-	 *
-	 * @param string $sql Already through prepare() where it takes arguments.
-	 * @return array<int,object>|null Rows, or null when the query failed.
-	 */
-	public function get_results( $sql ) {
-		$this->last_error = '';
-
-		$query = $this->identify( $sql );
-
-		if ( '' !== $this->fail_query && ( '*' === $this->fail_query || $query['name'] === $this->fail_query ) ) {
-			$this->last_error = $this->fail_message;
-			return null;
-		}
-
-		if ( 'elementor' === $query['name'] ) {
-			$rows = $this->rows_elementor( $query['like'][0] );
-		} elseif ( 'acf_posts' === $query['name'] ) {
-			$rows = $this->rows_acf_posts( $query['types'] );
-		} else {
-			$rows = $this->rows_content( $query['like'] );
-		}
-
-		// The real statements all carry a LIMIT now, the same as MySQL would
-		// enforce one: this stub returns at most that many rows, so a test can
-		// seed more matches than the display cap and see the truncation the
-		// audit is supposed to disclose.
-		return array_slice( $rows, 0, $query['limit'] );
-	}
-
-	/**
-	 * Which of the three modelled SELECTs this is, with its bound values.
-	 *
-	 * @param string $sql Prepared SQL.
-	 * @return array{name:string,like:string[],types:string[],limit:int}
-	 */
-	private function identify( $sql ) {
-		// Collapsed to single spaces first: the plugin writes these across
-		// several indented lines, and matching the shape matters, not the
-		// whitespace it is laid out with.
-		$q      = trim( preg_replace( '/\s+/', ' ', (string) $sql ) );
-		$quoted = "'((?:[^'\\\\]|\\\\.)*)'";
-		$meta   = preg_quote( $this->postmeta, '/' );
-		$posts  = preg_quote( $this->posts, '/' );
-
-		$elementor = '/^SELECT p\.ID, p\.post_title, p\.post_type'
-			. ' FROM ' . $meta . ' m'
-			. ' INNER JOIN ' . $posts . ' p ON p\.ID = m\.post_id'
-			. " WHERE m\.meta_key = '_elementor_data'"
-			. ' AND m\.meta_value LIKE ' . $quoted
-			. " AND p\.post_status != 'trash'"
-			. " AND p\.post_type != 'revision'"
-			. ' LIMIT (\d+)$/';
-
-		if ( preg_match( $elementor, $q, $m ) ) {
-			return array( 'name' => 'elementor', 'like' => array( stripslashes( $m[1] ) ), 'types' => array(), 'limit' => (int) $m[2] );
-		}
-
-		$acf_posts = '/^SELECT ID, post_title, post_type'
-			. ' FROM ' . $posts
-			. ' WHERE post_type IN \( ' . $quoted . ', ' . $quoted . ', ' . $quoted . ' \)'
-			. " AND post_status != 'trash'"
-			. ' LIMIT (\d+)$/';
-
-		if ( preg_match( $acf_posts, $q, $m ) ) {
-			return array(
-				'name'  => 'acf_posts',
-				'like'  => array(),
-				'types' => array( stripslashes( $m[1] ), stripslashes( $m[2] ), stripslashes( $m[3] ) ),
-				'limit' => (int) $m[4],
-			);
-		}
-
-		$content = '/^SELECT ID, post_title, post_type'
-			. ' FROM ' . $posts
-			. " WHERE post_status != 'trash'"
-			. " AND post_type != 'revision'"
-			. ' AND \( post_content LIKE ' . $quoted . ' OR post_content LIKE ' . $quoted . ' \)'
-			. ' LIMIT (\d+)$/';
-
-		if ( preg_match( $content, $q, $m ) ) {
-			return array(
-				'name'  => 'content',
-				'like'  => array( stripslashes( $m[1] ), stripslashes( $m[2] ) ),
-				'types' => array(),
-				'limit' => (int) $m[3],
-			);
-		}
-
-		throw new RuntimeException( 'Fake $wpdb was handed a SELECT it does not model: ' . $sql );
-	}
-
-	/**
-	 * MySQL's LIKE, including the escaping esc_like() applies and the
-	 * case-insensitivity of WordPress's default collation. Written out rather
-	 * than reduced to a strpos() because the audit binds a pattern built by
-	 * esc_like(), and a stub that ignored the escaping would happily match on a
-	 * wildcard the real database would have treated as a literal.
-	 *
-	 * @param string $pattern LIKE pattern.
-	 * @param string $value   Value to test.
-	 * @return bool
-	 */
-	private function like_matches( $pattern, $value ) {
-		$regex  = '';
-		$length = strlen( $pattern );
-
-		for ( $i = 0; $i < $length; $i++ ) {
-			$char = $pattern[ $i ];
-
-			if ( '\\' === $char && $i + 1 < $length ) {
-				$regex .= preg_quote( $pattern[ ++$i ], '/' );
-				continue;
-			}
-			if ( '%' === $char ) {
-				$regex .= '.*';
-				continue;
-			}
-			if ( '_' === $char ) {
-				$regex .= '.';
-				continue;
-			}
-			$regex .= preg_quote( $char, '/' );
-		}
-
-		return 1 === preg_match( '/^' . $regex . '$/si', (string) $value );
-	}
-
-	/**
-	 * Posts whose _elementor_data matches, excluding trash and revisions.
-	 *
-	 * @param string $like LIKE pattern.
-	 * @return array<int,object>
-	 */
-	private function rows_elementor( $like ) {
-		$out = array();
-
-		foreach ( $this->ordered_posts() as $post ) {
-			if ( 'trash' === $post['post_status'] || 'revision' === $post['post_type'] ) {
-				continue;
-			}
-
-			$meta = isset( $GLOBALS['af_store']['postmeta'][ $post['ID'] ]['_elementor_data'] )
-				? $GLOBALS['af_store']['postmeta'][ $post['ID'] ]['_elementor_data']
-				: null;
-
-			if ( null === $meta || ! $this->like_matches( $like, $meta ) ) {
-				continue;
-			}
-
-			$out[] = $this->row( $post );
-		}
-
-		return $out;
-	}
-
-	/**
-	 * ACF's own field groups, post types and taxonomies.
-	 *
-	 * @param string[] $types Post types the statement named.
-	 * @return array<int,object>
-	 */
-	private function rows_acf_posts( $types ) {
-		$out = array();
-
-		foreach ( $this->ordered_posts() as $post ) {
-			if ( 'trash' === $post['post_status'] || ! in_array( $post['post_type'], $types, true ) ) {
-				continue;
-			}
-			$out[] = $this->row( $post );
-		}
-
-		return $out;
-	}
-
-	/**
-	 * Posts whose content matches either LIKE pattern.
-	 *
-	 * @param string[] $likes Two LIKE patterns, OR'd.
-	 * @return array<int,object>
-	 */
-	private function rows_content( $likes ) {
-		$out = array();
-
-		foreach ( $this->ordered_posts() as $post ) {
-			if ( 'trash' === $post['post_status'] || 'revision' === $post['post_type'] ) {
-				continue;
-			}
-
-			$content = isset( $post['post_content'] ) ? $post['post_content'] : '';
-			if ( ! $this->like_matches( $likes[0], $content ) && ! $this->like_matches( $likes[1], $content ) ) {
-				continue;
-			}
-
-			$out[] = $this->row( $post );
-		}
-
-		return $out;
-	}
-
-	/**
-	 * Seeded posts in ID order, so a result set is stable to assert against.
-	 *
-	 * @return array<int,array>
-	 */
-	private function ordered_posts() {
-		$posts = $GLOBALS['af_store']['posts'];
-		ksort( $posts );
-		return $posts;
-	}
-
-	/**
-	 * One row, carrying only the three columns the statements select — a stub
-	 * that handed back the whole record would let code read a column the query
-	 * never asked for and still pass here.
-	 *
-	 * @param array $post Stored post.
-	 * @return object
-	 */
-	private function row( $post ) {
-		return (object) array(
-			'ID'         => $post['ID'],
-			'post_title' => $post['post_title'],
-			'post_type'  => $post['post_type'],
-		);
-	}
 }
 
 $GLOBALS['wpdb'] = new AF_Fake_WPDB();
-
-/**
- * Arm a modelled SELECT to fail, the way a timeout on a big postmeta table does.
- *
- * @param string $which   elementor, acf_posts, content, or '*' for all of them.
- * @param string $message What $wpdb->last_error should then report.
- */
-function af_wpdb_fail( $which = '*', $message = 'MySQL server has gone away' ) {
-	$GLOBALS['wpdb']->af_fail_query( $which, $message );
-}
-
-/**
- * Arm a modelled SELECT to fail the way $wpdb->ready being false does: null
- * back, last_error left empty. See AF_Fake_WPDB::af_fail_query_silently().
- *
- * @param string $which elementor, acf_posts, content, or '*' for all of them.
- */
-function af_wpdb_fail_silently( $which = '*' ) {
-	$GLOBALS['wpdb']->af_fail_query_silently( $which );
-}
 
 // Admin-only functions the includes call at load time but tests never exercise.
 
