@@ -241,6 +241,36 @@ function af_surecart_customers( $args ) {
 }
 
 /**
+ * What \SureCart\Models\Customer::find() answers.
+ *
+ * Shares the seeded customers and the 'customers' failure switch with
+ * af_surecart_customers(), so a test that makes SureCart unreachable makes it
+ * unreachable for both lookups rather than only the one it happened to name.
+ *
+ * An ID nobody seeded comes back as a WP_Error, matching the real client's
+ * 404. Deliberately not an empty result: "no such customer" and "the record
+ * could not be read" are the same fact here — either way there is no user to
+ * assign to — but a caller that mistook a WP_Error for a model would fatal on
+ * the next property read, and this is the stub that has to catch that.
+ *
+ * @param string $id SureCart customer ID.
+ * @return AF_Fake_SureCart_Model|WP_Error
+ */
+function af_surecart_customer_find( $id ) {
+	if ( ! empty( $GLOBALS['af_store']['surecart']['errors']['customers'] ) ) {
+		return new WP_Error( 'surecart_unavailable', 'SureCart could not be reached.' );
+	}
+
+	foreach ( $GLOBALS['af_store']['surecart']['customers'] as $customer ) {
+		if ( (string) $customer['id'] === (string) $id ) {
+			return new AF_Fake_SureCart_Model( $customer );
+		}
+	}
+
+	return new WP_Error( 'surecart_not_found', 'No such customer.' );
+}
+
+/**
  * What \SureCart\Models\Subscription::where() answers.
  *
  * Honours customer_ids and deliberately ignores the status filter. The code

@@ -450,7 +450,7 @@ function afristream_render_configurations_page() {
 			</p></div>
 		<?php endif; ?>
 
-		<?php afristream_render_unresolved_events( afristream_unresolved_events() ); ?>
+		<?php afristream_render_unresolved_events( afristream_unresolved_events_live() ); ?>
 
 		<h2><?php esc_html_e( 'ACF', 'bluegroup-project-afristream' ); ?></h2>
 		<?php afristream_render_acf_state( afristream_acf_present() ); ?>

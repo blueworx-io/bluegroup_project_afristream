@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.1] - 2026-07-31
+
+### Fixed
+
+- **Paying for a subscription now actually gets you a licence.** It never has.
+  Every purchase since the feature shipped resolved to nobody, and every licence
+  on the site was handed out by the migration or by an administrator — not once
+  by the automation built to do it.
+
+  The hook names were right and the handler was running. It failed one step
+  further in: SureCart puts a *partial* customer in the purchase payload, enough
+  to identify the customer but with no link to the WordPress account. The lookup
+  read that embedded customer, found no `user_id` on it, and gave up — so the
+  event named nobody and no licence was assigned.
+
+  It now fetches the full customer record by ID when the payload does not carry
+  the user outright. That is the same join the entitlement count already relies
+  on, read in the other direction. A payload that does name its user is still
+  answered without a network call.
+
+### Changed
+
+- **An unresolved SureCart event stops raising the alarm once one succeeds.**
+  The events recorded while the lookup was broken do not disappear when it is
+  fixed, so the Configurations page would have gone on reporting them as a live
+  fault indefinitely. An event older than the most recent automatic assignment
+  is now treated as history — still listed, no longer an alarm.
+
 ## [0.25.0] - 2026-07-31
 
 ### Added

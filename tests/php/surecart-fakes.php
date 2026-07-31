@@ -108,6 +108,22 @@ namespace SureCart\Models {
 		public static function where( $args = array() ) {
 			return new \AF_Fake_SureCart_Query( \af_surecart_customers( $args ) );
 		}
+
+		/**
+		 * Fetch one customer by SureCart's own ID.
+		 *
+		 * Unlike where(), this returns the record itself rather than a query to
+		 * run, which is how SureCart's models behave and why the plugin calls it
+		 * without a ->get(). A miss is a WP_Error, not null: that is what the
+		 * real client does for a 404, and the difference decides whether the
+		 * caller treats it as "no such customer" or as "could not ask".
+		 *
+		 * @param string $id SureCart customer ID.
+		 * @return \AF_Fake_SureCart_Model|\WP_Error
+		 */
+		public static function find( $id ) {
+			return \af_surecart_customer_find( $id );
+		}
 	}
 
 	/** A subscription belonging to a customer. */
