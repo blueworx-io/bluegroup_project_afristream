@@ -288,9 +288,37 @@ define( 'AFRISTREAM_PENDING_OPTION', 'afristream_pending_licenses' );
 /**
  * Find the WordPress user behind a SureCart object.
  *
- * SureCart hands different shapes to different events — sometimes the purchase
- * carries user_id directly, sometimes only its customer does — so this looks in
- * both places rather than assuming one.
+ * Three ways, cheapest first, because SureCart hands a different shape to
+ * every event and only the last of them is guaranteed to answer.
+ *
+ * The third one exists because the first two did not work. Four purchase
+ * events on the live site were recorded as naming nobody, every one of them
+ * reading `user_id: missing, customer: present, customer_id: present`. So the
+ * embedded customer is there and is reached — and it does not carry user_id.
+ * SureCart puts a partial customer in the purchase payload: enough to identify
+ * the customer, not enough to identify the WordPress account behind them.
+ * Every purchase since this feature shipped resolved to nobody on that, and no
+ * licence was ever assigned automatically.
+ *
+ * Fetching the whole customer by ID is what closes it. That is the same join
+ * afristream_subscription_count() already trusts in the other direction — it
+ * asks SureCart for the customer belonging to a WordPress user — so this is not
+ * a new assumption about SureCart's data model, just the existing one read
+ * backwards.
+ *
+ * The order matters for cost, not correctness: the first two are attribute
+ * reads on an object already in memory, and the third is an HTTP round trip to
+ * SureCart. An event that already names its user must not pay for that, which
+ * is why the fetch is last and why each step returns the moment it has an
+ * answer.
+ *
+ * A failed fetch resolves to 0 like any other miss. WP_Error is checked for
+ * explicitly rather than left to afristream_affiliate_prop(): a WP_Error is an
+ * object, so the accessor would happily probe it for user_id, find none, and
+ * report the same 0 — correct by accident, and only until someone reads the
+ * result as "this customer has no account" when SureCart was merely down.
+ * afristream_record_unresolved_event() still fires on the 0, so an event that
+ * gets this far without resolving is visible rather than silent.
  *
  * @param mixed $object Purchase, subscription, model, array or null.
  * @return int User ID, or 0 when there is nothing usable.
@@ -305,12 +333,55 @@ function afristream_user_id_from_surecart( $object ) {
 		return $direct;
 	}
 
+	// An embedded customer that does carry the link is used as it stands. Note
+	// this no longer returns on a customer that is present but silent about
+	// user_id — that early return is exactly what stopped the live payloads
+	// ever reaching the lookup below.
 	$customer = afristream_affiliate_prop( $object, 'customer', null );
 	if ( ! empty( $customer ) ) {
-		return (int) afristream_affiliate_prop( $customer, 'user_id', 0 );
+		$embedded = (int) afristream_affiliate_prop( $customer, 'user_id', 0 );
+		if ( $embedded ) {
+			return $embedded;
+		}
 	}
 
-	return 0;
+	return afristream_user_id_from_customer_id(
+		// The payload's own customer_id where there is one, otherwise the id off
+		// the embedded customer — the same fact, and which of the two SureCart
+		// sends varies by event.
+		afristream_affiliate_prop( $object, 'customer_id', '' )
+			? afristream_affiliate_prop( $object, 'customer_id', '' )
+			: afristream_affiliate_prop( $customer, 'id', '' )
+	);
+}
+
+/**
+ * Look up the WordPress user behind a SureCart customer ID.
+ *
+ * Separated from the shape-guessing above so that the one part of this which
+ * makes a network call is a thing on its own: it can be read, and tested,
+ * without a purchase payload wrapped around it.
+ *
+ * Guarded with class_exists() in the same style as the rest of this file, so an
+ * install without SureCart resolves to nobody rather than fatally.
+ *
+ * @param string $customer_id SureCart customer ID.
+ * @return int User ID, or 0 when there is none or it could not be read.
+ */
+function afristream_user_id_from_customer_id( $customer_id ) {
+	$customer_id = (string) $customer_id;
+
+	if ( '' === $customer_id || ! class_exists( '\SureCart\Models\Customer' ) ) {
+		return 0;
+	}
+
+	$customer = \SureCart\Models\Customer::find( $customer_id );
+
+	if ( is_wp_error( $customer ) || empty( $customer ) ) {
+		return 0;
+	}
+
+	return (int) afristream_affiliate_prop( $customer, 'user_id', 0 );
 }
 
 /**
@@ -562,6 +633,50 @@ function afristream_unresolved_events() {
 }
 
 /**
+ * The unresolved events that still describe something wrong, newest last.
+ *
+ * An event only means the lookup is broken until the lookup demonstrably
+ * works. Once a licence has gone out automatically, every event recorded
+ * before that moment is history: whatever shape defeated it has since been
+ * handled, or the assignment could not have happened.
+ *
+ * Without this the page would be permanently wrong the day the fix ships. Four
+ * events are already sitting in the option on the live site from when the
+ * lookup could not read a partial customer. They do not disappear because the
+ * lookup improved, so a status counting the raw list would go on reporting
+ * "4 SureCart events arrived carrying no customer this plugin could recognise"
+ * for as long as the option exists — long after it stopped being true. That is
+ * the same stale-warning failure the ACF readiness panel was retired for, and
+ * it would be worse here, because this warning is the one that is supposed to
+ * mean something.
+ *
+ * The raw list is deliberately left alone rather than deleted on success. The
+ * shapes recorded there are the only evidence of what SureCart actually sent,
+ * and they are worth keeping to read; they just stop being an alarm.
+ *
+ * @return array<int,array{time:int,type:string,keys:string[]}>
+ */
+function afristream_unresolved_events_live() {
+	$last = afristream_last_autoassignment();
+
+	if ( ! $last ) {
+		return afristream_unresolved_events();
+	}
+
+	$live = array();
+	foreach ( afristream_unresolved_events() as $event ) {
+		// Recorded at the same second as an assignment counts as live. The log
+		// and this option are written seconds apart by different code paths, and
+		// treating a tie as settled is the direction that hides a real fault.
+		if ( (int) ( isset( $event['time'] ) ? $event['time'] : 0 ) >= $last ) {
+			$live[] = $event;
+		}
+	}
+
+	return $live;
+}
+
+/**
  * React to a SureCart purchase or subscription.
  *
  * Both events funnel here because either can be the first moment a customer is
@@ -789,7 +904,7 @@ function afristream_autoassign_status() {
 		);
 	}
 
-	$unresolved = count( afristream_unresolved_events() );
+	$unresolved = count( afristream_unresolved_events_live() );
 	if ( $unresolved ) {
 		return array(
 			'state' => 'warn',
