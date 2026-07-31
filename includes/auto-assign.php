@@ -846,6 +846,84 @@ function afristream_mirror_mismatches() {
 	return $mismatched;
 }
 
+/** The scheduled mirror repair. */
+define( 'AFRISTREAM_MIRROR_REPAIR_HOOK', 'afristream_repair_mirrors' );
+
+/**
+ * Put every stale usermeta mirror back in step with the licences it copies.
+ *
+ * The mirror is derived data — a copy of the licences pointing at a user, kept
+ * in the shape ACF wrote so that [user_acf_fields], the credentials route and
+ * any third-party reader keep working. When it disagrees with the licences it
+ * came from, the licences are right and the copy is stale. There is no
+ * judgement to make and nothing a person knows that this does not, so it is
+ * repaired rather than reported.
+ *
+ * It used to be reported. On the live site that left one user permanently
+ * listed under "Users whose stored licence list disagrees with their licences",
+ * and clearing it meant opening that profile and pressing Update — a manual
+ * step whose whole effect is the afristream_rebuild_user_mirror() call below.
+ * A warning nobody can act on except by doing by hand what the code could do
+ * itself is a warning that just accumulates.
+ *
+ * Deliberately not the same treatment as afristream_over_allocated() next door,
+ * which stays a report. That one proposes taking a paying-then-lapsed
+ * customer's access away, which is a decision about a person. This one
+ * rewrites a derived copy to match its own source.
+ *
+ * Each user is re-checked after their rebuild rather than assumed fixed. The
+ * rebuild is a read-then-write on data another request can be changing at the
+ * same time, and it says so itself; a user still out of step afterwards is
+ * reported rather than silently counted as done, because that is the case
+ * where something is wrong beyond a stale copy.
+ *
+ * @return array{repaired:int[],failed:int[]}
+ */
+function afristream_repair_user_mirrors() {
+	$repaired = array();
+	$failed   = array();
+
+	foreach ( afristream_mirror_mismatches() as $user_id ) {
+		afristream_rebuild_user_mirror( $user_id );
+
+		if ( afristream_user_license_ids( $user_id ) === afristream_user_mirror_ids( $user_id ) ) {
+			$repaired[] = (int) $user_id;
+			continue;
+		}
+
+		$failed[] = (int) $user_id;
+	}
+
+	return array(
+		'repaired' => $repaired,
+		'failed'   => $failed,
+	);
+}
+add_action( AFRISTREAM_MIRROR_REPAIR_HOOK, 'afristream_repair_user_mirrors' );
+
+/**
+ * Keep the repair running on a site nobody is looking at.
+ *
+ * The Configurations page repairs on load, but that only helps a site somebody
+ * opens. A stale mirror shows a customer the wrong app credentials in the
+ * portal, which is a customer-facing fault, and it should not wait on an
+ * administrator happening to visit an admin page.
+ *
+ * wp_next_scheduled() first for the same reason includes/landing.php checks it
+ * before warming its cache: this is called on admin_init, so without the guard
+ * every admin page load would queue another run.
+ *
+ * @return void
+ */
+function afristream_schedule_mirror_repair() {
+	if ( ! function_exists( 'wp_next_scheduled' ) || wp_next_scheduled( AFRISTREAM_MIRROR_REPAIR_HOOK ) ) {
+		return;
+	}
+
+	wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', AFRISTREAM_MIRROR_REPAIR_HOOK );
+}
+add_action( 'admin_init', 'afristream_schedule_mirror_repair' );
+
 /** How long without an automatic assignment before this stops claiming to know. */
 define( 'AFRISTREAM_ASSIGN_SILENCE', 30 * DAY_IN_SECONDS );
 

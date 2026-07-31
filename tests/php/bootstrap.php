@@ -510,6 +510,31 @@ function wp_schedule_single_event( $timestamp, $hook, $args = array() ) {
 	return true;
 }
 
+/**
+ * A recurring event, recorded the same way a one-off is.
+ *
+ * The recurrence is stored but nothing here fires on it: no test in the suite
+ * runs the clock forward, and a stub that pretended to would be asserting
+ * against WordPress's scheduler rather than against this plugin. What the
+ * tests do check is that an event is queued once and not queued twice, which
+ * is the part the plugin is responsible for.
+ *
+ * @param int    $timestamp  First run.
+ * @param string $recurrence Schedule name, e.g. 'daily'.
+ * @param string $hook       Hook name.
+ * @param array  $args       Hook arguments.
+ * @return bool
+ */
+function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array() ) {
+	$GLOBALS['af_store']['scheduled'][] = array(
+		'timestamp'  => (int) $timestamp,
+		'recurrence' => (string) $recurrence,
+		'hook'       => (string) $hook,
+		'args'       => $args,
+	);
+	return true;
+}
+
 // -- Posts and users ----------------------------------------------------------
 
 function get_the_title( $post_id ) {

@@ -343,7 +343,13 @@ function afristream_render_configurations_page() {
 	$stock     = afristream_license_stock();
 	$pending   = afristream_pending_all();
 	$over      = afristream_over_allocated();
-	$mismatch  = afristream_mirror_mismatches();
+	// Repaired rather than listed. The mirror is a copy of the licences pointing
+	// at a user, so a disagreement has one correct resolution and no decision in
+	// it — see afristream_repair_user_mirrors(). Only what could not be put right
+	// is reported below, because that is the part that means something is wrong
+	// beyond a stale copy.
+	$mirrors   = afristream_repair_user_mirrors();
+	$mismatch  = $mirrors['failed'];
 	$orphans   = afristream_orphaned_licenses();
 	$conflicts = afristream_ownership_conflicts();
 	$registry  = afristream_registry();
@@ -443,9 +449,9 @@ function afristream_render_configurations_page() {
 					<?php endforeach; ?>
 				<?php endif; ?>
 				<?php if ( ! empty( $mismatch ) ) : ?>
-					<strong><?php esc_html_e( 'Users whose stored licence list disagrees with their licences:', 'bluegroup-project-afristream' ); ?></strong>
+					<strong><?php esc_html_e( 'Users whose stored licence list could not be put back in step:', 'bluegroup-project-afristream' ); ?></strong>
 					<?php echo esc_html( implode( ', ', array_map( 'strval', $mismatch ) ) ); ?><br>
-					<?php esc_html_e( 'Re-saving each profile rebuilds it.', 'bluegroup-project-afristream' ); ?>
+					<?php esc_html_e( 'These were rebuilt from the licences pointing at them and still disagree, which is not a stale copy — something is writing this user meta directly. The licences themselves are unaffected; it is what other readers are shown that is wrong.', 'bluegroup-project-afristream' ); ?>
 				<?php endif; ?>
 			</p></div>
 		<?php endif; ?>
