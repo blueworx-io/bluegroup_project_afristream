@@ -870,6 +870,61 @@ function afristream_status_pill( $status ) {
 }
 
 /**
+ * Show what a SureCart event that named nobody actually contained.
+ *
+ * The status line already counts these, and a count on its own is where this
+ * plugin's one live failure went to hide: two events arrived, both resolved to
+ * no user, no licence was ever assigned automatically, and the page said only
+ * that it had happened twice. afristream_record_unresolved_event() had captured
+ * the shape of both payloads at the time. Reading it back meant installing a
+ * throwaway plugin on a production site, because nothing rendered it.
+ *
+ * So this prints the recorded shape verbatim. `user_id: missing` next to
+ * `customer_id: present` is the whole diagnosis in two words — it says which
+ * attribute afristream_user_id_from_surecart() looked for, and which one
+ * SureCart sent instead. That is a field name someone can act on without
+ * guessing, which is the difference between this panel and the count.
+ *
+ * Deliberately renders nothing when the list is empty rather than an empty box
+ * saying all is well: the status line already carries the healthy case, and a
+ * second permanent panel restating it is noise on a page that is mostly read
+ * when something is wrong.
+ *
+ * The keys are a third party's data printed into an admin screen, so they are
+ * escaped on the way out like any other untrusted string.
+ *
+ * @param array<int,array{time:int,type:string,keys:string[]}> $events Recorded events.
+ * @return void
+ */
+function afristream_render_unresolved_events( $events ) {
+	if ( empty( $events ) ) {
+		return;
+	}
+	?>
+	<div class="notice notice-error inline"><p>
+		<strong><?php esc_html_e( 'SureCart events that named nobody:', 'bluegroup-project-afristream' ); ?></strong><br>
+		<?php esc_html_e( 'Each of these fired, and no licence was assigned because the payload carried no WordPress user this plugin could recognise. The attributes it looked for are listed against what was actually there — a name marked present where user_id is missing is the field the lookup should be reading.', 'bluegroup-project-afristream' ); ?>
+		<br><br>
+		<?php foreach ( $events as $event ) : ?>
+			<?php
+			$when = isset( $event['time'] ) ? (int) $event['time'] : 0;
+			$type = isset( $event['type'] ) ? (string) $event['type'] : '';
+			$keys = isset( $event['keys'] ) && is_array( $event['keys'] ) ? $event['keys'] : array();
+			?>
+			<?php if ( $when ) : ?>
+				<?php echo esc_html( wp_date( 'j M Y, H:i', $when ) ); ?> —
+			<?php endif; ?>
+			<code><?php echo esc_html( $type ); ?></code>
+			<?php if ( ! empty( $keys ) ) : ?>
+				<br><?php echo esc_html( implode( ', ', array_map( 'strval', $keys ) ) ); ?>
+			<?php endif; ?>
+			<br><br>
+		<?php endforeach; ?>
+	</p></div>
+	<?php
+}
+
+/**
  * Render the page.
  */
 function afristream_render_configurations_page() {
@@ -1011,6 +1066,8 @@ function afristream_render_configurations_page() {
 				<?php endif; ?>
 			</p></div>
 		<?php endif; ?>
+
+		<?php afristream_render_unresolved_events( afristream_unresolved_events() ); ?>
 
 		<h2><?php esc_html_e( 'ACF readiness', 'bluegroup-project-afristream' ); ?></h2>
 		<p>

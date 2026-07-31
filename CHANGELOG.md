@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-07-31
+
+### Added
+
+- **The Configurations page now shows what a SureCart event that named nobody
+  actually contained.** It already counted them — the live site read "2 SureCart
+  events arrived carrying no customer this plugin could recognise" — but a count
+  is not something anyone can act on. The shape of each payload was being
+  recorded at the time and then never displayed, so reading it back meant
+  installing a throwaway plugin on a production site.
+
+  The panel lists each event with the attributes the lookup went looking for
+  against what was really there. `user_id: missing` beside `customer_id: present`
+  names the field to fix, which is the entire diagnosis. Nothing is rendered
+  when there is nothing wrong.
+
+  This does not by itself assign anybody a licence. It is the missing evidence
+  for why none have been assigned automatically: on the live site every licence
+  in the log was handed out by `backfill` or `profile`, never once by
+  `auto-assign`.
+
 ## [0.24.0] - 2026-07-27
 
 ### Added
