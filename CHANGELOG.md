@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.26.0] - 2026-07-31
+
+### Changed
+
+- **A user's stored licence list now repairs itself.** Each customer's account
+  keeps a copy of which licences they hold, in the shape ACF wrote, so the
+  portal and any other reader keep working. When that copy disagreed with the
+  licences themselves, the Configurations page reported it and left it — and
+  the only way to clear it was to open that person's profile and press Update,
+  which does nothing except rebuild the copy from the licences. The plugin can
+  do that itself, so it does.
+
+  The copy is derived data: when it and the licences disagree, the licences are
+  right. There is no decision in it, which is what separates this from the
+  over-allocation warning beside it — taking a lapsed customer's access away is
+  a decision about a person and stays a report.
+
+  The repair runs when the Configurations page is opened, and on a daily
+  schedule so a site nobody visits still converges. A stale copy shows a
+  customer the wrong app credentials, and that should not wait on an
+  administrator happening to look.
+
+  Anything that still disagrees after being rebuilt is reported, and now says
+  what that actually means: not a stale copy, but something writing this user
+  meta directly.
+
 ## [0.25.1] - 2026-07-31
 
 ### Fixed
