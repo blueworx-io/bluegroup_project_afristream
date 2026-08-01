@@ -55,6 +55,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   is now withheld whenever the setup checkout is not distinct from the plain
   one, the same way it is already withheld when the fee itself is unpriced.
 
+- **Prices were written two different ways on the same screen.** Everything
+  the page prints in PHP is ungrouped — R1599 on the pricing cards, R499 on
+  the device offer — while everything computed in the browser was grouped,
+  so the calculator card read "R7 716" one line above "R1599", and the
+  onboarding breakdown answered a "R499" offer with a "R2 098" total. The
+  computed figures now match the printed ones.
+
+- **The page behind the onboarding modal is now inert.** Tab was already
+  trapped inside the flow, but a screen reader could still browse the page
+  underneath a dialog meant to be the only thing on screen. The modal's
+  siblings are marked inert while it is open and released when it closes.
+
 ## [0.27.0] - 2026-08-01
 
 ### Added

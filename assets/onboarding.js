@@ -221,11 +221,30 @@
   // its own inline overflow style must get it back, not have it discarded.
   var savedOverflow = '';
 
+  /* Everything the modal covers, taken out of the accessibility tree and out
+     of reach of the pointer and the tab order while it is open. The focus trap
+     handles Tab, but without this a screen reader can still browse the page
+     behind a dialog that is meant to be the only thing on screen. Applied to
+     the modal's siblings rather than to the page wrapper, because the modal is
+     rendered inside that wrapper and would go inert with it. */
+  function setBackgroundInert(inert) {
+    var siblings = root.parentNode ? root.parentNode.children : [];
+    Array.prototype.slice.call(siblings).forEach(function (el) {
+      if (el === root) return;
+      if (inert) {
+        el.setAttribute('inert', '');
+      } else {
+        el.removeAttribute('inert');
+      }
+    });
+  }
+
   function open(from) {
     opener = from || null;
     root.hidden = false;
     savedOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    setBackgroundInert(true);
     reset(from ? from.getAttribute('data-onboard') : '');
     panel.focus();
   }
@@ -233,6 +252,9 @@
   function close() {
     root.hidden = true;
     document.body.style.overflow = savedOverflow;
+    // Before focus is returned: the opener is behind the modal, and focusing
+    // an element inside an inert subtree does nothing.
+    setBackgroundInert(false);
     // Returning focus to the button that opened the flow: without this a
     // keyboard user is dropped back at the top of the document, having lost
     // the place they were reading.

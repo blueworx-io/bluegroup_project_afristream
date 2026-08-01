@@ -5,9 +5,13 @@
 window.AfriStreamSavings = (function () {
   'use strict';
 
-  // en-ZA groups thousands the way the rest of the page's prices read.
+  /* Ungrouped, because that is how every price the page prints in PHP is
+     written — R1599 on the pricing cards, R499 on the device offer, R2748/yr
+     on the subscription chips. Grouping only the computed figures put "R7 716"
+     one line above "R1599" inside the same calculator card, and "R2 098" on
+     the screen after an offer reading "R499". */
   function money(n) {
-    return 'R' + Math.round(n).toLocaleString('en-ZA');
+    return 'R' + Math.round(n);
   }
 
   /** The pressed subscription chips inside a container. */

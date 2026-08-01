@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-// en-ZA groups thousands with a non-breaking space, so assert on digits.
+// Some figures are only worth asserting as a number, whatever wraps them.
 const digits = async (locator) => (await locator.innerText()).replace(/[^\d]/g, '');
 
 // The flow is a modal on the landing page. These run against the preview
@@ -257,9 +257,9 @@ test('taking the device puts the fee on the bill and routes to the setup checkou
   await next(page).click();
 
   const bill = page.getByTestId('ob-cost');
-  await expect(bill).toContainText(/R\s*1\D?599/);
+  await expect(bill).toContainText('R1599');
   await expect(bill).toContainText('R499');
-  await expect(page.getByTestId('ob-total')).toHaveText(/R\s*2\D?098/);
+  await expect(page.getByTestId('ob-total')).toHaveText('R2098');
   await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', CHECKOUT);
 });
 
@@ -269,7 +269,7 @@ test('declining the device leaves the fee off the bill and off the checkout', as
   await next(page).click();
 
   await expect(page.getByTestId('ob-cost')).not.toContainText('R499');
-  await expect(page.getByTestId('ob-total')).toHaveText(/R\s*1\D?599/);
+  await expect(page.getByTestId('ob-total')).toHaveText('R1599');
   await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
 });
 
@@ -433,7 +433,7 @@ test('a missing price falls back to the same default the calculator uses, not R0
   await next(page).click();
   await next(page).click();
 
-  await expect(page.getByTestId('ob-total')).toHaveText(/R\s*1\D?599/);
+  await expect(page.getByTestId('ob-total')).toHaveText('R1599');
 });
 
 test('opening the flow does not clobber a pre-existing inline overflow style', async ({ page }) => {
@@ -444,4 +444,32 @@ test('opening the flow does not clobber a pre-existing inline overflow style', a
 
   const overflow = await page.evaluate(() => document.body.style.overflow);
   expect(overflow).toBe('scroll');
+});
+
+test('computed prices are written the same way as the ones PHP prints', async ({ page }) => {
+  // The offer step reads "R499" and the pricing cards read "R1599", both from
+  // PHP. A breakdown that answered with "R2 098" put two spellings of the same
+  // currency on adjacent screens of one flow.
+  await toOffer(page);
+  await page.getByTestId('ob-offer-yes').check();
+  await next(page).click();
+
+  await expect(page.getByTestId('ob-total')).toHaveText('R2098');
+  await expect(page.getByTestId('ob-cost')).toContainText('R1599');
+  await expect(page.getByTestId('ob-cost')).toContainText('R499');
+});
+
+test('the page behind the modal is inert while it is open', async ({ page }) => {
+  const header = page.locator('.as-landing > header');
+  await expect(header).not.toHaveAttribute('inert', /.*/);
+
+  await open(page);
+  await expect(header).toHaveAttribute('inert', '');
+  // The modal itself must stay reachable — inerting its own wrapper would
+  // take the flow down with the page behind it.
+  await expect(modal(page)).not.toHaveAttribute('inert', /.*/);
+  await expect(next(page)).toBeEnabled();
+
+  await page.keyboard.press('Escape');
+  await expect(header).not.toHaveAttribute('inert', /.*/);
 });
