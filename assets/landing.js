@@ -1,7 +1,8 @@
 /* AfriStream landing page. Four jobs: the mobile menu, the scroll reveal, the
    savings calculator and the FAQ accordion. Everything else is static HTML
    rendered by PHP. No framework, no build step — the same approach as
-   portal.js. */
+   portal.js. The calculator's maths lives in savings.js, shared with the
+   onboarding flow's breakdown step. */
 (function () {
   'use strict';
 
@@ -50,32 +51,25 @@
   var calc = root.querySelector('[data-testid="landing-calculator"]');
 
   if (calc) {
-    var AFRISTREAM_PRICE = 1599;
+    var sums = window.AfriStreamSavings;
     var subs = Array.prototype.slice.call(calc.querySelectorAll('[data-sub-price]'));
     var other = calc.querySelector('[data-testid="calc-other"]');
     var savingEl = calc.querySelector('[data-testid="calc-saving"]');
     var totalEl = calc.querySelector('[data-testid="calc-total"]');
     var basisEl = calc.querySelector('[data-testid="calc-basis"]');
 
-    // en-ZA groups thousands the way the rest of the page's prices read.
-    function money(n) {
-      return 'R' + n.toLocaleString('en-ZA');
-    }
-
     function recalc() {
-      var total = 0;
-      var chosen = 0;
-      subs.forEach(function (btn) {
-        if (btn.getAttribute('aria-pressed') === 'true') {
-          total += Number(btn.getAttribute('data-sub-price')) || 0;
-          chosen += 1;
-        }
-      });
+      // The price is a setting, so it comes off the DOM on every recalculation
+      // rather than being cached at load. The fallback is the plugin's own
+      // default, for the case where an older cached page has no attribute to
+      // read.
+      var price = Number(calc.getAttribute('data-price')) || 1599;
       var otherAmount = Number(other && other.value) || 0;
-      total += otherAmount;
+      var total = sums.total(calc, otherAmount);
+      var chosen = sums.chosen(calc).length;
 
-      savingEl.textContent = money(Math.max(0, total - AFRISTREAM_PRICE));
-      totalEl.textContent = money(total) + ' / year';
+      savingEl.textContent = sums.money(sums.saving(total, price));
+      totalEl.textContent = sums.money(total) + ' / year';
       // No chips pressed but an "other" figure entered is still a non-zero
       // saving — "your selection below" would read as if nothing had been
       // chosen at all, right beside a number that says otherwise.

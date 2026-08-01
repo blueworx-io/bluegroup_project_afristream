@@ -317,7 +317,7 @@ test('the testimonials section is gone', async ({ page }) => {
 // after AfriStream's own R1599, and never negative.
 const pick = (page, name) => page.getByTestId('landing-calculator').getByRole('button', { name });
 
-// en-ZA groups thousands with a non-breaking space, so assert on digits.
+// Some figures are only worth asserting as a number, whatever wraps them.
 const digits = async (locator) => (await locator.innerText()).replace(/[^\d]/g, '');
 
 test('the calculator starts at zero and prompts for a selection', async ({ page }) => {
@@ -366,6 +366,17 @@ test('a selection worth less than AfriStream shows no saving, not a negative one
   // Amazon Prime at R399 is well under AfriStream's R1599.
   await pick(page, /Amazon Prime/).click();
   expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
+});
+
+test('the calculator quotes savings against the configured price, not a hardcoded one', async ({ page }) => {
+  // The price is a setting. The mirror advertises R1599, changing the attribute
+  // the way a differently configured install would must move the arithmetic.
+  await page.getByTestId('landing-calculator').evaluate((el) => el.setAttribute('data-price', '2000'));
+  await page.getByTestId('landing-calculator').getByRole('button', { name: /Netflix Premium/ }).click();
+
+  // Netflix Premium is R2748 a year: R748 left after a R2000 subscription.
+  const saving = await digits(page.getByTestId('calc-saving'));
+  expect(saving).toBe('748');
 });
 
 test('the FAQ opens with the first answer showing and toggles the rest', async ({ page }) => {
@@ -445,4 +456,15 @@ test('with reduced motion preferred, nothing is hidden waiting to be revealed', 
   for (const id of ['landing-features', 'landing-calculator', 'landing-pricing', 'landing-faq', 'landing-signup']) {
     await expect(page.getByTestId(id).locator('[data-reveal]')).toHaveCSS('opacity', '1');
   }
+});
+
+test('the two rows of the calculator card spell money the same way', async ({ page }) => {
+  // "Your subscriptions now" is written by JS, "AfriStream" by PHP, one line
+  // apart in the same card. They disagreed: R7 716 against R1599.
+  const calc = page.getByTestId('landing-calculator');
+  await pick(page, /Netflix Premium/).click();
+  await pick(page, /HBO Max/).click();
+
+  await expect(calc.getByTestId('calc-total')).toHaveText('R7716 / year');
+  await expect(calc.getByTestId('calc-saving')).toHaveText('R6117');
 });

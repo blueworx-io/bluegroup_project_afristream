@@ -15,6 +15,7 @@
 <link rel="alternate icon" href="/assets/logo.png" type="image/png" sizes="120x120">
 <link rel="apple-touch-icon" href="/assets/logo.png">
 <link rel="stylesheet" href="/assets/landing.css">
+<link rel="stylesheet" href="/assets/onboarding.css">
 </head>
 <body class="afristream-landing-page">
 <div class="as-landing">
@@ -31,7 +32,7 @@
     </nav>
     <div class="as-head-cta">
       <a class="as-dash" href="/portal/">Dashboard</a>
-      <a class="as-btn as-btn-primary" data-testid="header-cta" href="#pricing">Get Started</a>
+      <a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="#pricing">Get Started</a>
     </div>
     <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
@@ -44,7 +45,7 @@
     <a class="as-nav-sale" href="#pricing">Pricing<span class="as-sale">SALE</span></a>
     <a href="#faq">FAQ</a>
     <a href="/portal/">Dashboard</a>
-    <a class="as-btn as-btn-primary" href="#pricing">Get Started</a>
+    <a class="as-btn as-btn-primary" data-onboard href="#pricing">Get Started</a>
   </div>
 </header>
 
@@ -115,7 +116,7 @@
   </div>
 </section>
 
-<section id="calculate" class="as-sec as-sec-calc" data-testid="landing-calculator">
+<section id="calculate" class="as-sec as-sec-calc" data-testid="landing-calculator" data-price="1599">
   <div class="as-sec-in" data-reveal>
     <div class="as-sec-head">
       <span class="as-eyebrow">Calculate</span>
@@ -131,7 +132,7 @@
           <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
           <div><span>AfriStream</span><span>R1599 / year</span></div>
         </div>
-        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" href="#pricing">Get AfriStream for R1599!</a>
+        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" data-onboard href="#pricing">Get AfriStream for R1599!</a>
         <span class="as-fine">14 Day Money Back Guarantee.</span>
       </div>
       <div class="as-calc-pick">
@@ -233,7 +234,7 @@
         <li data-plan-feature>Works with any smart TV or device</li>
         <li data-plan-feature>Regular price of R1999.99</li>
       </ul>
-      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" href="#pricing">Get Started</a>
+      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="#pricing">Get Started</a>
       <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
     </div>
     <div class="as-plan as-plan-setup-card" data-testid="plan-setup">
@@ -250,7 +251,7 @@
         <li data-plan-feature>Regular price of R1999.99</li>
         <li data-plan-feature>Guided setup done for you</li>
       </ul>
-      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" href="https://pay.example.test/afristream-setup">Get Started with Setup</a>
+      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" data-onboard="setup" href="https://pay.example.test/afristream-setup">Get Started with Setup</a>
       <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
     </div>
     </div>
@@ -335,7 +336,7 @@
     <div class="as-signup">
       <!-- The plugin renders this href from the Get Started URL setting. The
            mirror hardcodes the empty-setting fallback, #pricing. -->
-      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="#pricing">Get AfriStream for R1599</a>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="#pricing">Get AfriStream for R1599</a>
       <span class="as-fine">14 Day Money Back Guarantee.</span>
     </div>
   </div>
@@ -359,7 +360,130 @@
   </div>
 </footer>
 
+<div class="as-ob" data-testid="onboarding" data-price="1599" data-setup-fee="499" data-cta="#pricing" data-setup-cta="https://pay.example.test/afristream-setup" hidden>
+  <div class="as-ob-backdrop" data-ob-close></div>
+  <div class="as-ob-panel" role="dialog" aria-modal="true" aria-labelledby="as-ob-title" tabindex="-1">
+    <div class="as-ob-top">
+      <span class="as-ob-progress" data-testid="ob-progress">Step 1 of 5</span>
+      <button class="as-ob-x" type="button" data-ob-close aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <h2 class="as-ob-title" id="as-ob-title" data-testid="ob-title" tabindex="-1">What you get with AfriStream</h2>
+    <div class="as-ob-step" data-ob-step="intro">
+      <p class="as-ob-lede">One annual subscription of R1599, covering everything below. The next few questions take under a minute and make sure you only pay for what you need.</p>
+      <ul class="as-ob-list"><li>Access to over 20 000 live feeds</li><li>Films, series and live sport in one app</li><li>The AfriStream app and the customer portal</li><li>Setup guides and support</li><li>A 14 day money back guarantee</li></ul>
+    </div>
+    <div class="as-ob-step" data-ob-step="device" hidden>
+      <div class="as-ob-choice" role="radiogroup" aria-label="Do you already have a streaming device?">
+        <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="yes" data-testid="ob-device-yes"><span><strong>Yes, I have one</strong>A smart TV, a FireStick, an Android box or similar.</span></label>
+        <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="no" data-testid="ob-device-no"><span><strong>No, I need one</strong>We can sort that out for you in a moment.</span></label>
+      </div>
+    </div>
+    <div class="as-ob-step" data-ob-step="subs" hidden>
+      <p class="as-ob-lede">Tick whatever you pay for today and we will show you what AfriStream saves you. Skip this if you would rather not.</p>
+      <div class="as-ob-subs">
+        <button type="button" class="as-sub" data-sub-price="2748" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Netflix Premium</span> <span class="as-sub-price">R2748/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="8388" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Live sport bundle</span> <span class="as-sub-price">R8388/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="1800" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Showmax + Premier League</span> <span class="as-sub-price">R1800/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="399" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Amazon Prime</span> <span class="as-sub-price">R399/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="1908" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Disney Plus Premium</span> <span class="as-sub-price">R1908/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="1500" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Apple TV Plus</span> <span class="as-sub-price">R1500/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="864" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">YouTube Premium</span> <span class="as-sub-price">R864/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="1668" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">MUBI</span> <span class="as-sub-price">R1668/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="580" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Crunchyroll Mega Fan</span> <span class="as-sub-price">R580/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="588" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Viu Premium</span> <span class="as-sub-price">R588/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="2160" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Hulu</span> <span class="as-sub-price">R2160/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="4968" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">HBO Max</span> <span class="as-sub-price">R4968/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="3024" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Paramount Plus</span> <span class="as-sub-price">R3024/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="3672" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">Peacock</span> <span class="as-sub-price">R3672/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="1980" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">BritBox</span> <span class="as-sub-price">R1980/yr</span></span>
+        </button>
+        <button type="button" class="as-sub" data-sub-price="2592" aria-pressed="false">
+          <span class="as-sub-box" aria-hidden="true"></span>
+          <span class="as-sub-text"><span class="as-sub-name">ESPN Play</span> <span class="as-sub-price">R2592/yr</span></span>
+        </button>
+      </div>
+      <div class="as-ob-other">
+        <label for="as-ob-other">Anything else, per year?</label>
+        <div class="as-ob-input"><span aria-hidden="true">R</span><input id="as-ob-other" data-testid="ob-subs-other" type="number" min="0" step="1" placeholder="0" inputmode="numeric"></div>
+      </div>
+      <p class="as-ob-running">You spend <span data-testid="ob-subs-total">R0</span> a year</p>
+    </div>
+    <div class="as-ob-step" data-ob-step="offer" hidden>
+      <p class="as-ob-lede">We will send you a FireStick with AfriStream already installed and set up, for a one-off R499. Plug it in and it works.</p>
+      <div class="as-ob-choice" role="radiogroup" aria-label="Shall we sort the device out for you?">
+        <label class="as-ob-opt"><input type="radio" name="as-ob-offer" value="yes" data-testid="ob-offer-yes"><span><strong>Yes, send me a FireStick</strong>R499 once off, added to this order.</span></label>
+        <label class="as-ob-opt"><input type="radio" name="as-ob-offer" value="no" data-testid="ob-offer-no"><span><strong>No thanks, I will sort my own</strong>Just the subscription. Our setup guides will walk you through it.</span></label>
+      </div>
+    </div>
+    <div class="as-ob-step" data-ob-step="breakdown" hidden>
+      <div class="as-ob-block">
+        <span class="as-ob-block-h">What you get</span>
+        <ul class="as-ob-list"><li>Access to over 20 000 live feeds</li><li>Films, series and live sport in one app</li><li>The AfriStream app and the customer portal</li><li>Setup guides and support</li><li>A 14 day money back guarantee</li></ul>
+      </div>
+      <div class="as-ob-block">
+        <span class="as-ob-block-h">What it costs</span>
+        <ul class="as-ob-bill" data-testid="ob-cost"></ul>
+        <p class="as-ob-total">Total today <span data-testid="ob-total">R0</span></p>
+      </div>
+      <div class="as-ob-block as-ob-block-save" data-testid="ob-savings"></div>
+      <a class="as-btn as-btn-primary as-ob-checkout" data-testid="ob-checkout" href="#pricing">Continue to checkout</a>
+    </div>
+    <div class="as-ob-nav">
+      <button class="as-btn as-btn-ghost" type="button" data-testid="ob-back" data-ob-back hidden>Back</button>
+      <button class="as-btn as-btn-primary" type="button" data-testid="ob-next" data-ob-next>Continue</button>
+    </div>
+  </div>
 </div>
+
+</div>
+<script src="/assets/savings.js"></script>
 <script src="/assets/landing.js"></script>
+<script src="/assets/onboarding.js"></script>
 </body>
 </html>
