@@ -41,12 +41,27 @@ function afristream_landing_register_assets() {
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
+	wp_register_style(
+		'afristream-onboarding',
+		plugins_url( 'assets/onboarding.css', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
+		array( 'afristream-landing' ),
+		AFRISTREAM_PORTAL_VERSION
+	);
+	wp_register_script(
+		'afristream-onboarding',
+		plugins_url( 'assets/onboarding.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
+		array(),
+		AFRISTREAM_PORTAL_VERSION,
+		true
+	);
 }
 add_action( 'wp_enqueue_scripts', 'afristream_landing_register_assets' );
 
 function afristream_landing_enqueue() {
 	wp_enqueue_style( 'afristream-landing' );
 	wp_enqueue_script( 'afristream-landing' );
+	wp_enqueue_style( 'afristream-onboarding' );
+	wp_enqueue_script( 'afristream-onboarding' );
 }
 
 /**
@@ -424,6 +439,7 @@ function afristream_landing_body() {
 		. afristream_landing_faq()
 		. afristream_landing_signup()
 		. afristream_landing_footer()
+		. afristream_onboarding_modal()
 		. '</div>';
 }
 
@@ -748,12 +764,12 @@ function afristream_landing_header() {
       <img src="' . esc_url( afristream_landing_asset( 'afristream-icon.svg' ) ) . '" alt="AfriStream" width="26" height="27">AfriStream
     </a>
     <nav class="as-nav-full" data-testid="landing-nav">' . $nav . '</nav>
-    <div class="as-head-cta">' . $dashboard . '<a class="as-btn as-btn-primary" data-testid="header-cta" href="' . esc_url( $cta ) . '">Get Started</a></div>
+    <div class="as-head-cta">' . $dashboard . '<a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="' . esc_url( $cta ) . '">Get Started</a></div>
     <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
   </div>
-  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" href="' . esc_url( $cta ) . '">Get Started</a></div>
+  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" data-onboard href="' . esc_url( $cta ) . '">Get Started</a></div>
 </header>';
 }
 
@@ -856,7 +872,7 @@ function afristream_landing_setup_plan() {
       <span class="as-plan-setup">+ R' . (int) $fee . ' once-off setup</span>
       <span class="as-plan-tag">We get you up and running, then it is fire and forget.</span>
       <ul class="as-plan-features">' . afristream_landing_plan_features( array( 'Guided setup done for you' ) ) . '</ul>
-      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" href="' . esc_url( afristream_landing_setup_cta_url() ) . '">Get Started with Setup</a>
+      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" data-onboard="setup" href="' . esc_url( afristream_landing_setup_cta_url() ) . '">Get Started with Setup</a>
       <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
     </div>';
 }
@@ -877,7 +893,7 @@ function afristream_landing_pricing() {
       <span class="as-plan-price">R' . (int) afristream_landing_price() . '<small>/ year</small></span>
       <span class="as-plan-tag">One simple subscription, fire and forget!</span>
       <ul class="as-plan-features">' . afristream_landing_plan_features() . '</ul>
-      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
+      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
       <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
     </div>' . afristream_landing_setup_plan() . '
     </div>
@@ -939,7 +955,7 @@ function afristream_landing_calculator() {
           <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
           <div><span>AfriStream</span><span>R' . (int) afristream_landing_price() . ' / year</span></div>
         </div>
-        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '!</a>
+        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '!</a>
         <span class="as-fine">14 Day Money Back Guarantee.</span>
       </div>
       <div class="as-calc-pick">
@@ -1035,7 +1051,7 @@ function afristream_landing_signup() {
 			'Stop guessing what to watch! Thousands of movies, series and live TV — all in one platform.'
 		) . '
     <div class="as-signup">
-      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '</a>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '</a>
       <span class="as-fine">14 Day Money Back Guarantee.</span>
     </div>
   </div>

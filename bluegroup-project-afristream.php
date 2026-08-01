@@ -33,6 +33,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/affiliates.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/auto-assign.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/configurations.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/landing.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/onboarding.php';
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages

@@ -4,7 +4,7 @@
   "private": true,
   "description": "AfriStream Customer Portal — WordPress plugin ([afristream_portal] shortcode).",
   "scripts": {
-    "lint": "node --check assets/portal.js && node --check assets/landing.js && node --check scripts/preview-server.mjs && node --check scripts/build-plugin.mjs && node --check scripts/sync-watchlist.mjs && node --check scripts/bake-picks.mjs && node --check scripts/picks-list.mjs && node --check scripts/sync-listings.mjs && node scripts/lint-php.mjs",
+    "lint": "node --check assets/portal.js && node --check assets/landing.js && node --check assets/onboarding.js && node --check scripts/preview-server.mjs && node --check scripts/build-plugin.mjs && node --check scripts/sync-watchlist.mjs && node --check scripts/bake-picks.mjs && node --check scripts/picks-list.mjs && node --check scripts/sync-listings.mjs && node scripts/lint-php.mjs",
     "build": "node scripts/build-plugin.mjs",
     "preview": "node scripts/preview-server.mjs",
     "sync-watchlist": "node scripts/sync-watchlist.mjs",

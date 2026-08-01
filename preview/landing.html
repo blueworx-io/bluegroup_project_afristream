@@ -15,6 +15,7 @@
 <link rel="alternate icon" href="/assets/logo.png" type="image/png" sizes="120x120">
 <link rel="apple-touch-icon" href="/assets/logo.png">
 <link rel="stylesheet" href="/assets/landing.css">
+<link rel="stylesheet" href="/assets/onboarding.css">
 </head>
 <body class="afristream-landing-page">
 <div class="as-landing">
@@ -31,7 +32,7 @@
     </nav>
     <div class="as-head-cta">
       <a class="as-dash" href="/portal/">Dashboard</a>
-      <a class="as-btn as-btn-primary" data-testid="header-cta" href="#pricing">Get Started</a>
+      <a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="#pricing">Get Started</a>
     </div>
     <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
@@ -44,7 +45,7 @@
     <a class="as-nav-sale" href="#pricing">Pricing<span class="as-sale">SALE</span></a>
     <a href="#faq">FAQ</a>
     <a href="/portal/">Dashboard</a>
-    <a class="as-btn as-btn-primary" href="#pricing">Get Started</a>
+    <a class="as-btn as-btn-primary" data-onboard href="#pricing">Get Started</a>
   </div>
 </header>
 
@@ -131,7 +132,7 @@
           <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
           <div><span>AfriStream</span><span>R1599 / year</span></div>
         </div>
-        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" href="#pricing">Get AfriStream for R1599!</a>
+        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" data-onboard href="#pricing">Get AfriStream for R1599!</a>
         <span class="as-fine">14 Day Money Back Guarantee.</span>
       </div>
       <div class="as-calc-pick">
@@ -233,7 +234,7 @@
         <li data-plan-feature>Works with any smart TV or device</li>
         <li data-plan-feature>Regular price of R1999.99</li>
       </ul>
-      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" href="#pricing">Get Started</a>
+      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="#pricing">Get Started</a>
       <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
     </div>
     <div class="as-plan as-plan-setup-card" data-testid="plan-setup">
@@ -250,7 +251,7 @@
         <li data-plan-feature>Regular price of R1999.99</li>
         <li data-plan-feature>Guided setup done for you</li>
       </ul>
-      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" href="https://pay.example.test/afristream-setup">Get Started with Setup</a>
+      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" data-onboard="setup" href="https://pay.example.test/afristream-setup">Get Started with Setup</a>
       <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
     </div>
     </div>
@@ -335,7 +336,7 @@
     <div class="as-signup">
       <!-- The plugin renders this href from the Get Started URL setting. The
            mirror hardcodes the empty-setting fallback, #pricing. -->
-      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="#pricing">Get AfriStream for R1599</a>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="#pricing">Get AfriStream for R1599</a>
       <span class="as-fine">14 Day Money Back Guarantee.</span>
     </div>
   </div>
@@ -359,7 +360,29 @@
   </div>
 </footer>
 
+<div class="as-ob" data-testid="onboarding" data-price="1599" data-setup-fee="499" data-cta="#pricing" data-setup-cta="https://pay.example.test/afristream-setup" hidden>
+  <div class="as-ob-backdrop" data-ob-close></div>
+  <div class="as-ob-panel" role="dialog" aria-modal="true" aria-labelledby="as-ob-title" tabindex="-1">
+    <div class="as-ob-top">
+      <span class="as-ob-progress" data-testid="ob-progress">Step 1 of 5</span>
+      <button class="as-ob-x" type="button" data-ob-close aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <h2 class="as-ob-title" id="as-ob-title" data-testid="ob-title">What you get with AfriStream</h2>
+    <div class="as-ob-step" data-ob-step="intro">
+      <p class="as-ob-lede">One annual subscription of R1599, covering everything below. The next few questions take under a minute and make sure you only pay for what you need.</p>
+      <ul class="as-ob-list"><li>Access to over 20 000 live feeds</li><li>Films, series and live sport in one app</li><li>The AfriStream app and the customer portal</li><li>Setup guides and support</li><li>A 14 day money back guarantee</li></ul>
+    </div>
+    <div class="as-ob-nav">
+      <button class="as-btn as-btn-ghost" type="button" data-testid="ob-back" data-ob-back hidden>Back</button>
+      <button class="as-btn as-btn-primary" type="button" data-testid="ob-next" data-ob-next>Continue</button>
+    </div>
+  </div>
+</div>
+
 </div>
 <script src="/assets/landing.js"></script>
+<script src="/assets/onboarding.js"></script>
 </body>
 </html>
