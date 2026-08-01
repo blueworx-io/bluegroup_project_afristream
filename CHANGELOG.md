@@ -41,6 +41,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   its own module (`assets/savings.js`), shared by the page calculator and the
   onboarding flow's own breakdown, and both read the configured price.
 
+- **The onboarding flow's terminal checkout button could be a dead end on an
+  unconfigured install.** With no Get Started URL set, the button falls back
+  to `#pricing` — a jump on the same page, which used to happen behind the
+  still-open, still-scroll-locked modal, so nothing appeared to happen. The
+  button now closes the flow first when its destination is a same-page
+  fragment, so the customer actually lands on the section.
+
+- **The device offer could itemise a fee the checkout would not charge.** An
+  install with a priced setup fee but no distinct setup checkout URL sent the
+  customer through the FireStick offer, showed them a bill that included it,
+  and then landed them on the plain checkout — for the plain price. The offer
+  is now withheld whenever the setup checkout is not distinct from the plain
+  one, the same way it is already withheld when the fee itself is unpriced.
+
 ## [0.27.0] - 2026-08-01
 
 ### Added

@@ -18,6 +18,14 @@
   var backBtn = root.querySelector('[data-ob-back]');
   var sums = window.AfriStreamSavings;
 
+  // Without the shared savings helper the breakdown step cannot compute
+  // anything, and reset() would throw partway through — after open() has
+  // already unhidden the modal, leaving a blank panel over a page whose CTAs
+  // are all preventDefault()ed. Bailing before any listener is registered
+  // means every CTA simply falls back to its href, same as with this whole
+  // script absent.
+  if (!sums) return;
+
   var costEl = root.querySelector('[data-testid="ob-cost"]');
   var totalEl = root.querySelector('[data-testid="ob-total"]');
   var savingsEl = root.querySelector('[data-testid="ob-savings"]');
@@ -37,12 +45,22 @@
   var state = { device: null, subs: 0, other: 0, wantsDevice: null };
   var at = 0;
 
+  /* Whether the device offer is being sold at all: a priced fee alone is not
+     enough. An admin who prices the setup fee but never sets a distinct setup
+     checkout would otherwise have the flow itemise a fee the checkout it lands
+     on cannot charge — the plain checkout, since data-setup-cta falls back to
+     it. Treated the same as "no fee configured": nothing to offer. */
+  function offerAvailable() {
+    return fee > 0 && root.getAttribute('data-setup-cta') !== root.getAttribute('data-cta');
+  }
+
   /* The steps this customer will actually see. Someone with a device is never
-     offered one, and an install that has not priced the fee is not selling it —
-     so the counter must not promise a step the flow then skips. */
+     offered one, and an install that has not priced the fee — or has no
+     checkout of its own to bill it through — is not selling it, so the
+     counter must not promise a step the flow then skips. */
   function steps() {
     var list = ['intro', 'device', 'subs'];
-    if (state.device !== 'yes' && fee > 0) list.push('offer');
+    if (state.device !== 'yes' && offerAvailable()) list.push('offer');
     list.push('breakdown');
     return list;
   }
@@ -71,6 +89,20 @@
     nextBtn.disabled = !ready(name);
 
     if (name === 'breakdown') breakdown();
+
+    // A keyboard user activates Continue with Enter, so it is
+    // document.activeElement right as the two lines above may hide or disable
+    // it — the browser blurs it to <body>, which both drops the focus trap
+    // (the next Tab lands on the page behind the modal) and means the step
+    // change is never announced to a screen reader. Moving focus to the
+    // title on every step change fixes both: it is always present, never
+    // hidden or disabled, and its rewritten text is what the step change is.
+    if (!root.hidden) {
+      var active = document.activeElement;
+      if (!panel.contains(active) || active.disabled || active.hidden) {
+        titleEl.focus();
+      }
+    }
   }
 
   function line(label, amount) {
@@ -125,13 +157,16 @@
     // Read per open, not once at load: a test — and a cached page whose
     // settings have since changed — can move the fee or the price under us.
     fee = Number(root.getAttribute('data-setup-fee')) || 0;
-    price = Number(root.getAttribute('data-price')) || 0;
+    // Same fallback assets/landing.js uses for the same attribute: printing
+    // "Total today R0" beside a live checkout button is worse than falling
+    // back to the plugin's own default price.
+    price = Number(root.getAttribute('data-price')) || 1599;
 
     /* The "Get Started with Setup" button is an answer to the first two
        questions, so asking them again would be the page forgetting what it
        was just told. The offer is pre-ticked but still shown — being sent
        to a more expensive checkout without confirming it is not on. */
-    if (preset === 'setup' && fee > 0) {
+    if (preset === 'setup' && offerAvailable()) {
       state.device = 'no';
       state.wantsDevice = 'yes';
       var deviceNo = root.querySelector('[data-testid="ob-device-no"]');
@@ -182,9 +217,14 @@
       .filter(function (el) { return el.offsetParent !== null; });
   }
 
+  // Restored on close rather than hard-reset to '': a page that already had
+  // its own inline overflow style must get it back, not have it discarded.
+  var savedOverflow = '';
+
   function open(from) {
     opener = from || null;
     root.hidden = false;
+    savedOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     reset(from ? from.getAttribute('data-onboard') : '');
     panel.focus();
@@ -192,7 +232,7 @@
 
   function close() {
     root.hidden = true;
-    document.body.style.overflow = '';
+    document.body.style.overflow = savedOverflow;
     // Returning focus to the button that opened the flow: without this a
     // keyboard user is dropped back at the top of the document, having lost
     // the place they were reading.
@@ -205,11 +245,26 @@
   document.addEventListener('click', function (e) {
     var cta = e.target.closest('[data-onboard]');
     if (cta) {
+      // A modifier or a non-primary button means "open in a new tab/window",
+      // not "start the flow" — preventDefault() here would silently break
+      // that, on every Get Started link on the page.
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
       open(cta);
       return;
     }
     if (e.target.closest('[data-ob-close]')) close();
+
+    // The terminal checkout button is a real link so the page still buys
+    // with this script absent, but on an unconfigured install it resolves to
+    // a same-page fragment (afristream_landing_cta_url()'s "#pricing"
+    // fallback). Left open, the modal's overflow:hidden and full-screen
+    // backdrop mean that scroll happens invisibly behind it — the customer's
+    // click reads as having done nothing. Closing first, without
+    // preventDefault(), lets the browser's own jump land on a page the
+    // customer can actually see.
+    var checkout = e.target.closest('[data-testid="ob-checkout"]');
+    if (checkout && (checkout.getAttribute('href') || '').charAt(0) === '#') close();
   });
 
   document.addEventListener('keydown', function (e) {

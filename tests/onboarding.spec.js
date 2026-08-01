@@ -336,3 +336,112 @@ test('the checkout button is the last step, with no Continue beside it', async (
   await expect(back(page)).toBeVisible();
   await expect(page.getByTestId('ob-checkout')).toBeVisible();
 });
+
+// -- Final review findings ---------------------------------------------------
+
+test('focus stays inside the dialog after a keyboard-activated step change disables Continue', async ({ page }) => {
+  await open(page);
+
+  // Navigate by keyboard alone, focusing Continue and pressing Enter each
+  // time, so nextBtn is document.activeElement at the instant render() hides
+  // or disables it — this is exactly the sequence that used to drop focus to
+  // <body>.
+  await next(page).focus();
+  await page.keyboard.press('Enter'); // intro -> device
+  await page.getByTestId('ob-device-no').check();
+  await next(page).focus();
+  await page.keyboard.press('Enter'); // device -> subs
+  await next(page).focus();
+  await page.keyboard.press('Enter'); // subs -> offer, Continue starts disabled
+
+  await expect(step(page, 'offer')).toBeVisible();
+  await expect(next(page)).toBeDisabled();
+
+  const inPanel = () => page.evaluate(() =>
+    !!document.activeElement && !!document.activeElement.closest('.as-ob-panel'));
+  expect(await inPanel(), 'focus should have moved back into the panel, not to <body>').toBe(true);
+
+  for (let i = 0; i < 6; i += 1) {
+    await page.keyboard.press('Tab');
+    expect(await inPanel(), `focus left the dialog after ${i + 1} tabs`).toBe(true);
+  }
+});
+
+test('the terminal checkout button closes the modal before following a fragment link', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await next(page).click();
+
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
+  await page.getByTestId('ob-checkout').click();
+
+  await expect(modal(page)).toBeHidden();
+  await expect(page.locator('#pricing')).toBeInViewport();
+});
+
+test('the device offer is withheld when the setup checkout is not distinct from the plain one', async ({ page }) => {
+  await page.getByTestId('onboarding').evaluate((el) => {
+    el.setAttribute('data-setup-cta', el.getAttribute('data-cta'));
+  });
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-no').check();
+
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+  await next(page).click();
+  await next(page).click();
+  await expect(step(page, 'offer')).toBeHidden();
+  await expect(step(page, 'breakdown')).toBeVisible();
+});
+
+test('the setup card asks the device question normally when its checkout is not distinct', async ({ page }) => {
+  await page.getByTestId('onboarding').evaluate((el) => {
+    el.setAttribute('data-setup-cta', el.getAttribute('data-cta'));
+  });
+  await page.getByTestId('plan-setup-cta').click();
+  await expect(page.getByTestId('onboarding')).toBeVisible();
+
+  // With no distinct setup checkout the preset must not fire: the flow starts
+  // from the intro like any other CTA, rather than skipping straight to subs
+  // with the device offer silently pre-ticked to "yes".
+  await expect(step(page, 'intro')).toBeVisible();
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 4');
+});
+
+test('a modifier-clicked CTA is left to the browser, not intercepted', async ({ page }) => {
+  await expect(modal(page)).toBeHidden();
+  await page.getByTestId('header-cta').click({ modifiers: ['Control'] });
+  await expect(modal(page)).toBeHidden();
+});
+
+test('with the savings helper unavailable, CTAs fall back to their href instead of opening a half-built modal', async ({ page }) => {
+  await page.route('**/assets/savings.js', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/javascript', body: '/* savings.js failed to load */' }));
+  await page.goto('/landing');
+
+  await page.getByTestId('header-cta').click();
+  await expect(page.getByTestId('onboarding')).toBeHidden();
+});
+
+test('a missing price falls back to the same default the calculator uses, not R0', async ({ page }) => {
+  await page.getByTestId('onboarding').evaluate((el) => el.removeAttribute('data-price'));
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await next(page).click();
+
+  await expect(page.getByTestId('ob-total')).toHaveText(/R\s*1\D?599/);
+});
+
+test('opening the flow does not clobber a pre-existing inline overflow style', async ({ page }) => {
+  await page.evaluate(() => { document.body.style.overflow = 'scroll'; });
+  await open(page);
+  await page.keyboard.press('Escape');
+  await expect(modal(page)).toBeHidden();
+
+  const overflow = await page.evaluate(() => document.body.style.overflow);
+  expect(overflow).toBe('scroll');
+});

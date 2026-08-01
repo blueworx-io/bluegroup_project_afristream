@@ -216,6 +216,7 @@ af_test( 'marker counts match the preview mirror', function () {
 	af_assert_same( 0, af_landing_xpath_count( $root, './/figure' ), 'no testimonials — the section was dropped in 0.24.0' );
 	af_assert_same( 32, af_landing_xpath_count( $root, './/*[@data-sub-price]' ), 'subscription options: sixteen in the calculator, sixteen in the onboarding flow' );
 	af_assert_same( 1, af_landing_xpath_count( $root, './/h1' ), 'exactly one h1 on the page' );
+	af_assert_same( 6, af_landing_xpath_count( $root, './/*[@data-onboard]' ), 'CTAs that open the onboarding flow' );
 } );
 
 af_test( 'the sixteen calculator subscription prices match the preview mirror in order', function () {
