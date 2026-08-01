@@ -93,7 +93,19 @@ function afristream_onboarding_modal() {
         <label class="as-ob-opt"><input type="radio" name="as-ob-offer" value="no" data-testid="ob-offer-no"><span><strong>No thanks, I will sort my own</strong>Just the subscription. Our setup guides will walk you through it.</span></label>
       </div>
     </div>
-    <div class="as-ob-step" data-ob-step="breakdown" hidden></div>
+    <div class="as-ob-step" data-ob-step="breakdown" hidden>
+      <div class="as-ob-block">
+        <span class="as-ob-block-h">What you get</span>
+        <ul class="as-ob-list">' . $includes . '</ul>
+      </div>
+      <div class="as-ob-block">
+        <span class="as-ob-block-h">What it costs</span>
+        <ul class="as-ob-bill" data-testid="ob-cost"></ul>
+        <p class="as-ob-total">Total today <span data-testid="ob-total">R0</span></p>
+      </div>
+      <div class="as-ob-block as-ob-block-save" data-testid="ob-savings"></div>
+      <a class="as-btn as-btn-primary as-ob-checkout" data-testid="ob-checkout" href="' . esc_url( afristream_landing_cta_url() ) . '">Continue to checkout</a>
+    </div>
     <div class="as-ob-nav">
       <button class="as-btn as-btn-ghost" type="button" data-testid="ob-back" data-ob-back hidden>Back</button>
       <button class="as-btn as-btn-primary" type="button" data-testid="ob-next" data-ob-next>Continue</button>

@@ -248,3 +248,91 @@ test('the setup card opens the flow with the device answered for them', async ({
   await next(page).click();
   await expect(page.getByTestId('ob-offer-yes')).toBeChecked();
 });
+
+const CHECKOUT = 'https://pay.example.test/afristream-setup';
+
+test('taking the device puts the fee on the bill and routes to the setup checkout', async ({ page }) => {
+  await toOffer(page);
+  await page.getByTestId('ob-offer-yes').check();
+  await next(page).click();
+
+  const bill = page.getByTestId('ob-cost');
+  await expect(bill).toContainText(/R\s*1\D?599/);
+  await expect(bill).toContainText('R499');
+  await expect(page.getByTestId('ob-total')).toHaveText(/R\s*2\D?098/);
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', CHECKOUT);
+});
+
+test('declining the device leaves the fee off the bill and off the checkout', async ({ page }) => {
+  await toOffer(page);
+  await page.getByTestId('ob-offer-no').check();
+  await next(page).click();
+
+  await expect(page.getByTestId('ob-cost')).not.toContainText('R499');
+  await expect(page.getByTestId('ob-total')).toHaveText(/R\s*1\D?599/);
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
+});
+
+test('someone who has a device goes to the plain checkout', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await next(page).click();
+
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
+});
+
+test('the savings section reflects the subscriptions they ticked', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+
+  // Netflix Premium R2748 + HBO Max R4968 = R7716, less R1599 = R6117.
+  await step(page, 'subs').getByRole('button', { name: /Netflix Premium/ }).click();
+  await step(page, 'subs').getByRole('button', { name: /HBO Max/ }).click();
+  await next(page).click();
+
+  expect(await digits(page.getByTestId('ob-saving'))).toBe('6117');
+  await expect(page.getByTestId('ob-savings')).toContainText(/R\s*7\D?716/);
+});
+
+test('someone who ticked nothing sees no invented saving', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await next(page).click();
+
+  await expect(page.getByTestId('ob-savings'))
+    .toContainText('Tell us what you pay for today');
+  await expect(page.getByTestId('ob-saving')).toHaveCount(0);
+});
+
+test('the breakdown agrees with the page calculator for the same selection', async ({ page }) => {
+  const calc = page.getByTestId('landing-calculator');
+  await calc.getByRole('button', { name: /Disney Plus Premium/ }).click();
+  const fromCalc = await digits(calc.getByTestId('calc-saving'));
+
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await step(page, 'subs').getByRole('button', { name: /Disney Plus Premium/ }).click();
+  await next(page).click();
+
+  expect(await digits(page.getByTestId('ob-saving'))).toBe(fromCalc);
+});
+
+test('the checkout button is the last step, with no Continue beside it', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await next(page).click();
+
+  await expect(next(page)).toBeHidden();
+  await expect(back(page)).toBeVisible();
+  await expect(page.getByTestId('ob-checkout')).toBeVisible();
+});

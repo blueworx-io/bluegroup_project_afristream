@@ -18,7 +18,13 @@
   var backBtn = root.querySelector('[data-ob-back]');
   var sums = window.AfriStreamSavings;
 
+  var costEl = root.querySelector('[data-testid="ob-cost"]');
+  var totalEl = root.querySelector('[data-testid="ob-total"]');
+  var savingsEl = root.querySelector('[data-testid="ob-savings"]');
+  var checkoutEl = root.querySelector('[data-testid="ob-checkout"]');
+
   var fee = 0;
+  var price = 0;
 
   var TITLES = {
     intro: 'What you get with AfriStream',
@@ -63,6 +69,39 @@
     backBtn.hidden = at === 0;
     nextBtn.hidden = name === 'breakdown';
     nextBtn.disabled = !ready(name);
+
+    if (name === 'breakdown') breakdown();
+  }
+
+  function line(label, amount) {
+    return '<li><span>' + label + '</span><span>' + sums.money(amount) + '</span></li>';
+  }
+
+  function breakdown() {
+    var takesDevice = state.wantsDevice === 'yes' && state.device !== 'yes' && fee > 0;
+    var total = price + (takesDevice ? fee : 0);
+
+    costEl.innerHTML = line('AfriStream, one year', price)
+      + (takesDevice ? line('FireStick, set up and delivered — once off', fee) : '');
+    totalEl.textContent = sums.money(total);
+
+    /* No subscriptions ticked means no saving to state. Printing "you save R0"
+       under a heading about savings reads as a promise the product failed to
+       keep, when in fact the customer simply skipped the question. */
+    if (state.subs > 0) {
+      savingsEl.innerHTML = '<span class="as-ob-block-h">What you save</span>'
+        + '<p class="as-ob-save-figure" data-testid="ob-saving">' + sums.money(sums.saving(state.subs, price)) + '</p>'
+        + '<p class="as-ob-save-basis">a year, against the ' + sums.money(state.subs) + ' you spend today</p>';
+    } else {
+      savingsEl.innerHTML = '<span class="as-ob-block-h">What you save</span>'
+        + '<p class="as-ob-save-basis">Tell us what you pay for today and we will work it out — go back a step whenever you like.</p>';
+    }
+
+    // The flow's whole output: which checkout this customer belongs at.
+    checkoutEl.setAttribute(
+      'href',
+      takesDevice ? root.getAttribute('data-setup-cta') : root.getAttribute('data-cta')
+    );
   }
 
   function go(delta) {
@@ -84,8 +123,9 @@
     if (other) other.value = '';
 
     // Read per open, not once at load: a test — and a cached page whose
-    // settings have since changed — can move the fee under us.
+    // settings have since changed — can move the fee or the price under us.
     fee = Number(root.getAttribute('data-setup-fee')) || 0;
+    price = Number(root.getAttribute('data-price')) || 0;
 
     /* The "Get Started with Setup" button is an answer to the first two
        questions, so asking them again would be the page forgetting what it

@@ -97,11 +97,6 @@
 
 .as-ob-step[hidden] { display: none; }
 
-/* Task 5 fills the breakdown step; until then it is an empty placeholder, and
-   an empty block has no box for the step machine's tests to find visible.
-   This stops applying the moment it has real content. */
-.as-ob-step:empty { min-height: 1px; }
-
 .as-ob-nav {
   display: flex;
   gap: 10px;
@@ -170,6 +165,50 @@
 .as-ob-running span { color: #f4f1fa; font-weight: 600; }
 
 .as-ob-nav button[disabled] { opacity: .45; cursor: not-allowed; }
+
+.as-ob-block { display: grid; gap: 8px; }
+
+.as-ob-block + .as-ob-block { margin-top: 18px; }
+
+.as-ob-block-h {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #8f88a3;
+}
+
+.as-ob-bill { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
+
+.as-ob-bill li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 15px;
+  color: #d8d3e6;
+}
+
+.as-ob-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+  font-weight: 600;
+}
+
+.as-ob-block-save {
+  padding: 14px;
+  border: 1px solid rgba(205, 45, 245, .3);
+  border-radius: 12px;
+  background: rgba(205, 45, 245, .08);
+}
+
+.as-ob-save-figure { margin: 0; font-size: 30px; font-weight: 600; color: #cd2df5; }
+.as-ob-save-basis { margin: 0; font-size: 14px; color: #b9b2cc; }
+
+.as-ob-checkout { margin-top: 20px; text-align: center; }
 
 @media (max-width: 480px) {
   .as-ob { padding: 0; align-items: stretch; }
