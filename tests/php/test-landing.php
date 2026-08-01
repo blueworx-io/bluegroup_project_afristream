@@ -178,11 +178,21 @@ function af_landing_seed_teasers() {
 	// what production reads.
 }
 
+/**
+ * What the preview mirror represents: a site with the setup price point turned
+ * on. The mirror is static, so parity only holds against a configured install.
+ */
+function af_landing_seed_setup_plan() {
+	update_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION, 499 );
+	update_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, 'https://pay.example.test/afristream-setup' );
+}
+
 // -- Mirror parity -------------------------------------------------------
 
 af_test( 'the rendered sections appear in the same order as the preview mirror', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
+	af_landing_seed_setup_plan();
 
 	af_assert_same(
 		af_landing_section_ids( af_landing_mirror_root() ),
@@ -194,11 +204,12 @@ af_test( 'the rendered sections appear in the same order as the preview mirror',
 af_test( 'marker counts match the preview mirror', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
+	af_landing_seed_setup_plan();
 	$root = af_landing_php_root();
 
 	af_assert_same( 26, af_landing_xpath_count( $root, './/*[@data-platform]' ), 'ticker platforms (13, doubled for a seamless loop)' );
 	af_assert_same( 4, af_landing_xpath_count( $root, './/*[@data-feature]' ), 'feature cards' );
-	af_assert_same( 5, af_landing_xpath_count( $root, './/*[@data-plan-feature]' ), 'plan feature lines' );
+	af_assert_same( 11, af_landing_xpath_count( $root, './/*[@data-plan-feature]' ), 'plan feature lines (five, plus the setup plan\'s six)' );
 	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-faq]' ), 'FAQ items' );
 	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
 	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-teaser-card]' ), 'teaser posters (eight per row, two rows)' );
@@ -210,6 +221,7 @@ af_test( 'marker counts match the preview mirror', function () {
 af_test( 'the sixteen calculator subscription prices match the preview mirror in order', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
+	af_landing_seed_setup_plan();
 
 	af_assert_same(
 		af_landing_sub_prices( af_landing_mirror_root() ),
@@ -221,6 +233,7 @@ af_test( 'the sixteen calculator subscription prices match the preview mirror in
 af_test( 'the visible text matches the preview mirror', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
+	af_landing_seed_setup_plan();
 
 	af_assert_same(
 		af_landing_text_nodes( af_landing_mirror_root() ),
@@ -276,6 +289,9 @@ af_test( 'every Get Started button on the page uses the configured URL, not anot
 	// Started twice and still not be buying anything.
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
+	// No setup fee, so the second price point — which has its own destination
+	// by design — is not on the page and the count stays at five.
+	delete_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION );
 	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
 
 	$root  = af_landing_php_root();
@@ -317,6 +333,70 @@ af_test( 'mailto and tel links are accepted; javascript: is refused and keeps th
 	);
 
 	af_assert_same( '', afristream_landing_sanitize_cta_url( '   ' ), 'but clearing it really does clear it' );
+} );
+
+// -- The subscription + setup fee price point --------------------------------
+
+af_test( 'no setup fee means no setup price point, rather than one advertised at R0', function () {
+	delete_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION );
+
+	$pricing = afristream_landing_pricing();
+
+	af_assert( false === strpos( $pricing, 'data-testid="plan-setup"' ), 'the card is left off' );
+	af_assert( false === strpos( $pricing, 'once-off setup' ), 'and so is its price line' );
+	af_assert( false !== strpos( $pricing, 'data-testid="plan-cta"' ), 'the ordinary plan is untouched' );
+} );
+
+af_test( 'a configured setup fee renders a second price point beside the first', function () {
+	update_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION, 499 );
+	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
+	update_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, 'https://pay.example.test/afristream-setup' );
+
+	$pricing = afristream_landing_pricing();
+
+	af_assert( false !== strpos( $pricing, 'data-testid="plan-cta"' ), 'the plain plan is still there' );
+	af_assert( false !== strpos( $pricing, 'data-testid="plan-setup-cta"' ), 'and the setup plan joins it' );
+	af_assert( false !== strpos( $pricing, '+ R499 once-off setup' ), 'the fee is shown' );
+	af_assert( false !== strpos( $pricing, 'R1599<small>/ year</small>' ), 'alongside the subscription price' );
+	af_assert( false !== strpos( $pricing, 'Guided setup done for you' ), 'with the extra feature it buys' );
+	af_assert(
+		false !== strpos( $pricing, 'href="https://pay.example.test/afristream-setup"' ),
+		'and its button leads to its own checkout'
+	);
+
+	delete_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION );
+	delete_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION );
+} );
+
+af_test( 'a setup price point with no checkout URL of its own falls back, never goes dead', function () {
+	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
+	delete_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION );
+
+	af_assert_same(
+		'https://pay.example.test/afristream',
+		afristream_landing_setup_cta_url(),
+		'it borrows the Get Started URL'
+	);
+
+	// And with neither set, it lands on the same last resort as everything else.
+	delete_option( AFRISTREAM_LANDING_CTA_OPTION );
+	af_assert_same( '#pricing', afristream_landing_setup_cta_url(), 'never nothing' );
+} );
+
+af_test( 'the price is configurable, and an emptied field means the default, not free', function () {
+	delete_option( AFRISTREAM_LANDING_PRICE_OPTION );
+	af_assert_same( AFRISTREAM_LANDING_PRICE, afristream_landing_price(), 'unset falls back to the default' );
+
+	update_option( AFRISTREAM_LANDING_PRICE_OPTION, 0 );
+	af_assert_same( AFRISTREAM_LANDING_PRICE, afristream_landing_price(), 'and so does a zero' );
+
+	update_option( AFRISTREAM_LANDING_PRICE_OPTION, 1799 );
+	af_assert_same( 1799, afristream_landing_price(), 'a real value is used' );
+	af_assert( false !== strpos( afristream_landing_pricing(), 'R1799' ), 'on the pricing card' );
+	af_assert( false !== strpos( afristream_landing_calculator(), 'R1799' ), 'in the calculator' );
+	af_assert( false !== strpos( afristream_landing_signup(), 'R1799' ), 'and in the closing CTA' );
+
+	delete_option( AFRISTREAM_LANDING_PRICE_OPTION );
 } );
 
 // -- Teasers -------------------------------------------------------------

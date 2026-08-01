@@ -879,6 +879,18 @@ body.afristream-landing-page {
 
 .as-landing .as-sec-pricing .as-sec-in { align-items: center; }
 
+/* One price point or two. The cards keep their own max width and centre in
+   their cell, so the single-card case is unchanged by the grid around it, and
+   align-items:start stops the taller card stretching the shorter one. */
+.as-landing .as-plans {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 420px));
+  justify-content: center;
+  align-items: start;
+  gap: clamp(20px, 3vw, 32px);
+}
+
 .as-landing .as-plan {
   width: min(420px, 100%);
   box-sizing: border-box;
@@ -916,6 +928,15 @@ body.afristream-landing-page {
   letter-spacing: 0;
   color: var(--text-3);
   margin-left: 8px;
+}
+
+/* Sits directly under the price, so it loses the flex gap and reads as part of
+   the same figure rather than as another line of copy. */
+.as-landing .as-plan-setup {
+  margin-top: -8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
 }
 
 .as-landing .as-plan-tag { font-size: 14.5px; color: var(--text-2); }

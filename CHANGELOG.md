@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.0] - 2026-08-01
+
+### Added
+
+- **A second price point on the landing page: the subscription plus a one-off
+  setup fee, with its own button and its own checkout.** It sits beside the
+  existing plan so a customer can compare the two and pick one, and it carries
+  the extra thing the fee buys — guided setup — as a sixth feature line.
+
+  It is off until it is priced. A setup fee of 0 leaves the card off the page
+  altogether rather than advertising a free setup and a second button leading
+  to the same checkout as the first. Its own checkout URL falls back to the
+  Get Started URL when unset, on the same principle the Get Started URL already
+  follows: a call to action must never be inert.
+
+### Changed
+
+- **The advertised annual price and the setup fee are now settings, not code.**
+  The price was the constant `AFRISTREAM_LANDING_PRICE`, printed on the pricing
+  card, in the savings calculator and in the closing call to action; changing it
+  meant a code change and a redeploy. It reads from an option now, with that
+  constant as the default, so an untouched install renders exactly what it
+  rendered before. An emptied field falls back to the default rather than
+  printing R0.
+
 ## [0.26.1] - 2026-08-01
 
 ### Changed

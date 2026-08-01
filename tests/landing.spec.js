@@ -28,15 +28,20 @@ test('the full-width CTAs sit inside the cards that hold them', async ({ page })
   // width:100% on a content-box button adds its own padding and border on top
   // of the container's content width, so both CTAs spilled past the card
   // border. Measure the gap on each side rather than trusting the width.
+  // Every match, not the first: there are two plan cards once a setup fee is
+  // configured, and only one of them was ever measured before.
   for (const sel of ['.as-calc-cta', '.as-plan-cta']) {
-    const gaps = await page.locator(sel).evaluate(el => {
+    const all = await page.locator(sel).evaluateAll(els => els.map(el => {
       const b = el.getBoundingClientRect();
       const p = el.parentElement.getBoundingClientRect();
       return { left: b.left - p.left, right: p.right - b.right };
+    }));
+    expect(all.length, `${sel} matched nothing`).toBeGreaterThan(0);
+    all.forEach((gaps, i) => {
+      expect(gaps.left, `${sel}[${i}] spills past the left edge`).toBeGreaterThanOrEqual(0);
+      expect(gaps.right, `${sel}[${i}] spills past the right edge`).toBeGreaterThanOrEqual(0);
+      expect(Math.abs(gaps.left - gaps.right), `${sel}[${i}] is not centred`).toBeLessThan(1);
     });
-    expect(gaps.left, `${sel} spills past the left edge`).toBeGreaterThanOrEqual(0);
-    expect(gaps.right, `${sel} spills past the right edge`).toBeGreaterThanOrEqual(0);
-    expect(Math.abs(gaps.left - gaps.right), `${sel} is not centred`).toBeLessThan(1);
   }
 });
 
@@ -247,19 +252,53 @@ test('the features section lists four blocks', async ({ page }) => {
   await expect(features).toContainText('Save time, money, effort');
 });
 
-test('pricing shows one annual plan at R1599 with its five features', async ({ page }) => {
-  const pricing = page.getByTestId('landing-pricing');
-  await expect(pricing).toContainText('Limited Time Offer!');
-  await expect(pricing).toContainText('R1599');
-  await expect(pricing).toContainText('/ year');
-  await expect(pricing.locator('[data-plan-feature]')).toHaveCount(5);
-  await expect(pricing).toContainText('14 Day Money Back Guarantee');
+test('pricing shows the annual plan at R1599 with its five features', async ({ page }) => {
+  const plan = page.getByTestId('plan');
+  await expect(plan).toContainText('Limited Time Offer!');
+  await expect(plan).toContainText('R1599');
+  await expect(plan).toContainText('/ year');
+  await expect(plan.locator('[data-plan-feature]')).toHaveCount(5);
+  await expect(plan).toContainText('14 Day Money Back Guarantee');
+});
+
+test('the setup price point sits beside the plain one, priced and linked separately', async ({ page }) => {
+  const setup = page.getByTestId('plan-setup');
+  await expect(setup).toContainText('Annual Plan + Setup');
+  await expect(setup).toContainText('R1599');
+  await expect(setup).toContainText('+ R499 once-off setup');
+  // The extra feature is what the customer is paying the fee for.
+  await expect(setup.locator('[data-plan-feature]')).toHaveCount(6);
+  await expect(setup).toContainText('Guided setup done for you');
+
+  // Its own checkout, not the plain plan's — a shared href would make the whole
+  // price point pointless.
+  const setupHref = await page.getByTestId('plan-setup-cta').getAttribute('href');
+  const planHref = await page.getByTestId('plan-cta').getAttribute('href');
+  expect(setupHref).toBe('https://pay.example.test/afristream-setup');
+  expect(setupHref).not.toBe(planHref);
+});
+
+test('both price points sit side by side on desktop and stack on mobile', async ({ page }) => {
+  const boxes = async () => ({
+    a: await page.getByTestId('plan').boundingBox(),
+    b: await page.getByTestId('plan-setup').boundingBox(),
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  let { a, b } = await boxes();
+  expect(b.x, 'the cards should be columns, not stacked, at 1280px').toBeGreaterThan(a.x + a.width - 1);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  ({ a, b } = await boxes());
+  expect(b.y, 'the cards should stack at 390px').toBeGreaterThan(a.y + a.height - 1);
+  expect(b.x).toBeCloseTo(a.x, 0);
 });
 
 test('every Get Started button shares one destination, none pointing at another CTA', async ({ page }) => {
   // The mirror carries the empty-setting fallback, so what matters here is that
   // all five agree — in WordPress they all resolve through the same setting.
-  const hrefs = await page.locator('.as-landing a').evaluateAll((links) =>
+  // The setup card's button is deliberately excluded: it has its own setting.
+  const hrefs = await page.locator('.as-landing a:not(.as-plan-cta-setup)').evaluateAll((links) =>
     links
       .filter((a) => /^(Get Started|Get AfriStream)/.test(a.textContent.trim()))
       .map((a) => a.getAttribute('href')));
