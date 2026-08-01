@@ -4,6 +4,43 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0] - 2026-08-01
+
+### Added
+
+- **Every "Get Started" button now opens an onboarding modal instead of going
+  straight to checkout.** It opens from any of the landing page's CTAs (Escape
+  and the backdrop both close it, and focus is trapped inside while it is
+  open), and starts with an intro step explaining what the subscription
+  includes — so a customer commits to an order having actually seen what
+  they're buying, not just a price.
+
+  From there it asks two things: whether the customer already has a device
+  to watch on, and which subscription they want, sharing the same price list
+  as the page's own calculator so the two never disagree. A customer who says
+  they don't have a device is offered a FireStick — but only when the setup
+  fee is configured above zero. Below that, or unconfigured, there is nothing
+  to offer and the question is skipped rather than asked and then apologized
+  for. The setup pricing card's own button preloads that "no device" answer,
+  since a customer arriving from that card has already told the page as much.
+
+  It ends by showing the bill — the plan cost and the FireStick offer's
+  savings, laid out as a breakdown rather than a single number — and a button
+  that opens the setup checkout for anyone who took the device, or the plain
+  checkout for anyone who didn't. Nothing asked along the way is stored
+  anywhere; it only ever decides which of the two already-configured checkout
+  URLs this particular visit should land on.
+
+### Fixed
+
+- **The savings calculator was quoting against a hardcoded price.** The
+  landing page's "compare our price to what you're paying now" calculator
+  subtracted the configured annual price from what the customer typed in —
+  except it subtracted a hardcoded R1599 instead, so a site that changed its
+  price in settings kept advertising the old saving. The arithmetic is now
+  its own module (`assets/savings.js`), shared by the page calculator and the
+  onboarding flow's own breakdown, and both read the configured price.
+
 ## [0.27.0] - 2026-08-01
 
 ### Added

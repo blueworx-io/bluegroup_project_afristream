@@ -32,6 +32,12 @@ Started" button on the landing page leads to the closing call to action, and
 that button follows this URL. Left empty it scrolls to the pricing section
 instead, so the page never has a dead button.
 
+Every "Get Started" button now opens the onboarding flow first — a short set
+of questions about the customer's device and subscription that ends by
+choosing between the two configured checkouts (the plain Get Started URL, or
+the setup fee checkout when the customer took the FireStick offer). Those
+URLs are still where it ends up; the flow only decides which one.
+
 ## Live "What to Watch" data
 
 **Sport (no key needed):** major global events — Soccer (FIFA World Cup, Premier League, Champions League), Cricket (ICC World Cup / T20 / Champions Trophy), Rugby, Golf, F1, UFC, NFL, NBA, tennis — come from ESPN's public scoreboard API: live events first, then the week's soonest kick-offs with broadcaster, in the viewer's local time. Extend the league list in [bluegroup-project-afristream.php](bluegroup-project-afristream.php) and [scripts/preview-server.mjs](scripts/preview-server.mjs) (keep the two in sync). Cached 2 hours. Note this is an unofficial API — if it ever breaks, the portal just shows its curated sport list (which always includes Cricket, Golf, Rugby and Soccer).
