@@ -191,6 +191,36 @@ function afristream_landing_register_settings() {
 		array( 'label_for' => 'afristream_portal_page_id' )
 	);
 
+	register_setting(
+		'afristream_portal',
+		AFRISTREAM_LANDING_SETUP_CTA_OPTION,
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'afristream_landing_sanitize_cta_url',
+			'default'           => '',
+		)
+	);
+
+	register_setting(
+		'afristream_portal',
+		AFRISTREAM_LANDING_PRICE_OPTION,
+		array(
+			'type'              => 'integer',
+			'sanitize_callback' => 'absint',
+			'default'           => AFRISTREAM_LANDING_PRICE,
+		)
+	);
+
+	register_setting(
+		'afristream_portal',
+		AFRISTREAM_LANDING_SETUP_FEE_OPTION,
+		array(
+			'type'              => 'integer',
+			'sanitize_callback' => 'absint',
+			'default'           => 0,
+		)
+	);
+
 	add_settings_field(
 		AFRISTREAM_LANDING_CTA_OPTION,
 		__( 'Get Started URL', 'bluegroup-project-afristream' ),
@@ -199,11 +229,47 @@ function afristream_landing_register_settings() {
 		'afristream_landing',
 		array( 'label_for' => AFRISTREAM_LANDING_CTA_OPTION )
 	);
+
+	add_settings_field(
+		AFRISTREAM_LANDING_PRICE_OPTION,
+		__( 'Annual price (R)', 'bluegroup-project-afristream' ),
+		'afristream_landing_price_field',
+		'bluegroup-project-afristream',
+		'afristream_landing',
+		array( 'label_for' => AFRISTREAM_LANDING_PRICE_OPTION )
+	);
+
+	add_settings_field(
+		AFRISTREAM_LANDING_SETUP_FEE_OPTION,
+		__( 'Setup fee (R)', 'bluegroup-project-afristream' ),
+		'afristream_landing_setup_fee_field',
+		'bluegroup-project-afristream',
+		'afristream_landing',
+		array( 'label_for' => AFRISTREAM_LANDING_SETUP_FEE_OPTION )
+	);
+
+	add_settings_field(
+		AFRISTREAM_LANDING_SETUP_CTA_OPTION,
+		__( 'Setup checkout URL', 'bluegroup-project-afristream' ),
+		'afristream_landing_setup_cta_field',
+		'bluegroup-project-afristream',
+		'afristream_landing',
+		array( 'label_for' => AFRISTREAM_LANDING_SETUP_CTA_OPTION )
+	);
 }
 add_action( 'admin_init', 'afristream_landing_register_settings' );
 
 /** Where the Get Started destination is stored. */
 const AFRISTREAM_LANDING_CTA_OPTION = 'afristream_landing_cta_url';
+
+/** Where the "subscription + setup fee" checkout destination is stored. */
+const AFRISTREAM_LANDING_SETUP_CTA_OPTION = 'afristream_landing_setup_cta_url';
+
+/** Where the advertised annual price is stored. */
+const AFRISTREAM_LANDING_PRICE_OPTION = 'afristream_landing_price';
+
+/** Where the one-off setup fee is stored. */
+const AFRISTREAM_LANDING_SETUP_FEE_OPTION = 'afristream_landing_setup_fee';
 
 /**
  * Where every Get Started button points until that setting is filled in.
@@ -260,6 +326,63 @@ function afristream_landing_cta_field() {
 		esc_attr( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) )
 	);
 	echo '<p class="description">' . esc_html__( 'Where the landing page\'s "Get Started" buttons send people — your checkout, order form or WhatsApp link. Left empty, they scroll to the pricing section instead.', 'bluegroup-project-afristream' ) . '</p>';
+}
+
+/**
+ * Where the "subscription + setup fee" price point's button points.
+ *
+ * Falls back to the ordinary Get Started URL for the same reason that one falls
+ * back to the pricing section: a configured price point with a dead button is
+ * worse than one that sends the customer somewhere they can still buy.
+ */
+function afristream_landing_setup_cta_url() {
+	$url = trim( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) );
+	return '' !== $url ? $url : afristream_landing_cta_url();
+}
+
+/**
+ * The advertised annual price.
+ *
+ * A stored 0 falls back to the default rather than printing "R0": an emptied
+ * field means "use the usual price", never "give it away".
+ */
+function afristream_landing_price() {
+	$price = absint( get_option( AFRISTREAM_LANDING_PRICE_OPTION, AFRISTREAM_LANDING_PRICE ) );
+	return $price > 0 ? $price : AFRISTREAM_LANDING_PRICE;
+}
+
+/**
+ * The one-off setup fee. Zero means the setup price point is not being offered.
+ */
+function afristream_landing_setup_fee() {
+	return absint( get_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION, 0 ) );
+}
+
+function afristream_landing_setup_cta_field() {
+	printf(
+		'<input type="url" class="regular-text" name="%1$s" id="%1$s" value="%2$s" placeholder="https://">',
+		esc_attr( AFRISTREAM_LANDING_SETUP_CTA_OPTION ),
+		esc_attr( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) )
+	);
+	echo '<p class="description">' . esc_html__( 'The checkout covering the subscription and the setup fee together. Left empty, that button uses the Get Started URL above.', 'bluegroup-project-afristream' ) . '</p>';
+}
+
+function afristream_landing_price_field() {
+	printf(
+		'<input type="number" min="0" step="1" class="small-text" name="%1$s" id="%1$s" value="%2$s">',
+		esc_attr( AFRISTREAM_LANDING_PRICE_OPTION ),
+		esc_attr( (string) afristream_landing_price() )
+	);
+	echo '<p class="description">' . esc_html__( 'The annual price shown on the pricing card, the savings calculator and the closing call to action.', 'bluegroup-project-afristream' ) . '</p>';
+}
+
+function afristream_landing_setup_fee_field() {
+	printf(
+		'<input type="number" min="0" step="1" class="small-text" name="%1$s" id="%1$s" value="%2$s">',
+		esc_attr( AFRISTREAM_LANDING_SETUP_FEE_OPTION ),
+		esc_attr( (string) afristream_landing_setup_fee() )
+	);
+	echo '<p class="description">' . esc_html__( 'The one-off setup fee. Leave this at 0 and the "subscription + setup" price point is left off the page altogether.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 function afristream_landing_sanitize_page_id( $value ) {
@@ -693,20 +816,52 @@ function afristream_landing_features() {
 </section>';
 }
 
-function afristream_landing_pricing() {
-	$features = array(
-		'Access to the AfriStream App',
-		'Access to the AfriStream Portal',
-		'Dedicated support guides',
-		'Works with any smart TV or device',
-		'Regular price of R1999.99',
-	);
+const AFRISTREAM_LANDING_PLAN_FEATURES = array(
+	'Access to the AfriStream App',
+	'Access to the AfriStream Portal',
+	'Dedicated support guides',
+	'Works with any smart TV or device',
+	'Regular price of R1999.99',
+);
 
+/** The small print both price points carry. */
+const AFRISTREAM_LANDING_PLAN_FINE = 'AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.';
+
+function afristream_landing_plan_features( array $extra = array() ) {
 	$rows = '';
-	foreach ( $features as $feature ) {
+	foreach ( array_merge( AFRISTREAM_LANDING_PLAN_FEATURES, $extra ) as $feature ) {
 		$rows .= '<li data-plan-feature>' . esc_html( $feature ) . '</li>';
 	}
+	return $rows;
+}
 
+/**
+ * The "subscription + setup fee" price point, or nothing.
+ *
+ * An unconfigured fee means the option is not being sold: showing the card at
+ * R0 would advertise a free setup, and its button would only lead back to the
+ * checkout the first card already offers.
+ */
+function afristream_landing_setup_plan() {
+	$fee = afristream_landing_setup_fee();
+	if ( 0 === $fee ) {
+		return '';
+	}
+
+	return '
+    <div class="as-plan as-plan-setup-card" data-testid="plan-setup">
+      <span class="as-plan-badge">Setup Included</span>
+      <span class="as-plan-name">Annual Plan + Setup</span>
+      <span class="as-plan-price">R' . (int) afristream_landing_price() . '<small>/ year</small></span>
+      <span class="as-plan-setup">+ R' . (int) $fee . ' once-off setup</span>
+      <span class="as-plan-tag">We get you up and running, then it is fire and forget.</span>
+      <ul class="as-plan-features">' . afristream_landing_plan_features( array( 'Guided setup done for you' ) ) . '</ul>
+      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" href="' . esc_url( afristream_landing_setup_cta_url() ) . '">Get Started with Setup</a>
+      <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
+    </div>';
+}
+
+function afristream_landing_pricing() {
 	return '
 <section id="pricing" class="as-sec as-sec-pricing" data-testid="landing-pricing">
   <div class="as-sec-in" data-reveal>'
@@ -715,14 +870,16 @@ function afristream_landing_pricing() {
 			'Budget-friendly pricing',
 			'One simple plan giving you access to over 20 000 feeds in one platform. AfriStream shows you what to watch, when to watch it and how to watch it — all from a single dashboard.'
 		) . '
-    <div class="as-plan">
+    <div class="as-plans">
+    <div class="as-plan" data-testid="plan">
       <span class="as-plan-badge">Limited Time Offer!</span>
       <span class="as-plan-name">Annual Plan</span>
-      <span class="as-plan-price">R1599<small>/ year</small></span>
+      <span class="as-plan-price">R' . (int) afristream_landing_price() . '<small>/ year</small></span>
       <span class="as-plan-tag">One simple subscription, fire and forget!</span>
-      <ul class="as-plan-features">' . $rows . '</ul>
+      <ul class="as-plan-features">' . afristream_landing_plan_features() . '</ul>
       <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
-      <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
+      <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
+    </div>' . afristream_landing_setup_plan() . '
     </div>
   </div>
 </section>';
@@ -752,6 +909,7 @@ const AFRISTREAM_LANDING_SUBS = array(
 	array( 'ESPN Play', 2592 ),
 );
 
+/** The annual price an unconfigured install advertises. */
 const AFRISTREAM_LANDING_PRICE = 1599;
 
 function afristream_landing_calculator() {
@@ -779,9 +937,9 @@ function afristream_landing_calculator() {
         <span class="as-calc-basis">per year, based on <span data-testid="calc-basis">your selection below</span></span>
         <div class="as-calc-rows">
           <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
-          <div><span>AfriStream</span><span>R' . (int) AFRISTREAM_LANDING_PRICE . ' / year</span></div>
+          <div><span>AfriStream</span><span>R' . (int) afristream_landing_price() . ' / year</span></div>
         </div>
-        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) AFRISTREAM_LANDING_PRICE . '!</a>
+        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '!</a>
         <span class="as-fine">14 Day Money Back Guarantee.</span>
       </div>
       <div class="as-calc-pick">
@@ -877,7 +1035,7 @@ function afristream_landing_signup() {
 			'Stop guessing what to watch! Thousands of movies, series and live TV — all in one platform.'
 		) . '
     <div class="as-signup">
-      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) AFRISTREAM_LANDING_PRICE . '</a>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '</a>
       <span class="as-fine">14 Day Money Back Guarantee.</span>
     </div>
   </div>

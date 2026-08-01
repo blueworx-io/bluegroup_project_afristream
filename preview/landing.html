@@ -218,7 +218,10 @@
       <h2>Budget-friendly pricing</h2>
       <p>One simple plan giving you access to over 20 000 feeds in one platform. AfriStream shows you what to watch, when to watch it and how to watch it — all from a single dashboard.</p>
     </div>
-    <div class="as-plan">
+    <!-- Two price points, as a site with a setup fee configured renders. A
+         plugin install with the fee left at 0 shows the first card only. -->
+    <div class="as-plans">
+    <div class="as-plan" data-testid="plan">
       <span class="as-plan-badge">Limited Time Offer!</span>
       <span class="as-plan-name">Annual Plan</span>
       <span class="as-plan-price">R1599<small>/ year</small></span>
@@ -232,6 +235,24 @@
       </ul>
       <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" href="#pricing">Get Started</a>
       <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
+    </div>
+    <div class="as-plan as-plan-setup-card" data-testid="plan-setup">
+      <span class="as-plan-badge">Setup Included</span>
+      <span class="as-plan-name">Annual Plan + Setup</span>
+      <span class="as-plan-price">R1599<small>/ year</small></span>
+      <span class="as-plan-setup">+ R499 once-off setup</span>
+      <span class="as-plan-tag">We get you up and running, then it is fire and forget.</span>
+      <ul class="as-plan-features">
+        <li data-plan-feature>Access to the AfriStream App</li>
+        <li data-plan-feature>Access to the AfriStream Portal</li>
+        <li data-plan-feature>Dedicated support guides</li>
+        <li data-plan-feature>Works with any smart TV or device</li>
+        <li data-plan-feature>Regular price of R1999.99</li>
+        <li data-plan-feature>Guided setup done for you</li>
+      </ul>
+      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" href="https://pay.example.test/afristream-setup">Get Started with Setup</a>
+      <span class="as-fine">AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.</span>
+    </div>
     </div>
   </div>
 </section>
