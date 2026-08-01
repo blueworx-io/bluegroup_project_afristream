@@ -2,7 +2,7 @@ name: CI
 on: pull_request
 jobs:
   guardrails:
-    uses: blueworx-io/bluegroup_core_foundation/.github/workflows/ci-wordpress.yml@main
+    uses: blueworx-io/bluegroup_core_foundation/.github/workflows/ci-wordpress.yml@v1
     with:
       # TODO: replace with the real staging/preview URL once one exists.
       # Keep in sync with STAGING_PLACEHOLDER in playwright.config.js —
@@ -10,3 +10,7 @@ jobs:
       # plugin's local preview harness so the tests still run in CI.
       preview_url: https://staging.afristream.example.com
       plugin_slug: bluegroup-project-afristream
+      # Pin the check scripts to the same major as the workflow above. This
+      # input defaults to `main`, so without it the v1 workflow would run
+      # against whatever is on the foundation's main branch today.
+      foundation_ref: v1
