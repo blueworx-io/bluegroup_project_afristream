@@ -18,7 +18,7 @@
   var backBtn = root.querySelector('[data-ob-back]');
   var sums = window.AfriStreamSavings;
 
-  var fee = Number(root.getAttribute('data-setup-fee')) || 0;
+  var fee = 0;
 
   var TITLES = {
     intro: 'What you get with AfriStream',
@@ -71,7 +71,7 @@
     render();
   }
 
-  function reset() {
+  function reset(preset) {
     state = { device: null, subs: 0, other: 0, wantsDevice: null };
     at = 0;
     Array.prototype.slice.call(root.querySelectorAll('input[type="radio"]')).forEach(function (el) {
@@ -82,6 +82,25 @@
     });
     var other = root.querySelector('[data-testid="ob-subs-other"]');
     if (other) other.value = '';
+
+    // Read per open, not once at load: a test — and a cached page whose
+    // settings have since changed — can move the fee under us.
+    fee = Number(root.getAttribute('data-setup-fee')) || 0;
+
+    /* The "Get Started with Setup" button is an answer to the first two
+       questions, so asking them again would be the page forgetting what it
+       was just told. The offer is pre-ticked but still shown — being sent
+       to a more expensive checkout without confirming it is not on. */
+    if (preset === 'setup' && fee > 0) {
+      state.device = 'no';
+      state.wantsDevice = 'yes';
+      var deviceNo = root.querySelector('[data-testid="ob-device-no"]');
+      var offerYes = root.querySelector('[data-testid="ob-offer-yes"]');
+      if (deviceNo) deviceNo.checked = true;
+      if (offerYes) offerYes.checked = true;
+      at = steps().indexOf('subs');
+    }
+
     recalcSubs();
     render();
   }
@@ -127,7 +146,7 @@
     opener = from || null;
     root.hidden = false;
     document.body.style.overflow = 'hidden';
-    reset();
+    reset(from ? from.getAttribute('data-onboard') : '');
     panel.focus();
   }
 

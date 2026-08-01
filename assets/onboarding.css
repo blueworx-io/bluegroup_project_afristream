@@ -97,6 +97,11 @@
 
 .as-ob-step[hidden] { display: none; }
 
+/* Task 5 fills the breakdown step; until then it is an empty placeholder, and
+   an empty block has no box for the step machine's tests to find visible.
+   This stops applying the moment it has real content. */
+.as-ob-step:empty { min-height: 1px; }
+
 .as-ob-nav {
   display: flex;
   gap: 10px;

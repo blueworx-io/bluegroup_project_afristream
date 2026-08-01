@@ -175,3 +175,76 @@ test('reopening the flow starts it over', async ({ page }) => {
   await expect(step(page, 'intro')).toBeVisible();
   await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 5');
 });
+
+const toOffer = async (page) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-no').check();
+  await next(page).click();
+  await next(page).click();
+};
+
+test('someone without a device is offered one, priced at the setup fee', async ({ page }) => {
+  await toOffer(page);
+
+  await expect(step(page, 'offer')).toBeVisible();
+  await expect(step(page, 'offer')).toContainText('FireStick');
+  await expect(step(page, 'offer')).toContainText('R499');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 4 of 5');
+});
+
+test('someone who has a device never sees the offer', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+  await next(page).click();
+
+  await expect(step(page, 'offer')).toBeHidden();
+  await expect(step(page, 'breakdown')).toBeVisible();
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 4 of 4');
+});
+
+test('the offer must be answered before continuing', async ({ page }) => {
+  await toOffer(page);
+  await expect(next(page)).toBeDisabled();
+  await page.getByTestId('ob-offer-no').check();
+  await expect(next(page)).toBeEnabled();
+});
+
+test('changing the device answer after seeing the offer drops the step', async ({ page }) => {
+  // Going back and answering "yes" must not leave a device-offer step stranded
+  // in the flow, nor a count that promises one.
+  await toOffer(page);
+  await back(page).click();
+  await back(page).click();
+  await page.getByTestId('ob-device-yes').check();
+
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+  await next(page).click();
+  await next(page).click();
+  await expect(step(page, 'breakdown')).toBeVisible();
+});
+
+test('an install with no setup fee offers no device at all', async ({ page }) => {
+  await page.getByTestId('onboarding').evaluate((el) => el.setAttribute('data-setup-fee', '0'));
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-no').check();
+
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+  await next(page).click();
+  await next(page).click();
+  await expect(step(page, 'offer')).toBeHidden();
+  await expect(step(page, 'breakdown')).toBeVisible();
+});
+
+test('the setup card opens the flow with the device answered for them', async ({ page }) => {
+  await page.getByTestId('plan-setup-cta').click();
+  await expect(page.getByTestId('onboarding')).toBeVisible();
+
+  await expect(step(page, 'subs'), 'the two questions it already answers are skipped').toBeVisible();
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 3 of 5');
+  await next(page).click();
+  await expect(page.getByTestId('ob-offer-yes')).toBeChecked();
+});

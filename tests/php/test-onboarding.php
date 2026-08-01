@@ -68,3 +68,12 @@ af_test( 'the modal is not a section, so the page keeps its section order', func
 	$root = af_ob_root();
 	af_assert_same( 0, ( new DOMXPath( $root->ownerDocument ) )->query( './/section', $root )->length, 'no sections inside the modal' );
 } );
+
+af_test( 'the device offer quotes the configured fee in both places it names a price', function () {
+	update_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION, 750 );
+
+	$root  = af_ob_root();
+	$offer = ( new DOMXPath( $root->ownerDocument ) )->query( './/*[@data-ob-step="offer"]', $root );
+	af_assert_same( 1, $offer->length, 'one offer panel' );
+	af_assert_same( 2, substr_count( $offer->item( 0 )->textContent, 'R750' ), 'the lede and the yes option both quote the fee' );
+} );
