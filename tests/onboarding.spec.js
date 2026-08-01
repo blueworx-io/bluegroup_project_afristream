@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// en-ZA groups thousands with a non-breaking space, so assert on digits.
+const digits = async (locator) => (await locator.innerText()).replace(/[^\d]/g, '');
+
 // The flow is a modal on the landing page. These run against the preview
 // mirror at /landing, which loads the same CSS and JS the plugin enqueues,
 // and which represents a configured install: R1599 a year, a R499 setup fee.
@@ -89,5 +92,86 @@ test('the intro lists what the subscription includes and the annual price', asyn
 
   await expect(step).toContainText('Access to over 20 000 live feeds');
   await expect(step).toContainText('R1599');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 5');
+});
+
+const open = async (page) => {
+  await page.getByTestId('header-cta').click();
+  await expect(page.getByTestId('onboarding')).toBeVisible();
+};
+
+const step = (page, name) => page.locator(`[data-ob-step="${name}"]`);
+const next = (page) => page.getByTestId('ob-next');
+const back = (page) => page.getByTestId('ob-back');
+
+test('continue moves from the intro to the device question', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+
+  await expect(step(page, 'intro')).toBeHidden();
+  await expect(step(page, 'device')).toBeVisible();
+  await expect(page.getByTestId('ob-title')).toHaveText('Do you already have a streaming device?');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 5');
+});
+
+test('the device question must be answered before continuing', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+
+  await expect(next(page)).toBeDisabled();
+  await page.getByTestId('ob-device-yes').check();
+  await expect(next(page)).toBeEnabled();
+});
+
+test('someone who has a device is never counted a step for the device offer', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+});
+
+test('back returns to the previous step with the answer still selected', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-no').check();
+  await next(page).click();
+
+  await expect(step(page, 'subs')).toBeVisible();
+  await back(page).click();
+  await expect(step(page, 'device')).toBeVisible();
+  await expect(page.getByTestId('ob-device-no')).toBeChecked();
+});
+
+test('back is not offered on the first step', async ({ page }) => {
+  await open(page);
+  await expect(back(page)).toBeHidden();
+});
+
+test('the subscription step is skippable and reports a running total', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.getByTestId('ob-device-yes').check();
+  await next(page).click();
+
+  await expect(step(page, 'subs')).toBeVisible();
+  await expect(next(page), 'nobody should be blocked from buying by an optional question').toBeEnabled();
+
+  // Netflix Premium R2748 + Showmax + Premier League R1800.
+  await step(page, 'subs').getByRole('button', { name: /Netflix Premium/ }).click();
+  await step(page, 'subs').getByRole('button', { name: /Showmax \+ Premier League/ }).click();
+  expect(await digits(page.getByTestId('ob-subs-total'))).toBe('4548');
+
+  await page.getByTestId('ob-subs-other').fill('1000');
+  expect(await digits(page.getByTestId('ob-subs-total'))).toBe('5548');
+});
+
+test('reopening the flow starts it over', async ({ page }) => {
+  await open(page);
+  await next(page).click();
+  await page.keyboard.press('Escape');
+  await open(page);
+
+  await expect(step(page, 'intro')).toBeVisible();
   await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 5');
 });
