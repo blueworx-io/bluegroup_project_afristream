@@ -35,9 +35,16 @@ function afristream_landing_register_assets() {
 		AFRISTREAM_PORTAL_VERSION
 	);
 	wp_register_script(
+		'afristream-savings',
+		plugins_url( 'assets/savings.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
+		array(),
+		AFRISTREAM_PORTAL_VERSION,
+		true
+	);
+	wp_register_script(
 		'afristream-landing',
 		plugins_url( 'assets/landing.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array(),
+		array( 'afristream-savings' ),
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
@@ -50,7 +57,7 @@ function afristream_landing_register_assets() {
 	wp_register_script(
 		'afristream-onboarding',
 		plugins_url( 'assets/onboarding.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array(),
+		array( 'afristream-savings' ),
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
@@ -939,7 +946,7 @@ function afristream_landing_calculator() {
 	}
 
 	return '
-<section id="calculate" class="as-sec as-sec-calc" data-testid="landing-calculator">
+<section id="calculate" class="as-sec as-sec-calc" data-testid="landing-calculator" data-price="' . (int) afristream_landing_price() . '">
   <div class="as-sec-in" data-reveal>'
 		. afristream_landing_section_header(
 			'Calculate',

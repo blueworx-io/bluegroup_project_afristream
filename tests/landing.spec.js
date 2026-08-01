@@ -368,6 +368,17 @@ test('a selection worth less than AfriStream shows no saving, not a negative one
   expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
 });
 
+test('the calculator quotes savings against the configured price, not a hardcoded one', async ({ page }) => {
+  // The price is a setting. The mirror advertises R1599, changing the attribute
+  // the way a differently configured install would must move the arithmetic.
+  await page.getByTestId('landing-calculator').evaluate((el) => el.setAttribute('data-price', '2000'));
+  await page.getByTestId('landing-calculator').getByRole('button', { name: /Netflix Premium/ }).click();
+
+  // Netflix Premium is R2748 a year: R748 left after a R2000 subscription.
+  const saving = await digits(page.getByTestId('calc-saving'));
+  expect(saving).toBe('748');
+});
+
 test('the FAQ opens with the first answer showing and toggles the rest', async ({ page }) => {
   const faq = page.getByTestId('landing-faq');
   const items = faq.locator('[data-faq]');
