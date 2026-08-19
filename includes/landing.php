@@ -331,6 +331,26 @@ function afristream_landing_sanitize_cta_url( $value ) {
 }
 
 /**
+ * Stamp the plugin version onto a checkout link.
+ *
+ * Checkout pages get cached — by the store, by a CDN, by the browser — and a
+ * customer following a stale one can be shown last month's price point. The
+ * version changes with every release, so the link changes with it, while
+ * staying identical between page loads: an affiliate can still copy it, share
+ * it and have it keep working.
+ *
+ * Anything that is not an http(s) link is returned untouched — there is no
+ * cache to bust on "#pricing", a mailto: or a tel:.
+ */
+function afristream_landing_bust( $url ) {
+	$url = (string) $url;
+	if ( 0 !== strpos( $url, 'http://' ) && 0 !== strpos( $url, 'https://' ) ) {
+		return $url;
+	}
+	return add_query_arg( 'v', AFRISTREAM_PORTAL_VERSION, $url );
+}
+
+/**
  * Where the page's Get Started buttons point.
  *
  * Falls back to the pricing section rather than to nothing: an empty setting
@@ -338,7 +358,7 @@ function afristream_landing_sanitize_cta_url( $value ) {
  */
 function afristream_landing_cta_url() {
 	$url = trim( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) );
-	return '' !== $url ? $url : AFRISTREAM_LANDING_CTA_FALLBACK;
+	return '' !== $url ? afristream_landing_bust( $url ) : AFRISTREAM_LANDING_CTA_FALLBACK;
 }
 
 function afristream_landing_cta_field() {
@@ -359,7 +379,7 @@ function afristream_landing_cta_field() {
  */
 function afristream_landing_setup_cta_url() {
 	$url = trim( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) );
-	return '' !== $url ? $url : afristream_landing_cta_url();
+	return '' !== $url ? afristream_landing_bust( $url ) : afristream_landing_cta_url();
 }
 
 /**

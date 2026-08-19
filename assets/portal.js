@@ -86,6 +86,14 @@
   // rather than hardcoded as "ref=" because the parameter is SureCart's to
   // name — if the store renames it, the referral link changes with it and
   // these follow, instead of quietly attributing to nobody.
+  // The plugin version on the end of a checkout link, so an update is never
+  // hidden behind a cached page. Stable between page loads — an affiliate's
+  // copied link keeps working — and left alone if the URL already carries one.
+  const bustUrl = (url, version) => {
+    if (!version || /[?&]v=/.test(url)) return url;
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + 'v=' + encodeURIComponent(version);
+  };
+
   const referralQuery = (referralUrl) => String(referralUrl || '').split('#')[0].split('?')[1] || '';
   const withReferral = (url, referralUrl) => {
     const query = referralQuery(referralUrl);
@@ -446,6 +454,10 @@
       // Off unless WordPress says otherwise: publishing bank details is a
       // deliberate choice, not something a fresh install should do by itself.
       showBank: /^(true|1|yes)$/i.test(root.getAttribute('data-show-bank') || ''),
+      // Stamped onto the buy links so a cached checkout page is never what a
+      // customer lands on. Empty outside WordPress, where there is nothing to
+      // version against.
+      version: root.getAttribute('data-portal-version') || '',
       appsUrl: root.getAttribute('data-apps-url') || '',
       // Where the "Home" link in the header points. WordPress fills this from
       // home_url(); the header hides the link rather than guessing when it is
@@ -619,6 +631,8 @@
     // Payment details for anyone paying by transfer. Rendered as its own card
     // under the profile one rather than inside it, so hiding it takes nothing
     // else with it.
+    const busted = (url) => bustUrl(url, props.version);
+
     function bankCard() {
       if (!props.showBank) return '';
       const plain = BANK_DETAILS.map((d) => d.label + ': ' + d.value).join('\n');
@@ -702,7 +716,7 @@
       const referral = (affiliate && affiliate.referral_url) || '';
       const configured = { subscription: props.buyUrl, 'subscription-setup': props.buySetupUrl };
       return AFF_BUY_LINKS.map((b) => {
-        const url = configured[b.key] || b.url;
+        const url = busted(configured[b.key] || b.url);
         return {
           key: b.key,
           label: b.label,

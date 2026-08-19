@@ -304,7 +304,7 @@ af_test( 'every Get Started button on the page uses the configured URL, not anot
 
 	af_assert_same( 5, count( $hrefs ), 'header, mobile menu, pricing card, calculator, closing section' );
 	af_assert_same(
-		array( 'https://pay.example.test/afristream' ),
+		array( 'https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION ),
 		array_values( array_unique( $hrefs ) ),
 		'all five resolve to the one configured URL'
 	);
@@ -313,9 +313,9 @@ af_test( 'every Get Started button on the page uses the configured URL, not anot
 af_test( 'a configured Get Started URL is what the CTA points at', function () {
 	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
 
-	af_assert_same( 'https://pay.example.test/afristream', afristream_landing_cta_url(), 'the configured URL' );
+	af_assert_same( 'https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION, afristream_landing_cta_url(), 'the configured URL, cache-busted with the plugin version' );
 	af_assert(
-		false !== strpos( afristream_landing_signup(), 'href="https://pay.example.test/afristream"' ),
+		false !== strpos( afristream_landing_signup(), 'href="https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION . '"' ),
 		'and the section renders it'
 	);
 } );
@@ -361,7 +361,7 @@ af_test( 'a configured setup fee renders a second price point beside the first',
 	af_assert( false !== strpos( $pricing, 'R1599<small>/ year</small>' ), 'alongside the subscription price' );
 	af_assert( false !== strpos( $pricing, 'Guided setup done for you' ), 'with the extra feature it buys' );
 	af_assert(
-		false !== strpos( $pricing, 'href="https://pay.example.test/afristream-setup"' ),
+		false !== strpos( $pricing, 'href="https://pay.example.test/afristream-setup?v=' . AFRISTREAM_PORTAL_VERSION . '"' ),
 		'and its button leads to its own checkout'
 	);
 
@@ -374,7 +374,7 @@ af_test( 'a setup price point with no checkout URL of its own falls back, never 
 	delete_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION );
 
 	af_assert_same(
-		'https://pay.example.test/afristream',
+		'https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION,
 		afristream_landing_setup_cta_url(),
 		'it borrows the Get Started URL'
 	);

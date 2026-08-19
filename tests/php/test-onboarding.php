@@ -33,8 +33,8 @@ af_test( 'the modal carries the configured price, fee and both checkouts', funct
 	$root = af_ob_root();
 	af_assert_same( '1799', $root->getAttribute( 'data-price' ), 'data-price' );
 	af_assert_same( '499', $root->getAttribute( 'data-setup-fee' ), 'data-setup-fee' );
-	af_assert_same( 'https://pay.example.test/afristream', $root->getAttribute( 'data-cta' ), 'data-cta' );
-	af_assert_same( 'https://pay.example.test/afristream-setup', $root->getAttribute( 'data-setup-cta' ), 'data-setup-cta' );
+	af_assert_same( 'https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION, $root->getAttribute( 'data-cta' ), 'data-cta' );
+	af_assert_same( 'https://pay.example.test/afristream-setup?v=' . AFRISTREAM_PORTAL_VERSION, $root->getAttribute( 'data-setup-cta' ), 'data-setup-cta' );
 } );
 
 af_test( 'an unpriced setup fee renders as zero rather than being left off', function () {
@@ -49,7 +49,7 @@ af_test( 'an unset setup checkout falls back to the Get Started URL', function (
 	update_option( AFRISTREAM_LANDING_CTA_OPTION, 'https://pay.example.test/afristream' );
 
 	af_assert_same(
-		'https://pay.example.test/afristream',
+		'https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION,
 		af_ob_root()->getAttribute( 'data-setup-cta' ),
 		'it borrows the Get Started URL rather than rendering an inert button'
 	);

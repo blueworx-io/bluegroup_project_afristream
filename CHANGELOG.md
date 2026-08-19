@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.1] - 2026-08-19
+
+### Changed
+
+- Checkout links now carry the plugin version, so a customer following one
+  never lands on a cached checkout page. Applies to the landing page buttons,
+  the onboarding pop-up and the affiliate buy links. The value only changes
+  when the plugin updates, so a shared affiliate link keeps working.
+
 ## [0.29.0] - 2026-08-19
 
 ### Added
