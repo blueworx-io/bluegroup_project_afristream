@@ -214,12 +214,12 @@ af_test( 'marker counts match the preview mirror', function () {
 	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
 	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-teaser-card]' ), 'teaser posters (eight per row, two rows)' );
 	af_assert_same( 0, af_landing_xpath_count( $root, './/figure' ), 'no testimonials — the section was dropped in 0.24.0' );
-	af_assert_same( 32, af_landing_xpath_count( $root, './/*[@data-sub-price]' ), 'subscription options: sixteen in the calculator, sixteen in the onboarding flow' );
+	af_assert_same( 30, af_landing_xpath_count( $root, './/*[@data-sub-price]' ), 'subscription options: fifteen in the calculator, fifteen in the onboarding flow' );
 	af_assert_same( 1, af_landing_xpath_count( $root, './/h1' ), 'exactly one h1 on the page' );
 	af_assert_same( 6, af_landing_xpath_count( $root, './/*[@data-onboard]' ), 'CTAs that open the onboarding flow' );
 } );
 
-af_test( 'the sixteen calculator subscription prices match the preview mirror in order', function () {
+af_test( 'the fifteen calculator subscription prices match the preview mirror in order', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
 	af_landing_seed_setup_plan();

@@ -941,7 +941,6 @@ const AFRISTREAM_LANDING_SUBS = array(
 	array( 'Disney Plus Premium', 1908 ),
 	array( 'Apple TV Plus', 1500 ),
 	array( 'YouTube Premium', 864 ),
-	array( 'MUBI', 1668 ),
 	array( 'Crunchyroll Mega Fan', 580 ),
 	array( 'Viu Premium', 588 ),
 	array( 'Hulu', 2160 ),
