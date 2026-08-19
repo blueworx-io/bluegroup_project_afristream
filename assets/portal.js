@@ -61,7 +61,9 @@
   // commission compounds into over a decade of renewals.
   const AFF_YEARS = 10;
 
-  // The two things an affiliate actually sends people to buy. The price ids are
+  // The two things an affiliate actually sends people to buy. They are only a
+  // fallback: WordPress passes the checkout URLs saved in the plugin settings,
+  // so changing a price point there moves these links with it. The price ids are
   // SureCart's and the bracket escaping is deliberate — these are pasted from
   // the store's own buy links and must survive verbatim.
   const AFF_BUY_LINKS = [
@@ -426,6 +428,11 @@
       credentialsEndpoint: root.getAttribute('data-credentials-endpoint') || '',
       affiliateEndpoint: root.getAttribute('data-affiliate-endpoint') || '',
       restNonce: root.getAttribute('data-rest-nonce') || '',
+      // The two checkout URLs from the plugin settings. Empty means none has
+      // been saved yet, in which case the built-in links stand in rather than
+      // leaving an affiliate with a dead buy link.
+      buyUrl: root.getAttribute('data-buy-url') || '',
+      buySetupUrl: root.getAttribute('data-buy-setup-url') || '',
       appsUrl: root.getAttribute('data-apps-url') || '',
       // Where the "Home" link in the header points. WordPress fills this from
       // home_url(); the header hides the link rather than guessing when it is
@@ -661,13 +668,17 @@
     // on the clipboard can never drift apart.
     function affiliateBuyLinks() {
       const referral = (affiliate && affiliate.referral_url) || '';
-      return AFF_BUY_LINKS.map((b) => ({
-        key: b.key,
-        label: b.label,
-        note: b.note,
-        url: withReferral(b.url, referral),
-        display: friendlyBuyUrl(b.url, referral),
-      }));
+      const configured = { subscription: props.buyUrl, 'subscription-setup': props.buySetupUrl };
+      return AFF_BUY_LINKS.map((b) => {
+        const url = configured[b.key] || b.url;
+        return {
+          key: b.key,
+          label: b.label,
+          note: b.note,
+          url: withReferral(url, referral),
+          display: friendlyBuyUrl(url, referral),
+        };
+      });
     }
 
     function affiliateSection() {

@@ -245,7 +245,7 @@ function afristream_landing_register_settings() {
 
 	add_settings_field(
 		AFRISTREAM_LANDING_CTA_OPTION,
-		__( 'Get Started URL', 'bluegroup-project-afristream' ),
+		__( 'Annual subscription checkout URL (no setup)', 'bluegroup-project-afristream' ),
 		'afristream_landing_cta_field',
 		'bluegroup-project-afristream',
 		'afristream_landing',
@@ -272,7 +272,7 @@ function afristream_landing_register_settings() {
 
 	add_settings_field(
 		AFRISTREAM_LANDING_SETUP_CTA_OPTION,
-		__( 'Setup checkout URL', 'bluegroup-project-afristream' ),
+		__( 'Annual subscription checkout URL (with setup)', 'bluegroup-project-afristream' ),
 		'afristream_landing_setup_cta_field',
 		'bluegroup-project-afristream',
 		'afristream_landing',
@@ -322,7 +322,7 @@ function afristream_landing_sanitize_cta_url( $value ) {
 		add_settings_error(
 			AFRISTREAM_LANDING_CTA_OPTION,
 			'afristream_landing_cta_url',
-			__( 'The Get Started URL was not saved: it must be a http, https, mailto or tel link.', 'bluegroup-project-afristream' )
+			__( 'The checkout URL was not saved: it must be a http, https, mailto or tel link.', 'bluegroup-project-afristream' )
 		);
 		return (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' );
 	}
@@ -347,7 +347,7 @@ function afristream_landing_cta_field() {
 		esc_attr( AFRISTREAM_LANDING_CTA_OPTION ),
 		esc_attr( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) )
 	);
-	echo '<p class="description">' . esc_html__( 'Where the landing page\'s "Get Started" buttons send people — your checkout, order form or WhatsApp link. Left empty, they scroll to the pricing section instead.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The checkout for the subscription on its own. Used by the landing page buttons, the onboarding pop-up and the affiliate buy links. Left empty, the landing page buttons scroll to the pricing section instead.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 /**
@@ -360,6 +360,26 @@ function afristream_landing_cta_field() {
 function afristream_landing_setup_cta_url() {
 	$url = trim( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) );
 	return '' !== $url ? $url : afristream_landing_cta_url();
+}
+
+/**
+ * The saved checkout URL for a price point, with no page-anchor fallback.
+ *
+ * The Get Started helpers fall back to "#pricing" so a landing page button is
+ * never inert, but an affiliate's buy link has no page to scroll — it is
+ * shared as a URL. So this returns an empty string when nothing is saved, and
+ * the caller decides what to do about it.
+ *
+ * @param bool $with_setup Whether to return the subscription + setup checkout.
+ */
+function afristream_landing_checkout_url( $with_setup = false ) {
+	$plain = trim( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) );
+	if ( ! $with_setup ) {
+		return $plain;
+	}
+
+	$setup = trim( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) );
+	return '' !== $setup ? $setup : $plain;
 }
 
 /**
@@ -386,7 +406,7 @@ function afristream_landing_setup_cta_field() {
 		esc_attr( AFRISTREAM_LANDING_SETUP_CTA_OPTION ),
 		esc_attr( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) )
 	);
-	echo '<p class="description">' . esc_html__( 'The checkout covering the subscription and the setup fee together. Left empty, that button uses the Get Started URL above.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The checkout covering the subscription and the setup fee together. Used by the landing page, the onboarding pop-up and the affiliate buy links. Left empty, they all fall back to the checkout above.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 function afristream_landing_price_field() {

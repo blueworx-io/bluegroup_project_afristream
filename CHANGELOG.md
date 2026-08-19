@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.1] - 2026-08-19
+
+### Fixed
+
+- **The affiliate buy links now follow the checkout links saved in the
+  settings.** They were hardcoded, so changing a price point in Settings left
+  every affiliate sharing the old checkout. The two settings — the annual
+  subscription on its own, and the annual subscription with setup — now drive
+  the landing page, the onboarding pop-up and the affiliate buy links alike.
+  Both fields are labelled by what they sell so it is clear which link goes
+  where.
+
 ## [0.28.0] - 2026-08-01
 
 ### Added

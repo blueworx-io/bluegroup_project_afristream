@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.28.0
+ * Version:     0.28.1
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.28.0' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.28.1' );
 }
 
 /**
@@ -124,7 +124,7 @@ function afristream_portal_shortcode( $atts ) {
 	wp_add_inline_style( 'bluegroup-project-afristream', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s" data-home-url="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s" data-home-url="%s" data-buy-url="%s" data-buy-setup-url="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
@@ -134,7 +134,9 @@ function afristream_portal_shortcode( $atts ) {
 		esc_url( rest_url( 'afristream/v1/affiliate' ) ),
 		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
 		esc_attr( wp_create_nonce( 'wp_rest' ) ),
-		esc_url( home_url( '/' ) )
+		esc_url( home_url( '/' ) ),
+		esc_url( afristream_landing_checkout_url() ),
+		esc_url( afristream_landing_checkout_url( true ) )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );

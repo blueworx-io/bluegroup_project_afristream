@@ -1732,6 +1732,19 @@ test('the buy links sit under the referral link carrying the referral code', asy
   await expect(page.getByRole('button', { name: 'Copied!' })).toHaveCount(1);
   await expect(copyButtons).toHaveCount(2);
 });
+
+test('the buy links follow the checkout URLs saved in the settings', async ({ page }) => {
+  await page.goto('/preview/affiliate-links.html');
+
+  await expect(page.getByTestId('affiliate-buy-subscription')).toHaveAttribute(
+    'href',
+    'https://afristream.io/checkout/?plan=annual-plain&ref=FIXTURE1'
+  );
+  await expect(page.getByTestId('affiliate-buy-subscription-setup')).toHaveAttribute(
+    'href',
+    'https://afristream.io/checkout/?plan=annual-setup&ref=FIXTURE1'
+  );
+});
 // Subscriptions are annual. £120 a year at 30% is £36 a renewal. Sign up five
 // people a year and every one of them renews: year 1 is five payments (£180),
 // year 10 is those five plus nine more years' worth still paying — 50
