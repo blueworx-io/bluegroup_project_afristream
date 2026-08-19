@@ -61,6 +61,16 @@
   // commission compounds into over a decade of renewals.
   const AFF_YEARS = 10;
 
+  // Where a customer pays by bank transfer. Shown on the Account tab only
+  // when the plugin settings say so, since not every install takes payment
+  // this way.
+  const BANK_DETAILS = [
+    { label: 'Bank Name', value: 'Standard Bank' },
+    { label: 'Branch Code', value: '317' },
+    { label: 'Acc Name', value: 'MR LUKE MCFARLAND' },
+    { label: 'Acc Number', value: '28 089 075 3' },
+  ];
+
   // The two things an affiliate actually sends people to buy. They are only a
   // fallback: WordPress passes the checkout URLs saved in the plugin settings,
   // so changing a price point there moves these links with it. The price ids are
@@ -433,6 +443,9 @@
       // leaving an affiliate with a dead buy link.
       buyUrl: root.getAttribute('data-buy-url') || '',
       buySetupUrl: root.getAttribute('data-buy-setup-url') || '',
+      // Off unless WordPress says otherwise: publishing bank details is a
+      // deliberate choice, not something a fresh install should do by itself.
+      showBank: /^(true|1|yes)$/i.test(root.getAttribute('data-show-bank') || ''),
       appsUrl: root.getAttribute('data-apps-url') || '',
       // Where the "Home" link in the header points. WordPress fills this from
       // home_url(); the header hides the link rather than guessing when it is
@@ -603,6 +616,24 @@
 
     // ------------------------------------------------------------ sections
 
+    // Payment details for anyone paying by transfer. Rendered as its own card
+    // under the profile one rather than inside it, so hiding it takes nothing
+    // else with it.
+    function bankCard() {
+      if (!props.showBank) return '';
+      const plain = BANK_DETAILS.map((d) => d.label + ': ' + d.value).join('\n');
+      return `
+  <div data-testid="account-bank" style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:20px;padding:clamp(20px,3.5vw,28px);margin-top:20px;box-shadow:0 1px 2px rgba(11,21,51,.04)">
+    <h2 style="margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-0.01em">How to pay</h2>
+    <p style="margin:0 0 18px;font-size:13.5px;line-height:1.6;color:rgba(11,21,51,.58);max-width:620px">Please make payment to the account below, and use your name as the reference so we can match it to your subscription.</p>
+    <dl style="margin:0 0 16px;display:grid;grid-template-columns:auto 1fr;gap:10px 18px;align-items:baseline">
+      ${BANK_DETAILS.map((d) => `
+      <dt style="margin:0;font-size:13px;font-weight:700;color:rgba(11,21,51,.72)">${esc(d.label)}</dt>
+      <dd data-testid="bank-${esc(d.label.toLowerCase().replace(/[^a-z]+/g, '-'))}" style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:14.5px;overflow-wrap:anywhere">${esc(d.value)}</dd>`).join('')}
+    </dl>
+    <button class="as-hover-primary" style="${copyBtnStyle}" data-act="copy-bank" data-val="${esc(plain)}">${state.copied === 'bank' ? 'Copied!' : 'Copy details'}</button>
+  </div>`;
+    }
     function profileSection() {
       const acc = accounts[state.accIdx] || accounts[0];
       const multi = accounts.length > 1;
@@ -661,6 +692,7 @@
     </div>
     ${body}
   </div>
+  ${bankCard()}
 </section>`;
     }
 
@@ -2202,6 +2234,7 @@ ${state.detail ? detailDrawer(state.detail) : ''}
         case 'download-restart': setState({ downloadPlatform: '' }); break;
         case 'acct': setState({ accIdx: +val, copied: '' }); break;
         case 'copy-user': copy((accounts[state.accIdx] || accounts[0] || {}).user || '', 'user'); break;
+        case 'copy-bank': copy(val || '', 'bank'); break;
         case 'copy-pass': copy((accounts[state.accIdx] || accounts[0] || {}).pass || '', 'pass'); break;
         case 'copy-referral': copy((affiliate && affiliate.referral_url) || '', 'referral'); break;
         case 'copy-buy': {

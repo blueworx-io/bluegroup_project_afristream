@@ -969,6 +969,29 @@ test('the Account tab spells out the one-screen and same-household rules', async
   expect(noticeY).toBeLessThan(userY);
 });
 
+test('the payment details card is off unless the settings switch it on', async ({ page }) => {
+  await expect(page.getByTestId('account-bank')).toHaveCount(0);
+});
+
+test('switched on, the Account tab shows where to pay', async ({ page }) => {
+  await page.goto('/preview/bank.html');
+
+  const card = page.getByTestId('account-bank');
+  await expect(card).toBeVisible();
+  await expect(page.getByTestId('bank-bank-name')).toHaveText('Standard Bank');
+  await expect(page.getByTestId('bank-branch-code')).toHaveText('317');
+  await expect(page.getByTestId('bank-acc-name')).toHaveText('MR LUKE MCFARLAND');
+  await expect(page.getByTestId('bank-acc-number')).toHaveText('28 089 075 3');
+
+  // Under the profile card, not in front of it.
+  const cardY = (await card.boundingBox()).y;
+  const userY = (await page.getByText('Active Username').boundingBox()).y;
+  expect(cardY).toBeGreaterThan(userY);
+
+  await card.getByRole('button', { name: 'Copy details' }).click();
+  await expect(card.getByRole('button', { name: 'Copied!' })).toBeVisible();
+});
+
 // ------------------------------------------------------------------- setup
 // One question — which device — then three screens of steps. Devices we set
 // up by hand branch to a support card instead.
