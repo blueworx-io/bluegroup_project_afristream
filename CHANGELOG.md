@@ -4,6 +4,99 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.2] - 2026-08-25
+
+### Removed
+
+- The line under the services ticker explaining that we are not affiliated with
+  any of them. The footer disclaimer and the FAQ already say it.
+
+## [0.30.1] - 2026-08-25
+
+### Changed
+
+- The "we do not host, supply, stream or resell any content" line has moved out
+  of the hero and into the FAQ, where it answers the question directly.
+- **The onboarding pop-up no longer asks what the customer already spends.**
+  The subscription picker went with the savings calculator — AfriStream does not
+  replace any of those subscriptions, so adding them up only invited a saving
+  claim the service cannot make. Three steps now: what you get, whether we
+  should source a device, and the total.
+- "Continue to checkout" now sits where "Continue" sat, so the button you press
+  to go forward never moves between steps.
+- The closing line on the page sits on one line on a desktop screen.
+
+### Fixed
+
+- Setup guide step numbers are circles again. A step that ran to two lines
+  stretched its number into a lozenge.
+
+## [0.30.0] - 2026-08-25
+
+### Changed
+
+- **The site now says what AfriStream actually is: a device setup and content
+  discovery service.** It does not host, stream, supply or resell any video,
+  channel or subscription — customers watch on their own accounts, in the
+  providers' own apps. The footer carries that as a standing disclaimer, the
+  FAQ answers it directly, and the hero says it in the first paragraph.
+- **New setup guides section**, with real step-by-step instructions for Fire TV
+  Stick, Apple TV, Android and Google TV, Samsung, LG, laptop and phone or
+  tablet — plus a "no device yet" guide covering how we source one, and that
+  the price is agreed before anything is ordered.
+- Navigation is now What we do, Setup guides, Services we cover and FAQ, and
+  every call to action reads "Get Started".
+- **The onboarding pop-up asks about a device once, not twice.** It used to ask
+  whether you owned one and then whether you wanted one; it now asks the single
+  question that matters. The flow is four steps instead of five, and it says
+  what AfriStream does not supply on the first screen and again at the checkout.
+- The breakdown at the end of the flow lists what we will set up rather than
+  quoting a saving.
+
+### Removed
+
+- The savings calculator, the pricing section and both price cards. Money is
+  quoted in the onboarding flow, once we know what the customer needs.
+- The "SALE" badge, the 14-day money-back guarantee, and every claim about
+  20 000 feeds, bundled subscriptions shared between users, hundreds of live
+  channels, cancelling your other subscriptions, or saving thousands.
+
+## [0.29.1] - 2026-08-19
+
+### Changed
+
+- Checkout links now carry the plugin version, so a customer following one
+  never lands on a cached checkout page. Applies to the landing page buttons,
+  the onboarding pop-up and the affiliate buy links. The value only changes
+  when the plugin updates, so a shared affiliate link keeps working.
+
+## [0.29.0] - 2026-08-19
+
+### Added
+
+- **A payment details card on the Account tab**, telling customers which bank
+  account to pay into, with a button that copies the details. It is off until
+  switched on in Settings → AfriStream Portal → Account tab, so an install
+  that takes card payments only never shows it.
+
+## [0.28.2] - 2026-08-19
+
+### Changed
+
+- MUBI is no longer offered in the savings calculator.
+
+## [0.28.1] - 2026-08-19
+
+### Fixed
+
+- **The affiliate buy links now follow the checkout links saved in the
+  settings.** They were hardcoded, so changing a price point in Settings left
+  every affiliate sharing the old checkout. The two settings — the annual
+  subscription on its own, and the annual subscription with setup — now drive
+  the landing page, the onboarding pop-up and the affiliate buy links alike.
+  Both fields are labelled by what they sell so it is clear which link goes
+  where.
+
 ## [0.28.0] - 2026-08-01
 
 ### Added

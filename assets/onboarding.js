@@ -16,33 +16,29 @@
   var progressEl = root.querySelector('[data-testid="ob-progress"]');
   var nextBtn = root.querySelector('[data-ob-next]');
   var backBtn = root.querySelector('[data-ob-back]');
-  var sums = window.AfriStreamSavings;
-
-  // Without the shared savings helper the breakdown step cannot compute
-  // anything, and reset() would throw partway through — after open() has
-  // already unhidden the modal, leaving a blank panel over a page whose CTAs
-  // are all preventDefault()ed. Bailing before any listener is registered
-  // means every CTA simply falls back to its href, same as with this whole
-  // script absent.
-  if (!sums) return;
 
   var costEl = root.querySelector('[data-testid="ob-cost"]');
   var totalEl = root.querySelector('[data-testid="ob-total"]');
-  var savingsEl = root.querySelector('[data-testid="ob-savings"]');
   var checkoutEl = root.querySelector('[data-testid="ob-checkout"]');
 
   var fee = 0;
   var price = 0;
 
+  /* Ungrouped, because that is how every price PHP prints is written — R1599
+     on the intro, the fee on the device question. Grouping only the computed
+     figures put "R2 598" on the screen straight after an offer reading
+     "R999". */
+  function money(n) {
+    return 'R' + Math.round(n);
+  }
+
   var TITLES = {
     intro: 'What you get with AfriStream',
-    device: 'Do you already have a streaming device?',
-    subs: 'What do you pay for today?',
-    offer: 'Shall we sort the device out for you?',
+    device: 'Shall we source a device for you?',
     breakdown: 'Here is what that comes to'
   };
 
-  var state = { device: null, subs: 0, other: 0, wantsDevice: null };
+  var state = { wantsDevice: null };
   var at = 0;
 
   /* Whether the device offer is being sold at all: a priced fee alone is not
@@ -54,29 +50,27 @@
     return fee > 0 && root.getAttribute('data-setup-cta') !== root.getAttribute('data-cta');
   }
 
-  /* The steps this customer will actually see. Someone with a device is never
-     offered one, and an install that has not priced the fee — or has no
-     checkout of its own to bill it through — is not selling it, so the
-     counter must not promise a step the flow then skips. */
+  /* The steps this customer will actually see. One device question, and only
+     where a device is actually being sold — an install that has not priced the
+     fee, or has no checkout of its own to bill it through, drops straight from
+     the intro to the total. */
   function steps() {
-    var list = ['intro', 'device', 'subs'];
-    if (state.device !== 'yes' && offerAvailable()) list.push('offer');
+    var list = ['intro'];
+    if (offerAvailable()) list.push('device');
     list.push('breakdown');
     return list;
   }
 
-  /* Whether the current step has been answered well enough to move on. The
-     subscriptions question is deliberately not on this list: it improves the
-     breakdown, it does not gate the purchase. */
+  /* Whether the current step has been answered well enough to move on. */
   function ready(name) {
-    if (name === 'device') return state.device !== null;
-    if (name === 'offer') return state.wantsDevice !== null;
+    if (name === 'device') return state.wantsDevice !== null;
     return true;
   }
 
   function render() {
     var list = steps();
     var name = list[at];
+    var last = name === 'breakdown';
 
     Array.prototype.slice.call(root.querySelectorAll('[data-ob-step]')).forEach(function (el) {
       el.hidden = el.getAttribute('data-ob-step') !== name;
@@ -85,10 +79,14 @@
     titleEl.textContent = TITLES[name];
     progressEl.textContent = 'Step ' + (at + 1) + ' of ' + list.length;
     backBtn.hidden = at === 0;
-    nextBtn.hidden = name === 'breakdown';
+    // Continue and the checkout link are the same button in the same place,
+    // one swapped for the other on the last step: the flow's forward action
+    // must never move down the panel just because it changed what it does.
+    nextBtn.hidden = last;
     nextBtn.disabled = !ready(name);
+    checkoutEl.hidden = !last;
 
-    if (name === 'breakdown') breakdown();
+    if (last) breakdown();
 
     // A keyboard user activates Continue with Enter, so it is
     // document.activeElement right as the two lines above may hide or disable
@@ -106,28 +104,15 @@
   }
 
   function line(label, amount) {
-    return '<li><span>' + label + '</span><span>' + sums.money(amount) + '</span></li>';
+    return '<li><span>' + label + '</span><span>' + money(amount) + '</span></li>';
   }
 
   function breakdown() {
-    var takesDevice = state.wantsDevice === 'yes' && state.device !== 'yes' && fee > 0;
-    var total = price + (takesDevice ? fee : 0);
+    var takesDevice = state.wantsDevice === 'yes' && fee > 0;
 
     costEl.innerHTML = line('AfriStream, one year', price)
-      + (takesDevice ? line('FireStick, set up and delivered — once off', fee) : '');
-    totalEl.textContent = sums.money(total);
-
-    /* No subscriptions ticked means no saving to state. Printing "you save R0"
-       under a heading about savings reads as a promise the product failed to
-       keep, when in fact the customer simply skipped the question. */
-    if (state.subs > 0) {
-      savingsEl.innerHTML = '<span class="as-ob-block-h">What you save</span>'
-        + '<p class="as-ob-save-figure" data-testid="ob-saving">' + sums.money(sums.saving(state.subs, price)) + '</p>'
-        + '<p class="as-ob-save-basis">a year, against the ' + sums.money(state.subs) + ' you spend today</p>';
-    } else {
-      savingsEl.innerHTML = '<span class="as-ob-block-h">What you save</span>'
-        + '<p class="as-ob-save-basis">Tell us what you pay for today and we will work it out — go back a step whenever you like.</p>';
-    }
+      + (takesDevice ? line('Device, sourced and set up — once off', fee) : '');
+    totalEl.textContent = money(price + (takesDevice ? fee : 0));
 
     // The flow's whole output: which checkout this customer belongs at.
     checkoutEl.setAttribute(
@@ -142,73 +127,32 @@
     render();
   }
 
-  function reset(preset) {
-    state = { device: null, subs: 0, other: 0, wantsDevice: null };
+  function reset() {
+    state = { wantsDevice: null };
     at = 0;
     Array.prototype.slice.call(root.querySelectorAll('input[type="radio"]')).forEach(function (el) {
       el.checked = false;
     });
-    Array.prototype.slice.call(root.querySelectorAll('[data-sub-price]')).forEach(function (el) {
-      el.setAttribute('aria-pressed', 'false');
-    });
-    var other = root.querySelector('[data-testid="ob-subs-other"]');
-    if (other) other.value = '';
 
     // Read per open, not once at load: a test — and a cached page whose
     // settings have since changed — can move the fee or the price under us.
     fee = Number(root.getAttribute('data-setup-fee')) || 0;
-    // Same fallback assets/landing.js uses for the same attribute: printing
-    // "Total today R0" beside a live checkout button is worse than falling
-    // back to the plugin's own default price.
+    // Printing "Total today R0" beside a live checkout button is worse than
+    // falling back to the plugin's own default price.
     price = Number(root.getAttribute('data-price')) || 1599;
 
-    /* The "Get Started with Setup" button is an answer to the first two
-       questions, so asking them again would be the page forgetting what it
-       was just told. The offer is pre-ticked but still shown — being sent
-       to a more expensive checkout without confirming it is not on. */
-    if (preset === 'setup' && offerAvailable()) {
-      state.device = 'no';
-      state.wantsDevice = 'yes';
-      var deviceNo = root.querySelector('[data-testid="ob-device-no"]');
-      var offerYes = root.querySelector('[data-testid="ob-offer-yes"]');
-      if (deviceNo) deviceNo.checked = true;
-      if (offerYes) offerYes.checked = true;
-      at = steps().indexOf('subs');
-    }
-
-    recalcSubs();
     render();
   }
 
-  var subsStep = root.querySelector('[data-ob-step="subs"]');
-  var subsTotalEl = root.querySelector('[data-testid="ob-subs-total"]');
-  var otherEl = root.querySelector('[data-testid="ob-subs-other"]');
-
-  function recalcSubs() {
-    if (!subsStep) return;
-    state.other = Number(otherEl && otherEl.value) || 0;
-    state.subs = sums.total(subsStep, state.other);
-    if (subsTotalEl) subsTotalEl.textContent = sums.money(state.subs);
-  }
-
   root.addEventListener('click', function (e) {
-    var chip = e.target.closest('[data-sub-price]');
-    if (chip) {
-      chip.setAttribute('aria-pressed', chip.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
-      recalcSubs();
-      return;
-    }
     if (e.target.closest('[data-ob-next]')) go(1);
     if (e.target.closest('[data-ob-back]')) go(-1);
   });
 
   root.addEventListener('change', function (e) {
-    if (e.target.name === 'as-ob-device') state.device = e.target.value;
-    if (e.target.name === 'as-ob-offer') state.wantsDevice = e.target.value;
+    if (e.target.name === 'as-ob-device') state.wantsDevice = e.target.value;
     render();
   });
-
-  if (otherEl) otherEl.addEventListener('input', recalcSubs);
 
   var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -245,7 +189,7 @@
     savedOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     setBackgroundInert(true);
-    reset(from ? from.getAttribute('data-onboard') : '');
+    reset();
     panel.focus();
   }
 
@@ -279,7 +223,7 @@
 
     // The terminal checkout button is a real link so the page still buys
     // with this script absent, but on an unconfigured install it resolves to
-    // a same-page fragment (afristream_landing_cta_url()'s "#pricing"
+    // a same-page fragment (afristream_landing_cta_url()'s "#setup"
     // fallback). Left open, the modal's overflow:hidden and full-screen
     // backdrop mean that scroll happens invisibly behind it — the customer's
     // click reads as having done nothing. Closing first, without

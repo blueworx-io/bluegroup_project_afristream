@@ -28,15 +28,15 @@ first published page containing that shortcode.
 
 Set **Get Started URL** on the same settings screen to whatever should take an
 order — a checkout, an order form, a WhatsApp or mailto link. Every "Get
-Started" button on the landing page leads to the closing call to action, and
-that button follows this URL. Left empty it scrolls to the pricing section
-instead, so the page never has a dead button.
+Started" button on the landing page follows this URL. Left empty they scroll to
+the setup guides instead, so the page never has a dead button.
 
-Every "Get Started" button now opens the onboarding flow first — a short set
-of questions about the customer's device and subscription that ends by
-choosing between the two configured checkouts (the plain Get Started URL, or
-the setup fee checkout when the customer took the FireStick offer). Those
-URLs are still where it ends up; the flow only decides which one.
+Every "Get Started" button opens the onboarding flow first — four short steps
+covering whether we should source a device and which services the customer
+already pays for, ending at one of the two configured checkouts (the plain Get
+Started URL, or the setup fee checkout when they asked us to source a device).
+Those URLs are still where it ends up; the flow only decides which one. Leave
+the setup fee at 0 and the device question is never asked.
 
 ## Live "What to Watch" data
 

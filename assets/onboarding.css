@@ -130,40 +130,6 @@
 .as-ob-opt span { display: grid; gap: 3px; font-size: 14px; color: #b9b2cc; }
 .as-ob-opt strong { font-size: 15px; color: #f4f1fa; }
 
-.as-ob-subs {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.as-ob-other { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-.as-ob-other label { font-size: 14px; color: #b9b2cc; }
-
-.as-ob-input {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 7px 10px;
-  border: 1px solid rgba(255, 255, 255, .16);
-  border-radius: 9px;
-}
-
-.as-ob-input input {
-  width: 90px;
-  border: 0;
-  background: transparent;
-  color: #f4f1fa;
-  font: inherit;
-}
-
-.as-ob-input input:focus { outline: none; }
-
-.as-ob-running { margin: 12px 0 0; font-size: 14px; color: #b9b2cc; }
-.as-ob-running span { color: #f4f1fa; font-weight: 600; }
-
 .as-ob-nav button[disabled] { opacity: .45; cursor: not-allowed; }
 
 .as-ob-block { display: grid; gap: 8px; }
@@ -198,17 +164,10 @@
   font-weight: 600;
 }
 
-.as-ob-block-save {
-  padding: 14px;
-  border: 1px solid rgba(205, 45, 245, .3);
-  border-radius: 12px;
-  background: rgba(205, 45, 245, .08);
-}
-
-.as-ob-save-figure { margin: 0; font-size: 30px; font-weight: 600; color: #cd2df5; }
-.as-ob-save-basis { margin: 0; font-size: 14px; color: #b9b2cc; }
-
-.as-ob-checkout { margin-top: 20px; text-align: center; }
+/* The checkout link lives in the nav row and takes Continue's place on the
+   last step, so it carries no margin of its own — anything here would offset
+   it from the button it replaces. */
+.as-ob-checkout { text-align: center; }
 
 @media (max-width: 480px) {
   .as-ob { padding: 0; align-items: stretch; }

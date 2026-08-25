@@ -35,16 +35,9 @@ function afristream_landing_register_assets() {
 		AFRISTREAM_PORTAL_VERSION
 	);
 	wp_register_script(
-		'afristream-savings',
-		plugins_url( 'assets/savings.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array(),
-		AFRISTREAM_PORTAL_VERSION,
-		true
-	);
-	wp_register_script(
 		'afristream-landing',
 		plugins_url( 'assets/landing.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array( 'afristream-savings' ),
+		array(),
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
@@ -57,7 +50,7 @@ function afristream_landing_register_assets() {
 	wp_register_script(
 		'afristream-onboarding',
 		plugins_url( 'assets/onboarding.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array( 'afristream-savings' ),
+		array(),
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
@@ -245,7 +238,7 @@ function afristream_landing_register_settings() {
 
 	add_settings_field(
 		AFRISTREAM_LANDING_CTA_OPTION,
-		__( 'Get Started URL', 'bluegroup-project-afristream' ),
+		__( 'Annual subscription checkout URL (no setup)', 'bluegroup-project-afristream' ),
 		'afristream_landing_cta_field',
 		'bluegroup-project-afristream',
 		'afristream_landing',
@@ -272,7 +265,7 @@ function afristream_landing_register_settings() {
 
 	add_settings_field(
 		AFRISTREAM_LANDING_SETUP_CTA_OPTION,
-		__( 'Setup checkout URL', 'bluegroup-project-afristream' ),
+		__( 'Annual subscription checkout URL (with setup)', 'bluegroup-project-afristream' ),
 		'afristream_landing_setup_cta_field',
 		'bluegroup-project-afristream',
 		'afristream_landing',
@@ -296,13 +289,15 @@ const AFRISTREAM_LANDING_SETUP_FEE_OPTION = 'afristream_landing_setup_fee';
 /**
  * Where every Get Started button points until that setting is filled in.
  *
- * Every one of them — header, mobile menu, pricing card, calculator, closing
- * section — resolves through afristream_landing_cta_url(), so setting it once
- * moves all five. They used to jump to each other (#signup, #pricing), which
- * meant a visitor could press Get Started twice and still not be buying
- * anything.
+ * Every one of them — header, mobile menu, hero, closing section — resolves
+ * through afristream_landing_cta_url(), so setting it once moves all four.
+ * They used to jump to each other, which meant a visitor could press Get
+ * Started twice and still not have started anything.
+ *
+ * With nothing configured they fall back to the setup guides: the one section
+ * that is useful on its own, and never a link to the button you just pressed.
  */
-const AFRISTREAM_LANDING_CTA_FALLBACK = '#pricing';
+const AFRISTREAM_LANDING_CTA_FALLBACK = '#setup';
 
 /**
  * Reject anything that is not an http(s), mailto or tel link.
@@ -322,7 +317,7 @@ function afristream_landing_sanitize_cta_url( $value ) {
 		add_settings_error(
 			AFRISTREAM_LANDING_CTA_OPTION,
 			'afristream_landing_cta_url',
-			__( 'The Get Started URL was not saved: it must be a http, https, mailto or tel link.', 'bluegroup-project-afristream' )
+			__( 'The checkout URL was not saved: it must be a http, https, mailto or tel link.', 'bluegroup-project-afristream' )
 		);
 		return (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' );
 	}
@@ -331,14 +326,34 @@ function afristream_landing_sanitize_cta_url( $value ) {
 }
 
 /**
+ * Stamp the plugin version onto a checkout link.
+ *
+ * Checkout pages get cached — by the store, by a CDN, by the browser — and a
+ * customer following a stale one can be shown last month's price point. The
+ * version changes with every release, so the link changes with it, while
+ * staying identical between page loads: an affiliate can still copy it, share
+ * it and have it keep working.
+ *
+ * Anything that is not an http(s) link is returned untouched — there is no
+ * cache to bust on "#setup", a mailto: or a tel:.
+ */
+function afristream_landing_bust( $url ) {
+	$url = (string) $url;
+	if ( 0 !== strpos( $url, 'http://' ) && 0 !== strpos( $url, 'https://' ) ) {
+		return $url;
+	}
+	return add_query_arg( 'v', AFRISTREAM_PORTAL_VERSION, $url );
+}
+
+/**
  * Where the page's Get Started buttons point.
  *
- * Falls back to the pricing section rather than to nothing: an empty setting
- * must not leave the page's main call to action inert.
+ * Falls back to the setup guides rather than to nothing: an empty setting must
+ * not leave the page's main call to action inert.
  */
 function afristream_landing_cta_url() {
 	$url = trim( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) );
-	return '' !== $url ? $url : AFRISTREAM_LANDING_CTA_FALLBACK;
+	return '' !== $url ? afristream_landing_bust( $url ) : AFRISTREAM_LANDING_CTA_FALLBACK;
 }
 
 function afristream_landing_cta_field() {
@@ -347,19 +362,39 @@ function afristream_landing_cta_field() {
 		esc_attr( AFRISTREAM_LANDING_CTA_OPTION ),
 		esc_attr( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) )
 	);
-	echo '<p class="description">' . esc_html__( 'Where the landing page\'s "Get Started" buttons send people — your checkout, order form or WhatsApp link. Left empty, they scroll to the pricing section instead.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The checkout for the subscription on its own. Used by the landing page buttons, the onboarding pop-up and the affiliate buy links. Left empty, the landing page buttons scroll to the setup guides instead.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 /**
- * Where the "subscription + setup fee" price point's button points.
+ * Where a customer who takes the device offer is sent.
  *
  * Falls back to the ordinary Get Started URL for the same reason that one falls
- * back to the pricing section: a configured price point with a dead button is
- * worse than one that sends the customer somewhere they can still buy.
+ * back to the setup guides: a priced offer with a dead button is worse than one
+ * that sends the customer somewhere they can still buy.
  */
 function afristream_landing_setup_cta_url() {
 	$url = trim( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) );
-	return '' !== $url ? $url : afristream_landing_cta_url();
+	return '' !== $url ? afristream_landing_bust( $url ) : afristream_landing_cta_url();
+}
+
+/**
+ * The saved checkout URL for a price point, with no page-anchor fallback.
+ *
+ * The Get Started helpers fall back to "#setup" so a landing page button is
+ * never inert, but an affiliate's buy link has no page to scroll — it is
+ * shared as a URL. So this returns an empty string when nothing is saved, and
+ * the caller decides what to do about it.
+ *
+ * @param bool $with_setup Whether to return the subscription + setup checkout.
+ */
+function afristream_landing_checkout_url( $with_setup = false ) {
+	$plain = trim( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) );
+	if ( ! $with_setup ) {
+		return $plain;
+	}
+
+	$setup = trim( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) );
+	return '' !== $setup ? $setup : $plain;
 }
 
 /**
@@ -374,7 +409,7 @@ function afristream_landing_price() {
 }
 
 /**
- * The one-off setup fee. Zero means the setup price point is not being offered.
+ * The one-off device setup fee. Zero means the device offer is not being made.
  */
 function afristream_landing_setup_fee() {
 	return absint( get_option( AFRISTREAM_LANDING_SETUP_FEE_OPTION, 0 ) );
@@ -386,7 +421,7 @@ function afristream_landing_setup_cta_field() {
 		esc_attr( AFRISTREAM_LANDING_SETUP_CTA_OPTION ),
 		esc_attr( (string) get_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, '' ) )
 	);
-	echo '<p class="description">' . esc_html__( 'The checkout covering the subscription and the setup fee together. Left empty, that button uses the Get Started URL above.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The checkout covering the subscription and the device setup fee together. Used by the onboarding pop-up and the affiliate buy links. Left empty, they both fall back to the checkout above.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 function afristream_landing_price_field() {
@@ -395,7 +430,7 @@ function afristream_landing_price_field() {
 		esc_attr( AFRISTREAM_LANDING_PRICE_OPTION ),
 		esc_attr( (string) afristream_landing_price() )
 	);
-	echo '<p class="description">' . esc_html__( 'The annual price shown on the pricing card, the savings calculator and the closing call to action.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The annual price shown in the onboarding pop-up.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 function afristream_landing_setup_fee_field() {
@@ -404,7 +439,7 @@ function afristream_landing_setup_fee_field() {
 		esc_attr( AFRISTREAM_LANDING_SETUP_FEE_OPTION ),
 		esc_attr( (string) afristream_landing_setup_fee() )
 	);
-	echo '<p class="description">' . esc_html__( 'The one-off setup fee. Leave this at 0 and the "subscription + setup" price point is left off the page altogether.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The one-off fee for sourcing and setting up a device. Leave this at 0 and the onboarding pop-up never offers one.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 function afristream_landing_sanitize_page_id( $value ) {
@@ -440,8 +475,7 @@ function afristream_landing_body() {
 		. afristream_landing_integrations()
 		. afristream_landing_watch_teaser()
 		. afristream_landing_features()
-		. afristream_landing_calculator()
-		. afristream_landing_pricing()
+		. afristream_landing_setup()
 		. afristream_landing_picks_teaser()
 		. afristream_landing_faq()
 		. afristream_landing_signup()
@@ -491,9 +525,9 @@ const AFRISTREAM_LANDING_PLATFORMS = array(
  */
 function afristream_landing_hero() {
 	$proof = array(
-		'20 000+ live channels',
-		'Films, series & sport in one app',
-		'Works on the stick you already own',
+		'Setup on the device you already own',
+		'Search once, see who has it',
+		'Your own accounts, the providers’ own apps',
 	);
 	$tiles = array( 'Netflix', 'Showmax', 'SuperSport', 'Prime Video', 'Disney+', 'Apple TV+' );
 
@@ -532,12 +566,12 @@ function afristream_landing_hero() {
 	return '
 <section id="top" class="as-hero" data-testid="landing-hero">
   <div class="as-hero-in">
-    <span class="as-eyebrow as-eyebrow-dot">20 000+ feeds, live now</span>
-    <h1>Every stream. One app.</h1>
-    <p class="as-lede">Save thousands with AfriStream. We collect and display thousands of movies, series and live TV channels from all your favourite streams.</p>
+    <span class="as-eyebrow as-eyebrow-dot">Device setup &amp; content discovery</span>
+    <h1>Set it up. Then find it.</h1>
+    <p class="as-lede">AfriStream gets your streaming device set up properly, then helps you find which of the services you already pay for has the thing you want to watch.</p>
     <div class="as-hero-cta">
-      <a class="as-btn as-btn-primary" href="#calculate">Calculate Savings</a>
-      <a class="as-btn as-btn-ghost" href="#pricing">View Pricing</a>
+      <a class="as-btn as-btn-primary" data-testid="hero-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
+      <a class="as-btn as-btn-ghost" href="#setup">Setup guides</a>
     </div>
     <div class="as-proofs">' . $proof_html . '</div>
     <div class="as-stage" aria-hidden="true">
@@ -546,7 +580,7 @@ function afristream_landing_hero() {
       <svg class="as-wires" viewBox="0 0 1920 1080" focusable="false">' . $wires_html . '</svg>
       ' . $tiles_html . '
       <span class="as-hub"></span>
-      <span class="as-wordmark">AfriStream<small>Every platform. One app.</small></span>
+      <span class="as-wordmark">AfriStream<small>Set up once. Search once.</small></span>
     </div>
   </div>
 </section>';
@@ -561,8 +595,8 @@ function afristream_landing_integrations() {
 	}
 
 	return '
-<section id="integrations" class="as-integrations" data-testid="landing-ticker">
-  <span class="as-eyebrow as-eyebrow-muted as-integrations-label">Integrations</span>
+<section id="services" class="as-integrations" data-testid="landing-ticker">
+  <span class="as-eyebrow as-eyebrow-muted as-integrations-label">Services we cover</span>
   <div class="as-marquee"><div class="as-marquee-run">' . $run . '</div></div>
 </section>';
 }
@@ -710,7 +744,7 @@ function afristream_landing_watch_teaser() {
 		'watch',
 		'What to Watch',
 		'Trending right now',
-		'A glimpse of what is playing this week. Subscribers get the full list, updated daily.',
+		'What people are watching this week. Sign in and we will tell you which of your services is carrying each one.',
 		afristream_landing_watch_teaser_items()
 	);
 }
@@ -720,7 +754,7 @@ function afristream_landing_picks_teaser() {
 		'picks',
 		'Editor Picks',
 		'Hand-picked by us',
-		'A running list of what we think is worth your evening. Hundreds more inside.',
+		'A running list of what we think is worth your evening, with a note of where to find each one. Hundreds more inside.',
 		afristream_landing_picks_teaser_items()
 	);
 }
@@ -739,22 +773,17 @@ function afristream_landing_header() {
 	$portal = afristream_landing_portal_url();
 	$cta    = afristream_landing_cta_url();
 	$links  = array(
-		'#features'     => 'Features',
-		'#integrations' => 'Integrations',
-		'#calculate'    => 'Calculate',
-		'#pricing'      => 'Pricing',
-		'#faq'          => 'FAQ',
+		'#features' => 'What we do',
+		'#setup'    => 'Setup guides',
+		'#services' => 'Services we cover',
+		'#faq'      => 'FAQ',
 	);
 
 	$nav  = '';
 	$menu = '';
 	foreach ( $links as $href => $label ) {
-		// The badge hangs off the link's corner, so the link it hangs from has to
-		// be the positioned one — hence a class on the anchor, not just the span.
-		$sale  = '#pricing' === $href ? '<span class="as-sale">SALE</span>' : '';
-		$class = '' !== $sale ? ' class="as-nav-sale"' : '';
-		$nav  .= '<a' . $class . ' href="' . esc_attr( $href ) . '">' . esc_html( $label ) . $sale . '</a>';
-		$menu .= '<a' . $class . ' href="' . esc_attr( $href ) . '">' . esc_html( $label ) . $sale . '</a>';
+		$nav  .= '<a href="' . esc_attr( $href ) . '">' . esc_html( $label ) . '</a>';
+		$menu .= '<a href="' . esc_attr( $href ) . '">' . esc_html( $label ) . '</a>';
 	}
 
 	$dashboard = $portal
@@ -795,24 +824,24 @@ function afristream_landing_section_header( $eyebrow, $title, $sub ) {
 function afristream_landing_features() {
 	$features = array(
 		array(
-			'icon'  => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5l5 2.5-5 2.5z"/>',
-			'title' => 'Multiple platforms in one',
-			'body'  => 'AfriStream collates data from all your favourite providers to bring you a complete collection of live TV, movies and series.',
+			'icon'  => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 19h8"/><path d="M12 16v3"/>',
+			'title' => 'Guided device setup',
+			'body'  => 'We walk you through getting your TV, stick or box working properly, and signing in to the apps you already subscribe to.',
+		),
+		array(
+			'icon'  => '<circle cx="11" cy="11" r="7"/><path d="M16 16l5 5"/>',
+			'title' => 'Search once, not six times',
+			'body'  => 'Look a film or series up once and we tell you which of the services you pay for is listing it, so you stop hunting app by app.',
+		),
+		array(
+			'icon'  => '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+			'title' => 'No content, ever',
+			'body'  => 'We do not host, stream, supply or resell any video, channel or subscription. Everything you watch plays in the provider’s own app, on your own account.',
 		),
 		array(
 			'icon'  => '<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6"/>',
-			'title' => 'All in one profile',
-			'body'  => 'Your subscription gives you unrestricted access to the AfriStream App. No hidden costs, no guessing.',
-		),
-		array(
-			'icon'  => '<path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/>',
-			'title' => 'A network of options',
-			'body'  => "Today's entertainment needs multiple apps and subscriptions. AfriStream squashes this problem with one app.",
-		),
-		array(
-			'icon'  => '<path d="M4 17l6-6 4 4 6-8"/><path d="M14 7h6v6"/>',
-			'title' => 'Save time, money, effort',
-			'body'  => 'Find what to watch and where — and save thousands on your streaming subscriptions every year.',
+			'title' => 'Real people to ask',
+			'body'  => 'Stuck on a remote, a login or a picture that will not play? Message us and a person answers.',
 		),
 	);
 
@@ -830,182 +859,224 @@ function afristream_landing_features() {
 <section id="features" class="as-sec as-sec-features" data-testid="landing-features">
   <div class="as-sec-in" data-reveal>'
 		. afristream_landing_section_header(
-			'Features',
-			'Powerful features at your fingertips',
-			'Stop juggling multiple apps! Bring your content directly to you with AfriStream.'
+			'What we do',
+			'Two jobs, done properly',
+			'We set your device up, and we help you find what to watch on the subscriptions you already have. That is the whole service.'
 		) . '
     <div class="as-features">' . $cards . '</div>
   </div>
 </section>';
 }
 
-const AFRISTREAM_LANDING_PLAN_FEATURES = array(
-	'Access to the AfriStream App',
-	'Access to the AfriStream Portal',
-	'Dedicated support guides',
-	'Works with any smart TV or device',
-	'Regular price of R1999.99',
+/**
+ * The setup guides.
+ *
+ * One panel per device, with the steps written out rather than hidden behind a
+ * support ticket: the page's claim is that setup is the service, so the page
+ * has to show what setup actually is. The picker is a tablist — a single panel
+ * shows at a time, and the whole set is in the markup so a visitor with no
+ * JavaScript sees every guide stacked rather than none of them.
+ *
+ * "No device yet" is a guide too, not a product page: it says what we would
+ * ask, that we confirm the price before ordering, and that the device is a
+ * separate cost.
+ */
+const AFRISTREAM_LANDING_DEVICES = array(
+	array(
+		'key'   => 'firetv',
+		'label' => 'Fire TV Stick',
+		'lede'  => 'Amazon’s stick, into any TV with a spare HDMI port. About fifteen minutes from box to first play.',
+		'steps' => array(
+			'Plug the stick into a spare HDMI port and its power lead into the mains — the TV’s own USB port rarely gives it enough power.',
+			'Switch the TV to that HDMI input, then pair the remote when it asks.',
+			'Join your Wi-Fi and sign in with an Amazon account. A free one is enough; you only need Prime if you subscribe to Prime Video.',
+			'Open the Appstore and install the apps for the services you actually pay for.',
+			'Sign in to each app with your own account details for that service.',
+			'Sign in to AfriStream on your phone or laptop, and use it to look up what to watch.',
+		),
+		'note'  => 'We can do all of this with you on a call, or set the stick up before it reaches you.',
+	),
+	array(
+		'key'   => 'appletv',
+		'label' => 'Apple TV',
+		'lede'  => 'Apple’s box. The setup does most of the work for you if you already have an iPhone.',
+		'steps' => array(
+			'Plug the box into HDMI and the mains, and switch the TV to that input.',
+			'Hold an unlocked iPhone near it to copy your Wi-Fi and Apple Account across, or type both in by hand.',
+			'Finish the on-screen setup and let it install any waiting update.',
+			'Install the apps for the services you subscribe to from the App Store, and sign in to each with your own details.',
+			'Sign in to AfriStream on your phone or laptop to search.',
+		),
+		'note'  => 'Apple keeps some app sign-ins behind the Apple Account rather than the app itself, which catches people out. Worth doing the first one with us.',
+	),
+	array(
+		'key'   => 'androidtv',
+		'label' => 'Android / Google TV',
+		'lede'  => 'A Chromecast with Google TV, an Android box, or a set with Google TV built in.',
+		'steps' => array(
+			'Plug it in, switch the TV to that HDMI input and pair the remote.',
+			'Join Wi-Fi and sign in with a Google account, or finish setup from the Google Home app on your phone.',
+			'Install your subscription apps from the Play Store and sign in to each one.',
+			'Reorder the apps row so the ones you use sit first — recommendations are above your own apps by default.',
+			'Sign in to AfriStream on your phone or laptop to search.',
+		),
+		'note'  => 'Cheap unbranded Android boxes often ship with old firmware and apps that will never update. We will tell you if yours is one of them.',
+	),
+	array(
+		'key'   => 'samsung',
+		'label' => 'Samsung TV',
+		'lede'  => 'Samsung sets run Tizen, with their own store built in. No extra device needed.',
+		'steps' => array(
+			'Finish the on-screen setup and connect the set to your Wi-Fi.',
+			'Sign in with a Samsung account — several apps will not install without one.',
+			'Open the Apps tile and install the services you subscribe to.',
+			'Sign in to each app. Where it shows a pairing code, type that on your phone rather than fighting the remote.',
+			'Run a software update from Settings, then restart the set.',
+			'Sign in to AfriStream on your phone or laptop to search.',
+		),
+		'note'  => 'Sets older than roughly 2017 stop getting new versions of some apps. We will check yours before you spend anything.',
+	),
+	array(
+		'key'   => 'lg',
+		'label' => 'LG TV',
+		'lede'  => 'LG sets run webOS, with the LG Content Store built in.',
+		'steps' => array(
+			'Finish setup, connect to Wi-Fi and accept the terms — the store stays locked until you do.',
+			'Create or sign in to an LG account.',
+			'Open the LG Content Store and install the apps for your subscriptions.',
+			'Sign in to each with your own account.',
+			'Check for a firmware update in Settings, then restart the set.',
+			'Sign in to AfriStream on your phone or laptop to search.',
+		),
+		'note'  => 'Getting comfortable with the Magic Remote pointer trips people up more than any of the sign-ins. We will walk you through it.',
+	),
+	array(
+		'key'   => 'laptop',
+		'label' => 'Laptop',
+		'lede'  => 'Nothing to install. Every service and AfriStream itself run in a browser.',
+		'steps' => array(
+			'Use an up-to-date Chrome, Edge, Firefox or Safari — older browsers get blocked or dropped to a low resolution.',
+			'Sign in to each service’s own website with your own account.',
+			'To watch on the TV, run an HDMI cable across or cast the browser tab where the service allows it.',
+			'Sign in to AfriStream in the same browser and search from there.',
+		),
+		'note'  => 'Some services cap browser playback below the quality their app gives you. That is their limit, not your setup.',
+	),
+	array(
+		'key'   => 'mobile',
+		'label' => 'Phone or tablet',
+		'lede'  => 'Useful on its own, and the easiest way to type sign-in codes for everything else.',
+		'steps' => array(
+			'Install the apps for the services you subscribe to from the App Store or Play Store.',
+			'Sign in to each with your own account.',
+			'Set downloads to Wi-Fi only if your data is metered.',
+			'Cast or AirPlay to the TV where the app allows it.',
+			'Sign in to AfriStream in your phone’s browser to search.',
+		),
+		'note'  => 'A few apps block casting for licensing reasons. Where that happens, installing the app on the TV itself is the way round it.',
+	),
+	array(
+		'key'   => 'none',
+		'label' => 'No device yet',
+		'lede'  => 'Tell us what you have and we will source the right device, set it up, and confirm the price before anything is ordered.',
+		'steps' => array(
+			'Tell us the make and rough age of your TV, your internet speed, and which services you pay for.',
+			'We recommend a device that suits all three, and confirm the price with you in writing.',
+			'Nothing is ordered until you say yes.',
+			'We set the device up and update it before it is delivered, so it works when you plug it in.',
+			'We sign you in to your own subscription apps on a call, and give you your AfriStream login at the same time.',
+		),
+		'note'  => 'The device is a separate cost, quoted and agreed up front. We do not supply content with it — the apps are yours, on your own accounts.',
+	),
 );
 
-/** The small print both price points carry. */
-const AFRISTREAM_LANDING_PLAN_FINE = 'AfriStream does not guarantee any stream availability or up-time. 14 Day Money Back Guarantee. Fee may vary with exchange rates.';
-
-function afristream_landing_plan_features( array $extra = array() ) {
-	$rows = '';
-	foreach ( array_merge( AFRISTREAM_LANDING_PLAN_FEATURES, $extra ) as $feature ) {
-		$rows .= '<li data-plan-feature>' . esc_html( $feature ) . '</li>';
-	}
-	return $rows;
-}
-
 /**
- * The "subscription + setup fee" price point, or nothing.
+ * One device guide: a tab and the panel it controls.
  *
- * An unconfigured fee means the option is not being sold: showing the card at
- * R0 would advertise a free setup, and its button would only lead back to the
- * checkout the first card already offers.
+ * @param array<string,mixed> $device One AFRISTREAM_LANDING_DEVICES entry.
+ * @param bool                $open   Whether this is the panel shown first.
+ * @return string
  */
-function afristream_landing_setup_plan() {
-	$fee = afristream_landing_setup_fee();
-	if ( 0 === $fee ) {
-		return '';
+function afristream_landing_setup_panel( array $device, $open ) {
+	$key   = (string) $device['key'];
+	$steps = '';
+	foreach ( $device['steps'] as $step ) {
+		$steps .= '<li>' . esc_html( $step ) . '</li>';
 	}
 
 	return '
-    <div class="as-plan as-plan-setup-card" data-testid="plan-setup">
-      <span class="as-plan-badge">Setup Included</span>
-      <span class="as-plan-name">Annual Plan + Setup</span>
-      <span class="as-plan-price">R' . (int) afristream_landing_price() . '<small>/ year</small></span>
-      <span class="as-plan-setup">+ R' . (int) $fee . ' once-off setup</span>
-      <span class="as-plan-tag">We get you up and running, then it is fire and forget.</span>
-      <ul class="as-plan-features">' . afristream_landing_plan_features( array( 'Guided setup done for you' ) ) . '</ul>
-      <a class="as-btn as-btn-primary as-plan-cta as-plan-cta-setup" data-testid="plan-setup-cta" data-onboard="setup" href="' . esc_url( afristream_landing_setup_cta_url() ) . '">Get Started with Setup</a>
-      <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
-    </div>';
+      <div class="as-setup-panel" role="tabpanel" id="as-setup-' . esc_attr( $key ) . '" aria-labelledby="as-setup-tab-' . esc_attr( $key ) . '" data-setup-panel="' . esc_attr( $key ) . '"' . ( $open ? '' : ' hidden' ) . '>
+        <h3>' . esc_html( $device['label'] ) . '</h3>
+        <p class="as-setup-lede">' . esc_html( $device['lede'] ) . '</p>
+        <ol class="as-setup-steps">' . $steps . '</ol>
+        <p class="as-setup-note">' . esc_html( $device['note'] ) . '</p>
+      </div>';
 }
 
-function afristream_landing_pricing() {
+function afristream_landing_setup() {
+	$tabs   = '';
+	$panels = '';
+	foreach ( AFRISTREAM_LANDING_DEVICES as $i => $device ) {
+		$open    = 0 === $i;
+		$key     = (string) $device['key'];
+		$tabs   .= '
+        <button type="button" class="as-setup-tab" role="tab" id="as-setup-tab-' . esc_attr( $key ) . '" aria-controls="as-setup-' . esc_attr( $key ) . '" aria-selected="' . ( $open ? 'true' : 'false' ) . '" tabindex="' . ( $open ? '0' : '-1' ) . '" data-setup-tab="' . esc_attr( $key ) . '">' . esc_html( $device['label'] ) . '</button>';
+		$panels .= afristream_landing_setup_panel( $device, $open );
+	}
+
 	return '
-<section id="pricing" class="as-sec as-sec-pricing" data-testid="landing-pricing">
+<section id="setup" class="as-sec as-sec-setup" data-testid="landing-setup">
   <div class="as-sec-in" data-reveal>'
 		. afristream_landing_section_header(
-			'Pricing',
-			'Budget-friendly pricing',
-			'One simple plan giving you access to over 20 000 feeds in one platform. AfriStream shows you what to watch, when to watch it and how to watch it — all from a single dashboard.'
+			'Setup guides',
+			'Pick your device, follow the steps',
+			'The real steps for the devices people actually use. Work through them yourself, or book a call and we will do it with you.'
 		) . '
-    <div class="as-plans">
-    <div class="as-plan" data-testid="plan">
-      <span class="as-plan-badge">Limited Time Offer!</span>
-      <span class="as-plan-name">Annual Plan</span>
-      <span class="as-plan-price">R' . (int) afristream_landing_price() . '<small>/ year</small></span>
-      <span class="as-plan-tag">One simple subscription, fire and forget!</span>
-      <ul class="as-plan-features">' . afristream_landing_plan_features() . '</ul>
-      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
-      <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
-    </div>' . afristream_landing_setup_plan() . '
+    <div class="as-setup">
+      <div class="as-setup-picker" role="tablist" aria-label="Choose your device">' . $tabs . '
+      </div>
+      <div class="as-setup-panels">' . $panels . '
+      </div>
     </div>
   </div>
 </section>';
 }
-
-/**
- * Annualised Rand prices. The first block is from published South African
- * monthly pricing, mid-2026; the second is international pricing converted at
- * roughly R18 to the dollar.
- */
-const AFRISTREAM_LANDING_SUBS = array(
-	array( 'Netflix Premium', 2748 ),
-	array( 'Live sport bundle', 8388 ),
-	array( 'Showmax + Premier League', 1800 ),
-	array( 'Amazon Prime', 399 ),
-	array( 'Disney Plus Premium', 1908 ),
-	array( 'Apple TV Plus', 1500 ),
-	array( 'YouTube Premium', 864 ),
-	array( 'MUBI', 1668 ),
-	array( 'Crunchyroll Mega Fan', 580 ),
-	array( 'Viu Premium', 588 ),
-	array( 'Hulu', 2160 ),
-	array( 'HBO Max', 4968 ),
-	array( 'Paramount Plus', 3024 ),
-	array( 'Peacock', 3672 ),
-	array( 'BritBox', 1980 ),
-	array( 'ESPN Play', 2592 ),
-);
 
 /** The annual price an unconfigured install advertises. */
 const AFRISTREAM_LANDING_PRICE = 1599;
 
-function afristream_landing_calculator() {
-	$options = '';
-	foreach ( AFRISTREAM_LANDING_SUBS as $sub ) {
-		$options .= '
-        <button type="button" class="as-sub" data-sub-price="' . (int) $sub[1] . '" aria-pressed="false">
-          <span class="as-sub-box" aria-hidden="true"></span>
-          <span class="as-sub-text"><span class="as-sub-name">' . esc_html( $sub[0] ) . '</span> <span class="as-sub-price">R' . (int) $sub[1] . '/yr</span></span>
-        </button>';
-	}
-
-	return '
-<section id="calculate" class="as-sec as-sec-calc" data-testid="landing-calculator" data-price="' . (int) afristream_landing_price() . '">
-  <div class="as-sec-in" data-reveal>'
-		. afristream_landing_section_header(
-			'Calculate',
-			'Calculate your annual savings',
-			'AfriStream can help save you thousands on your streaming subscriptions. Select your current subscriptions to see how much.'
-		) . '
-    <div class="as-calc">
-      <div class="as-calc-card">
-        <span class="as-eyebrow">Your potential saving</span>
-        <span class="as-calc-saving" data-testid="calc-saving">R0</span>
-        <span class="as-calc-basis">per year, based on <span data-testid="calc-basis">your selection below</span></span>
-        <div class="as-calc-rows">
-          <div><span>Your subscriptions now</span><span data-testid="calc-total">R0 / year</span></div>
-          <div><span>AfriStream</span><span>R' . (int) afristream_landing_price() . ' / year</span></div>
-        </div>
-        <a class="as-btn as-btn-primary as-calc-cta" data-testid="calc-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '!</a>
-        <span class="as-fine">14 Day Money Back Guarantee.</span>
-      </div>
-      <div class="as-calc-pick">
-        <span class="as-calc-q">Do you have any of the following subscriptions?</span>
-        <div class="as-subs">' . $options . '</div>
-        <div class="as-calc-other">
-          <label for="as-calc-other">Any other subscriptions?</label>
-          <div class="as-calc-input"><span aria-hidden="true">R</span><input id="as-calc-other" data-testid="calc-other" type="number" min="0" step="1" placeholder="0 annually" inputmode="numeric"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>';
-}
-
 const AFRISTREAM_LANDING_FAQ = array(
 	array(
 		'q' => 'What does AfriStream actually provide?',
-		'a' => 'AfriStream provides you with an IPTV app. This app allows you to access content from multiple locations to watch directly.',
+		'a' => 'Two things: we set your streaming device up properly, and we help you find which service is carrying the film or programme you want. That is the whole service — an information and setup service, nothing more.',
 	),
 	array(
-		'q' => 'How does AfriStream access the content?',
-		'a' => 'Most streaming platforms offer packages where you can buy a single license to use across multiple devices. AfriStream purchases bundled subscriptions and shares them between our users, reducing the cost for everyone.',
+		'q' => 'Do you supply any content, channels or subscriptions?',
+		'a' => 'No. We do not host, supply, stream or resell any content — you watch on your own accounts, in the providers’ own apps.',
 	),
 	array(
-		'q' => 'Can I watch Live TV & sport?',
-		'a' => 'Yes! You will be able to watch BT, SKY, BBC and more — hundreds of live channels.',
+		'q' => 'Do I still need my own subscriptions?',
+		'a' => 'Yes. You keep and pay for whatever services you choose, directly with them. AfriStream does not replace a subscription and cannot get you one cheaper.',
 	),
 	array(
-		'q' => 'Can I watch movies & series?',
-		'a' => 'Yes! AfriStream pulls together Netflix, Amazon, Disney, Apple, Hulu and more to bring you over 19 000+ different movies & series.',
+		'q' => 'What does the setup actually cover?',
+		'a' => 'Getting the device connected and updated, installing the apps for the services you already pay for, signing you in to each one with your own details, and checking that playback and the remote work. We can do it with you on a call or, where you buy a device through us, before it is delivered.',
 	),
 	array(
-		'q' => 'Do I need other subscriptions?',
-		'a' => 'No! Once you have installed the app and are happy with the service, you can cancel your other subscriptions.',
+		'q' => 'Which devices do you support?',
+		'a' => 'Fire TV Stick, Apple TV, Android and Google TV devices, Samsung and LG smart TVs, laptops, phones and tablets. If you do not have a device yet, tell us what your TV is and we will source and set one up — at a price agreed with you before anything is ordered.',
 	),
 	array(
-		'q' => 'Are IPTV streams legal?',
-		'a' => 'The legality of IPTV depends on the content provided by the service and your location. Our IPTV services operate legally by acquiring proper licenses for the content we offer.',
+		'q' => 'How does the search work?',
+		'a' => 'We read the public catalogue listings the services themselves publish, so you can look a title up once and see who is carrying it rather than opening six apps in turn. We point you at the provider’s own page; the watching happens there.',
 	),
 	array(
-		'q' => 'Do I need a VPN for AfriStream?',
-		'a' => "A VPN isn't necessary for using IPTV apps, but it's recommended for privacy, security, and to avoid potential ISP throttling or regional restrictions.",
+		'q' => 'Are you affiliated with Netflix, Disney+, Showmax or anyone else?',
+		'a' => 'No. We have no affiliation, partnership or endorsement from any streaming service or broadcaster. All names and logos are the trademarks of their owners, and are used only to say which services we can help you set up and search.',
+	),
+	array(
+		'q' => 'Can you help me get round regional restrictions?',
+		'a' => 'No. We do not set up VPNs, proxies or anything else meant to bypass a provider’s regional restrictions, and we will not advise on it. What is available where you live is the provider’s decision.',
 	),
 );
 
@@ -1054,12 +1125,12 @@ function afristream_landing_signup() {
   <div class="as-sec-in" data-reveal>'
 		. afristream_landing_section_header(
 			'Get Started',
-			'Unlock the power of AfriStream today',
-			'Stop guessing what to watch! Thousands of movies, series and live TV — all in one platform.'
+			'Let us get you set up',
+			'Tell us what you watch on and what you already subscribe to. We will take it from there.'
 		) . '
     <div class="as-signup">
-      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get AfriStream for R' . (int) afristream_landing_price() . '</a>
-      <span class="as-fine">14 Day Money Back Guarantee.</span>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
+      <span class="as-fine">Setup and search only. You keep your own subscriptions, with the providers.</span>
     </div>
   </div>
 </section>';
@@ -1074,18 +1145,19 @@ function afristream_landing_footer() {
   <div class="as-foot-in">
     <div class="as-foot-brand">
       <span class="as-brand"><img src="' . esc_url( afristream_landing_asset( 'afristream-icon.svg' ) ) . '" alt="" width="24" height="25">AfriStream</span>
-      <span class="as-muted">Save time, money and effort with AfriStream.</span>
+      <span class="as-muted">Device setup and content discovery.</span>
       <span class="as-fine">© ' . esc_html( gmdate( 'Y' ) ) . ' AfriStream</span>
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Company</span>
-      <a href="#features">Features</a><a href="#integrations">Integrations</a><a href="#pricing">Pricing</a>
+      <a href="#features">What we do</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a>
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Help</span>
       <a href="#faq">FAQ</a><a href="mailto:support@afristream.io">support@afristream.io</a>' . $dashboard . '
     </div>
   </div>
+  <p class="as-foot-note" data-testid="landing-disclaimer">AfriStream is an independent device-setup and content-discovery service. We do not host, stream, supply, share or resell any video, channel or subscription, and we are not affiliated with, endorsed by or acting for any streaming service or broadcaster. You watch on your own accounts, in the providers’ own apps. All service names and logos are the trademarks of their respective owners.</p>
 </footer>';
 }
 

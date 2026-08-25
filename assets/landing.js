@@ -1,8 +1,7 @@
-/* AfriStream landing page. Four jobs: the mobile menu, the scroll reveal, the
-   savings calculator and the FAQ accordion. Everything else is static HTML
-   rendered by PHP. No framework, no build step — the same approach as
-   portal.js. The calculator's maths lives in savings.js, shared with the
-   onboarding flow's breakdown step. */
+/* AfriStream landing page. Four jobs: the mobile menu, the setup-guide device
+   picker, the FAQ accordion and the scroll reveal. Everything else is static
+   HTML rendered by PHP. No framework, no build step — the same approach as
+   portal.js. */
 (function () {
   'use strict';
 
@@ -46,48 +45,50 @@
     if (burger) burger.focus();
   });
 
-  // -------------------------------------------------------- calculator
+  // ------------------------------------------------------- setup guides
 
-  var calc = root.querySelector('[data-testid="landing-calculator"]');
+  /* The device picker is a tablist: one guide shows at a time, and every panel
+     is in the markup rather than fetched. PHP renders the first one open and
+     the rest hidden — same as the FAQ — so the section is never a flash of
+     eight stacked guides before this runs, and a visitor without JavaScript
+     still gets a complete guide rather than an empty box. */
 
-  if (calc) {
-    var sums = window.AfriStreamSavings;
-    var subs = Array.prototype.slice.call(calc.querySelectorAll('[data-sub-price]'));
-    var other = calc.querySelector('[data-testid="calc-other"]');
-    var savingEl = calc.querySelector('[data-testid="calc-saving"]');
-    var totalEl = calc.querySelector('[data-testid="calc-total"]');
-    var basisEl = calc.querySelector('[data-testid="calc-basis"]');
+  var picker = root.querySelector('.as-setup-picker');
+  var tabs = picker
+    ? Array.prototype.slice.call(picker.querySelectorAll('[data-setup-tab]'))
+    : [];
 
-    function recalc() {
-      // The price is a setting, so it comes off the DOM on every recalculation
-      // rather than being cached at load. The fallback is the plugin's own
-      // default, for the case where an older cached page has no attribute to
-      // read.
-      var price = Number(calc.getAttribute('data-price')) || 1599;
-      var otherAmount = Number(other && other.value) || 0;
-      var total = sums.total(calc, otherAmount);
-      var chosen = sums.chosen(calc).length;
+  function showDevice(key) {
+    tabs.forEach(function (tab) {
+      var on = tab.getAttribute('data-setup-tab') === key;
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+      // Roving tabindex: the tablist is one stop in the tab order, and the
+      // arrow keys move within it.
+      tab.setAttribute('tabindex', on ? '0' : '-1');
+    });
+    Array.prototype.slice.call(root.querySelectorAll('[data-setup-panel]')).forEach(function (panel) {
+      panel.hidden = panel.getAttribute('data-setup-panel') !== key;
+    });
+  }
 
-      savingEl.textContent = sums.money(sums.saving(total, price));
-      totalEl.textContent = sums.money(total) + ' / year';
-      // No chips pressed but an "other" figure entered is still a non-zero
-      // saving — "your selection below" would read as if nothing had been
-      // chosen at all, right beside a number that says otherwise.
-      basisEl.textContent = chosen === 0
-        ? (otherAmount > 0 ? 'the other amount entered below' : 'your selection below')
-        : chosen + ' subscription' + (chosen === 1 ? '' : 's') + ' selected';
-    }
-
-    subs.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
-        recalc();
-      });
+  if (tabs.length) {
+    picker.addEventListener('click', function (e) {
+      var tab = e.target.closest('[data-setup-tab]');
+      if (tab) showDevice(tab.getAttribute('data-setup-tab'));
     });
 
-    if (other) other.addEventListener('input', recalc);
-
-    recalc();
+    picker.addEventListener('keydown', function (e) {
+      var step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+        : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1
+          : 0;
+      if (!step) return;
+      var i = tabs.indexOf(document.activeElement);
+      if (i < 0) return;
+      e.preventDefault();
+      var next = tabs[(i + step + tabs.length) % tabs.length];
+      showDevice(next.getAttribute('data-setup-tab'));
+      next.focus();
+    });
   }
 
   // --------------------------------------------------------------- faq

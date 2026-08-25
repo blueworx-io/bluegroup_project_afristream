@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.28.0
+ * Version:     0.30.2
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.28.0' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.30.2' );
 }
 
 /**
@@ -124,7 +124,7 @@ function afristream_portal_shortcode( $atts ) {
 	wp_add_inline_style( 'bluegroup-project-afristream', '.dashboard-right{padding:0 !important;}' );
 
 	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s" data-home-url="%s"></div>',
+		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s" data-home-url="%s" data-buy-url="%s" data-buy-setup-url="%s" data-show-bank="%s" data-portal-version="%s"></div>',
 		esc_attr( $atts['default_tab'] ),
 		esc_attr( $atts['show_sport'] ),
 		esc_url( rest_url( 'afristream/v1/watch' ) ),
@@ -134,7 +134,11 @@ function afristream_portal_shortcode( $atts ) {
 		esc_url( rest_url( 'afristream/v1/affiliate' ) ),
 		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
 		esc_attr( wp_create_nonce( 'wp_rest' ) ),
-		esc_url( home_url( '/' ) )
+		esc_url( home_url( '/' ) ),
+		esc_url( afristream_landing_checkout_url() ),
+		esc_url( afristream_landing_checkout_url( true ) ),
+		afristream_portal_show_bank() ? 'true' : 'false',
+		esc_attr( AFRISTREAM_PORTAL_VERSION )
 	);
 }
 add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
@@ -1070,8 +1074,59 @@ function afristream_portal_register_settings() {
 		'afristream_portal_data',
 		array( 'label_for' => 'afristream_editor_picks_ids' )
 	);
+
+	register_setting(
+		'afristream_portal',
+		AFRISTREAM_PORTAL_BANK_OPTION,
+		array(
+			'type'              => 'boolean',
+			'sanitize_callback' => 'afristream_portal_sanitize_checkbox',
+			'default'           => false,
+		)
+	);
+
+	add_settings_section(
+		'afristream_portal_account',
+		__( 'Account tab', 'bluegroup-project-afristream' ),
+		'__return_false',
+		'bluegroup-project-afristream'
+	);
+
+	add_settings_field(
+		AFRISTREAM_PORTAL_BANK_OPTION,
+		__( 'Payment details card', 'bluegroup-project-afristream' ),
+		'afristream_portal_bank_field',
+		'bluegroup-project-afristream',
+		'afristream_portal_account',
+		array( 'label_for' => AFRISTREAM_PORTAL_BANK_OPTION )
+	);
 }
 add_action( 'admin_init', 'afristream_portal_register_settings' );
+
+/** Whether the Account tab shows the bank payment card. */
+const AFRISTREAM_PORTAL_BANK_OPTION = 'afristream_portal_show_bank';
+
+function afristream_portal_sanitize_checkbox( $value ) {
+	return (bool) $value;
+}
+
+/** Whether the Account tab's payment details card is switched on. */
+function afristream_portal_show_bank() {
+	return (bool) get_option( AFRISTREAM_PORTAL_BANK_OPTION, false );
+}
+
+function afristream_portal_bank_field() {
+	// The hidden 0 is what makes unticking stick: an unticked checkbox posts
+	// nothing at all, so without it options.php never sees the setting and the
+	// old value survives — the card would refuse to be switched off.
+	printf(
+		'<input type="hidden" name="%1$s" value="0"><label><input type="checkbox" name="%1$s" id="%1$s" value="1" %2$s> %3$s</label>',
+		esc_attr( AFRISTREAM_PORTAL_BANK_OPTION ),
+		checked( afristream_portal_show_bank(), true, false ),
+		esc_html__( 'Show the bank payment details on the Account tab', 'bluegroup-project-afristream' )
+	);
+	echo '<p class="description">' . esc_html__( 'Tells customers where to pay by transfer. Off, the card is left off the page entirely.', 'bluegroup-project-afristream' ) . '</p>';
+}
 
 function afristream_portal_sanitize_tmdb_key( $value ) {
 	// A new (or cleared) key should refetch immediately, not wait out the cache.
