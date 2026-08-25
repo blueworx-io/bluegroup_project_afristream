@@ -5,7 +5,7 @@ const digits = async (locator) => (await locator.innerText()).replace(/[^\d]/g, 
 
 // The flow is a modal on the landing page. These run against the preview
 // mirror at /landing, which loads the same CSS and JS the plugin enqueues,
-// and which represents a configured install: R1599 a year, a R499 setup fee.
+// and which represents a configured install: R1599 a year, a R999 device fee.
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/landing');
@@ -20,9 +20,9 @@ test('the flow is closed until a Get Started button opens it', async ({ page }) 
   await expect(page.getByTestId('ob-title')).toHaveText('What you get with AfriStream');
 });
 
-test('all five Get Started buttons open the flow', async ({ page }) => {
+test('every Get Started button opens the flow', async ({ page }) => {
   const buttons = await page.locator('.as-landing [data-onboard]').all();
-  expect(buttons.length).toBe(6); // five Get Started, plus the setup card's
+  expect(buttons.length).toBe(4); // header, mobile menu, hero, closing section
 
   for (const button of buttons) {
     // The header's Get Started button and the mobile menu's copy of it are
@@ -49,7 +49,7 @@ test('every CTA still carries a working checkout href for a visitor without JS',
   const hrefs = await page.locator('.as-landing [data-onboard]').evaluateAll((els) =>
     els.map((el) => el.getAttribute('href')));
 
-  expect(hrefs).toHaveLength(6);
+  expect(hrefs).toHaveLength(4);
   hrefs.forEach((href) => expect(href, 'a CTA with no destination').toBeTruthy());
 });
 
@@ -86,13 +86,16 @@ test('focus moves into the dialog on open and is trapped there', async ({ page }
   }
 });
 
-test('the intro lists what the subscription includes and the annual price', async ({ page }) => {
+test('the intro lists what the subscription includes, the price, and what it is not', async ({ page }) => {
   await page.getByTestId('header-cta').click();
   const step = page.locator('[data-ob-step="intro"]');
 
-  await expect(step).toContainText('Access to over 20 000 live feeds');
+  await expect(step).toContainText('Guided setup for your device, with a real person');
   await expect(step).toContainText('R1599');
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 5');
+  await expect(step).not.toContainText('20 000');
+  await expect(page.getByTestId('ob-disclaimer'))
+    .toContainText('does not host, stream, supply or resell');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 3');
 });
 
 const open = async (page) => {
@@ -104,14 +107,27 @@ const step = (page, name) => page.locator(`[data-ob-step="${name}"]`);
 const next = (page) => page.getByTestId('ob-next');
 const back = (page) => page.getByTestId('ob-back');
 
-test('continue moves from the intro to the device question', async ({ page }) => {
+test('continue moves from the intro to the one device question', async ({ page }) => {
   await open(page);
   await next(page).click();
 
   await expect(step(page, 'intro')).toBeHidden();
   await expect(step(page, 'device')).toBeVisible();
-  await expect(page.getByTestId('ob-title')).toHaveText('Do you already have a streaming device?');
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 5');
+  await expect(page.getByTestId('ob-title')).toHaveText('Shall we source a device for you?');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 3');
+});
+
+test('the device question is asked once, priced, and says no content comes with it', async ({ page }) => {
+  // It used to be two steps: "do you have one?" and then "shall we send you
+  // one?" — the same question twice.
+  await open(page);
+  await next(page).click();
+
+  const device = step(page, 'device');
+  await expect(device).toContainText('R999');
+  await expect(device).toContainText('No content comes with it');
+  await expect(device.locator('input[type="radio"]')).toHaveCount(2);
+  await expect(step(page, 'offer')).toHaveCount(0);
 });
 
 test('the device question must be answered before continuing', async ({ page }) => {
@@ -123,12 +139,12 @@ test('the device question must be answered before continuing', async ({ page }) 
   await expect(next(page)).toBeEnabled();
 });
 
-test('someone who has a device is never counted a step for the device offer', async ({ page }) => {
+test('answering the device question does not add or drop a step', async ({ page }) => {
   await open(page);
   await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
+  await page.getByTestId('ob-device-no').check();
 
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 3');
 });
 
 test('back returns to the previous step with the answer still selected', async ({ page }) => {
@@ -137,7 +153,7 @@ test('back returns to the previous step with the answer still selected', async (
   await page.getByTestId('ob-device-no').check();
   await next(page).click();
 
-  await expect(step(page, 'subs')).toBeVisible();
+  await expect(step(page, 'breakdown')).toBeVisible();
   await back(page).click();
   await expect(step(page, 'device')).toBeVisible();
   await expect(page.getByTestId('ob-device-no')).toBeChecked();
@@ -148,22 +164,18 @@ test('back is not offered on the first step', async ({ page }) => {
   await expect(back(page)).toBeHidden();
 });
 
-test('the subscription step is skippable and reports a running total', async ({ page }) => {
+test('the flow never asks what the customer already spends', async ({ page }) => {
+  // The subscription picker went with the savings calculator: AfriStream does
+  // not replace any of those subscriptions, so totting them up only invited a
+  // savings claim the service cannot make.
   await open(page);
+  await expect(page.locator('[data-ob-step="subs"]')).toHaveCount(0);
+  await expect(page.locator('[data-sub-price]')).toHaveCount(0);
+
   await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
+  await page.getByTestId('ob-device-no').check();
   await next(page).click();
-
-  await expect(step(page, 'subs')).toBeVisible();
-  await expect(next(page), 'nobody should be blocked from buying by an optional question').toBeEnabled();
-
-  // Netflix Premium R2748 + Showmax + Premier League R1800.
-  await step(page, 'subs').getByRole('button', { name: /Netflix Premium/ }).click();
-  await step(page, 'subs').getByRole('button', { name: /Showmax \+ Premier League/ }).click();
-  expect(await digits(page.getByTestId('ob-subs-total'))).toBe('4548');
-
-  await page.getByTestId('ob-subs-other').fill('1000');
-  expect(await digits(page.getByTestId('ob-subs-total'))).toBe('5548');
+  await expect(step(page, 'breakdown')).toBeVisible();
 });
 
 test('reopening the flow starts it over', async ({ page }) => {
@@ -173,168 +185,89 @@ test('reopening the flow starts it over', async ({ page }) => {
   await open(page);
 
   await expect(step(page, 'intro')).toBeVisible();
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 5');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 3');
 });
 
-const toOffer = async (page) => {
+/** Through the flow to the breakdown, taking the device or turning it down. */
+const toBreakdown = async (page, wantsDevice) => {
   await open(page);
   await next(page).click();
-  await page.getByTestId('ob-device-no').check();
-  await next(page).click();
+  await page.getByTestId(wantsDevice ? 'ob-device-yes' : 'ob-device-no').check();
   await next(page).click();
 };
 
-test('someone without a device is offered one, priced at the setup fee', async ({ page }) => {
-  await toOffer(page);
 
-  await expect(step(page, 'offer')).toBeVisible();
-  await expect(step(page, 'offer')).toContainText('FireStick');
-  await expect(step(page, 'offer')).toContainText('R499');
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 4 of 5');
-});
-
-test('someone who has a device never sees the offer', async ({ page }) => {
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
-  await next(page).click();
-
-  await expect(step(page, 'offer')).toBeHidden();
-  await expect(step(page, 'breakdown')).toBeVisible();
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 4 of 4');
-});
-
-test('the offer must be answered before continuing', async ({ page }) => {
-  await toOffer(page);
-  await expect(next(page)).toBeDisabled();
-  await page.getByTestId('ob-offer-no').check();
-  await expect(next(page)).toBeEnabled();
-});
-
-test('changing the device answer after seeing the offer drops the step', async ({ page }) => {
-  // Going back and answering "yes" must not leave a device-offer step stranded
-  // in the flow, nor a count that promises one.
-  await toOffer(page);
-  await back(page).click();
-  await back(page).click();
-  await page.getByTestId('ob-device-yes').check();
-
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
-  await next(page).click();
-  await next(page).click();
-  await expect(step(page, 'breakdown')).toBeVisible();
-});
-
-test('an install with no setup fee offers no device at all', async ({ page }) => {
+test('an install with no setup fee never asks the device question', async ({ page }) => {
   await page.getByTestId('onboarding').evaluate((el) => el.setAttribute('data-setup-fee', '0'));
   await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-no').check();
 
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 2');
   await next(page).click();
-  await next(page).click();
-  await expect(step(page, 'offer')).toBeHidden();
+  await expect(step(page, 'device')).toBeHidden();
   await expect(step(page, 'breakdown')).toBeVisible();
 });
 
-test('the setup card opens the flow with the device answered for them', async ({ page }) => {
-  await page.getByTestId('plan-setup-cta').click();
-  await expect(page.getByTestId('onboarding')).toBeVisible();
-
-  await expect(step(page, 'subs'), 'the two questions it already answers are skipped').toBeVisible();
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 3 of 5');
-  await next(page).click();
-  await expect(page.getByTestId('ob-offer-yes')).toBeChecked();
-});
 
 const CHECKOUT = 'https://pay.example.test/afristream-setup';
 
 test('taking the device puts the fee on the bill and routes to the setup checkout', async ({ page }) => {
-  await toOffer(page);
-  await page.getByTestId('ob-offer-yes').check();
-  await next(page).click();
+  await toBreakdown(page, true);
 
   const bill = page.getByTestId('ob-cost');
   await expect(bill).toContainText('R1599');
-  await expect(bill).toContainText('R499');
-  await expect(page.getByTestId('ob-total')).toHaveText('R2098');
+  await expect(bill).toContainText('R999');
+  await expect(page.getByTestId('ob-total')).toHaveText('R2598');
   await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', CHECKOUT);
 });
 
 test('declining the device leaves the fee off the bill and off the checkout', async ({ page }) => {
-  await toOffer(page);
-  await page.getByTestId('ob-offer-no').check();
-  await next(page).click();
+  await toBreakdown(page, false);
 
-  await expect(page.getByTestId('ob-cost')).not.toContainText('R499');
+  await expect(page.getByTestId('ob-cost')).not.toContainText('R999');
   await expect(page.getByTestId('ob-total')).toHaveText('R1599');
-  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#setup');
 });
 
-test('someone who has a device goes to the plain checkout', async ({ page }) => {
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
-  await next(page).click();
 
-  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
+test('the breakdown quotes the bill and nothing about savings', async ({ page }) => {
+  await toBreakdown(page, false);
+
+  const panel = page.locator('.as-ob-panel');
+  await expect(page.getByTestId('ob-cost')).toContainText('R1599');
+  await expect(panel).not.toContainText('save');
+  await expect(panel).not.toContainText('What you save');
 });
 
-test('the savings section reflects the subscriptions they ticked', async ({ page }) => {
+
+
+test('the checkout button takes Continue’s place rather than sitting below it', async ({ page }) => {
+  // Both live in the nav row, one swapped for the other. The row itself sits
+  // at the foot of a panel that grows with its content, so what is asserted is
+  // the slot — same container, same right edge, same line as Back — not an
+  // absolute position the panel height would move anyway.
   await open(page);
   await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
+  const before = await next(page).boundingBox();
+  const backBox = await back(page).boundingBox();
 
-  // Netflix Premium R2748 + HBO Max R4968 = R7716, less R1599 = R6117.
-  await step(page, 'subs').getByRole('button', { name: /Netflix Premium/ }).click();
-  await step(page, 'subs').getByRole('button', { name: /HBO Max/ }).click();
-  await next(page).click();
-
-  expect(await digits(page.getByTestId('ob-saving'))).toBe('6117');
-  await expect(page.getByTestId('ob-savings')).toContainText(/R\s*7\D?716/);
-});
-
-test('someone who ticked nothing sees no invented saving', async ({ page }) => {
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
-  await next(page).click();
-
-  await expect(page.getByTestId('ob-savings'))
-    .toContainText('Tell us what you pay for today');
-  await expect(page.getByTestId('ob-saving')).toHaveCount(0);
-});
-
-test('the breakdown agrees with the page calculator for the same selection', async ({ page }) => {
-  const calc = page.getByTestId('landing-calculator');
-  await calc.getByRole('button', { name: /Disney Plus Premium/ }).click();
-  const fromCalc = await digits(calc.getByTestId('calc-saving'));
-
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
-  await step(page, 'subs').getByRole('button', { name: /Disney Plus Premium/ }).click();
-  await next(page).click();
-
-  expect(await digits(page.getByTestId('ob-saving'))).toBe(fromCalc);
-});
-
-test('the checkout button is the last step, with no Continue beside it', async ({ page }) => {
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
+  await page.getByTestId('ob-device-no').check();
   await next(page).click();
 
   await expect(next(page)).toBeHidden();
   await expect(back(page)).toBeVisible();
-  await expect(page.getByTestId('ob-checkout')).toBeVisible();
+
+  const checkout = page.getByTestId('ob-checkout');
+  await expect(checkout).toBeVisible();
+  expect(await checkout.evaluate((el) => !!el.closest('.as-ob-nav')),
+    'the checkout button left the nav row').toBe(true);
+
+  const after = await checkout.boundingBox();
+  const backAfter = await back(page).boundingBox();
+  expect(Math.abs((after.x + after.width) - (before.x + before.width)),
+    'it does not end where Continue ended').toBeLessThan(2);
+  expect(Math.abs(after.y - backAfter.y), 'it dropped off Back’s line').toBeLessThan(2);
+  expect(Math.abs(after.height - before.height), 'it is not the same height as Continue').toBeLessThan(2);
+  expect(backAfter.y).toBeGreaterThan(backBox.y - 1);
 });
 
 // -- Final review findings ---------------------------------------------------
@@ -347,14 +280,9 @@ test('focus stays inside the dialog after a keyboard-activated step change disab
   // or disables it — this is exactly the sequence that used to drop focus to
   // <body>.
   await next(page).focus();
-  await page.keyboard.press('Enter'); // intro -> device
-  await page.getByTestId('ob-device-no').check();
-  await next(page).focus();
-  await page.keyboard.press('Enter'); // device -> subs
-  await next(page).focus();
-  await page.keyboard.press('Enter'); // subs -> offer, Continue starts disabled
+  await page.keyboard.press('Enter'); // intro -> device, where Continue starts disabled
 
-  await expect(step(page, 'offer')).toBeVisible();
+  await expect(step(page, 'device')).toBeVisible();
   await expect(next(page)).toBeDisabled();
 
   const inPanel = () => page.evaluate(() =>
@@ -368,17 +296,13 @@ test('focus stays inside the dialog after a keyboard-activated step change disab
 });
 
 test('the terminal checkout button closes the modal before following a fragment link', async ({ page }) => {
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
-  await next(page).click();
+  await toBreakdown(page, false);
 
-  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#setup');
   await page.getByTestId('ob-checkout').click();
 
   await expect(modal(page)).toBeHidden();
-  await expect(page.locator('#pricing')).toBeInViewport();
+  await expect(page.locator('#setup')).toBeInViewport();
 });
 
 test('the device offer is withheld when the setup checkout is not distinct from the plain one', async ({ page }) => {
@@ -386,29 +310,13 @@ test('the device offer is withheld when the setup checkout is not distinct from 
     el.setAttribute('data-setup-cta', el.getAttribute('data-cta'));
   });
   await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-no').check();
 
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 2 of 4');
+  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 2');
   await next(page).click();
-  await next(page).click();
-  await expect(step(page, 'offer')).toBeHidden();
+  await expect(step(page, 'device')).toBeHidden();
   await expect(step(page, 'breakdown')).toBeVisible();
 });
 
-test('the setup card asks the device question normally when its checkout is not distinct', async ({ page }) => {
-  await page.getByTestId('onboarding').evaluate((el) => {
-    el.setAttribute('data-setup-cta', el.getAttribute('data-cta'));
-  });
-  await page.getByTestId('plan-setup-cta').click();
-  await expect(page.getByTestId('onboarding')).toBeVisible();
-
-  // With no distinct setup checkout the preset must not fire: the flow starts
-  // from the intro like any other CTA, rather than skipping straight to subs
-  // with the device offer silently pre-ticked to "yes".
-  await expect(step(page, 'intro')).toBeVisible();
-  await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 4');
-});
 
 test('a modifier-clicked CTA is left to the browser, not intercepted', async ({ page }) => {
   await expect(modal(page)).toBeHidden();
@@ -416,22 +324,10 @@ test('a modifier-clicked CTA is left to the browser, not intercepted', async ({ 
   await expect(modal(page)).toBeHidden();
 });
 
-test('with the savings helper unavailable, CTAs fall back to their href instead of opening a half-built modal', async ({ page }) => {
-  await page.route('**/assets/savings.js', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/javascript', body: '/* savings.js failed to load */' }));
-  await page.goto('/landing');
 
-  await page.getByTestId('header-cta').click();
-  await expect(page.getByTestId('onboarding')).toBeHidden();
-});
-
-test('a missing price falls back to the same default the calculator uses, not R0', async ({ page }) => {
+test('a missing price falls back to the plugin default, not R0', async ({ page }) => {
   await page.getByTestId('onboarding').evaluate((el) => el.removeAttribute('data-price'));
-  await open(page);
-  await next(page).click();
-  await page.getByTestId('ob-device-yes').check();
-  await next(page).click();
-  await next(page).click();
+  await toBreakdown(page, false);
 
   await expect(page.getByTestId('ob-total')).toHaveText('R1599');
 });
@@ -447,16 +343,14 @@ test('opening the flow does not clobber a pre-existing inline overflow style', a
 });
 
 test('computed prices are written the same way as the ones PHP prints', async ({ page }) => {
-  // The offer step reads "R499" and the pricing cards read "R1599", both from
-  // PHP. A breakdown that answered with "R2 098" put two spellings of the same
+  // The device question reads "R999" and the intro reads "R1599", both from
+  // PHP. A breakdown that answered with "R2 598" put two spellings of the same
   // currency on adjacent screens of one flow.
-  await toOffer(page);
-  await page.getByTestId('ob-offer-yes').check();
-  await next(page).click();
+  await toBreakdown(page, true);
 
-  await expect(page.getByTestId('ob-total')).toHaveText('R2098');
+  await expect(page.getByTestId('ob-total')).toHaveText('R2598');
   await expect(page.getByTestId('ob-cost')).toContainText('R1599');
-  await expect(page.getByTestId('ob-cost')).toContainText('R499');
+  await expect(page.getByTestId('ob-cost')).toContainText('R999');
 });
 
 test('the page behind the modal is inert while it is open', async ({ page }) => {

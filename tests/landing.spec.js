@@ -13,37 +13,19 @@ test('the page renders one h1 and its own header and footer', async ({ page }) =
   await expect(page.getByTestId('landing-header')).toBeVisible();
   await expect(page.getByTestId('landing-footer')).toBeVisible();
   await expect(page.locator('h1')).toHaveCount(1);
-  await expect(page.locator('h1')).toContainText('Every stream. One app.');
+  await expect(page.locator('h1')).toContainText('Set it up. Then find it.');
 });
 
-test('the header links to the portal and to the pricing section', async ({ page }) => {
+test('the header links to the sections it names, and to the portal', async ({ page }) => {
   const nav = page.getByTestId('landing-nav');
-  await expect(nav.getByRole('link', { name: 'Features' })).toHaveAttribute('href', '#features');
+  await expect(nav.getByRole('link', { name: 'What we do' })).toHaveAttribute('href', '#features');
+  await expect(nav.getByRole('link', { name: 'Setup guides' })).toHaveAttribute('href', '#setup');
+  await expect(nav.getByRole('link', { name: 'Services we cover' })).toHaveAttribute('href', '#services');
   await expect(nav.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '#faq');
   await expect(page.getByTestId('landing-header').getByRole('link', { name: 'Dashboard' }))
     .toHaveAttribute('href', '/portal/');
 });
 
-test('the full-width CTAs sit inside the cards that hold them', async ({ page }) => {
-  // width:100% on a content-box button adds its own padding and border on top
-  // of the container's content width, so both CTAs spilled past the card
-  // border. Measure the gap on each side rather than trusting the width.
-  // Every match, not the first: there are two plan cards once a setup fee is
-  // configured, and only one of them was ever measured before.
-  for (const sel of ['.as-calc-cta', '.as-plan-cta']) {
-    const all = await page.locator(sel).evaluateAll(els => els.map(el => {
-      const b = el.getBoundingClientRect();
-      const p = el.parentElement.getBoundingClientRect();
-      return { left: b.left - p.left, right: p.right - b.right };
-    }));
-    expect(all.length, `${sel} matched nothing`).toBeGreaterThan(0);
-    all.forEach((gaps, i) => {
-      expect(gaps.left, `${sel}[${i}] spills past the left edge`).toBeGreaterThanOrEqual(0);
-      expect(gaps.right, `${sel}[${i}] spills past the right edge`).toBeGreaterThanOrEqual(0);
-      expect(Math.abs(gaps.left - gaps.right), `${sel}[${i}] is not centred`).toBeLessThan(1);
-    });
-  }
-});
 
 test('the six platform tiles in the constellation are all the same square', async ({ page }) => {
   // Two-line labels used to grow their tile taller: aspect-ratio gives way to
@@ -121,18 +103,18 @@ test('with reduced motion preferred, the constellation is a still assembled diag
   expect(state.running).toBe(0);
 });
 
-test('the savings card sticks beside the checkboxes but never on top of them', async ({ page }) => {
-  // The mobile override was authored but sat above the base rule at equal
-  // specificity, so it lost on source order and the card stayed sticky —
-  // covering the list it is meant to summarise. Check both sides.
-  const position = () => page.locator('.as-calc-card')
-    .evaluate(el => getComputedStyle(el).position);
+test('the device picker sticks beside the guide on desktop and wraps into chips on mobile', async ({ page }) => {
+  // The picker is a sticky column next to a long guide at desktop width, and a
+  // wrapping row above it once there is no room for two columns. A sticky row
+  // would cover the steps it is meant to lead into.
+  const picker = page.locator('.as-setup-picker');
 
   await page.setViewportSize({ width: 1200, height: 900 });
-  expect(await position()).toBe('sticky');
+  expect(await picker.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
 
   await page.setViewportSize({ width: 400, height: 900 });
-  expect(await position()).toBe('static');
+  expect(await picker.evaluate((el) => getComputedStyle(el).position)).toBe('static');
+  expect(await picker.evaluate((el) => getComputedStyle(el).flexDirection)).toBe('row');
 });
 
 test('both teaser rows show eight posters and none of them is a link', async ({ page }) => {
@@ -162,33 +144,6 @@ test('teaser posters keep one row of equal cards, clipped rather than scrollable
   expect(box.scrollable).toBe(false);
 });
 
-test('the SALE badge sits off the Pricing link’s top corner without underlining or colliding', async ({ page }) => {
-  const state = await page.locator('.as-nav-full a.as-nav-sale').evaluate((link) => {
-    const badge = link.querySelector('.as-sale');
-    const lb = link.getBoundingClientRect();
-    const bb = badge.getBoundingClientRect();
-    const hits = [...link.parentElement.querySelectorAll('a')]
-      .filter(a => a !== link)
-      .filter(a => {
-        const r = a.getBoundingClientRect();
-        return bb.right > r.left && bb.left < r.right && bb.bottom > r.top && bb.top < r.bottom;
-      })
-      .map(a => a.textContent.trim());
-    return {
-      decoration: getComputedStyle(link).textDecorationLine,
-      // Above the link's own top edge, i.e. superscripted rather than seated.
-      risesAboveLink: bb.top < lb.top,
-      atRightEdge: Math.abs(bb.right - lb.right) < 1,
-      // The badge is absolutely positioned, so the link has to reserve its
-      // width or it lands on top of whatever follows it.
-      collidesWith: hits
-    };
-  });
-  expect(state.decoration).toBe('none');
-  expect(state.risesAboveLink).toBe(true);
-  expect(state.atRightEdge).toBe(true);
-  expect(state.collidesWith).toEqual([]);
-});
 
 test('the Dashboard button and the portal home pill round-trip', async ({ page }) => {
   // Both halves resolve their target at render time — the landing page from
@@ -198,7 +153,7 @@ test('the Dashboard button and the portal home pill round-trip', async ({ page }
   await expect(page.locator('.afristream-portal')).toBeVisible();
 
   await page.getByTestId('header-home').click();
-  await expect(page.locator('h1')).toContainText('Every stream. One app.');
+  await expect(page.locator('h1')).toContainText('Set it up. Then find it.');
 });
 
 test('below 860px the nav collapses into a burger menu that opens and closes', async ({ page }) => {
@@ -215,7 +170,7 @@ test('below 860px the nav collapses into a burger menu that opens and closes', a
   await expect(page.getByTestId('landing-menu')).toBeVisible();
 
   // Choosing a destination closes it, rather than leaving it covering the page.
-  await page.getByTestId('landing-menu').getByRole('link', { name: 'Pricing' }).click();
+  await page.getByTestId('landing-menu').getByRole('link', { name: 'Setup guides' }).click();
   await expect(page.getByTestId('landing-menu')).toBeHidden();
   await expect(burger).toHaveAttribute('aria-expanded', 'false');
 });
@@ -227,162 +182,115 @@ test('the desktop nav is not rendered as a burger', async ({ page }) => {
 
 test('the hero leads with the headline, two CTAs and three proof points', async ({ page }) => {
   const hero = page.getByTestId('landing-hero');
-  await expect(hero.getByText('20 000+ feeds, live now')).toBeVisible();
-  await expect(hero.locator('h1')).toContainText('Every stream. One app.');
-  await expect(hero).toContainText('Save thousands with AfriStream');
+  await expect(hero.getByText('Device setup & content discovery')).toBeVisible();
+  await expect(hero.locator('h1')).toContainText('Set it up. Then find it.');
+  await expect(hero).toContainText('helps you find which of the services you already pay for');
 
-  await expect(hero.getByRole('link', { name: 'Calculate Savings' })).toHaveAttribute('href', '#calculate');
-  await expect(hero.getByRole('link', { name: 'View Pricing' })).toHaveAttribute('href', '#pricing');
+  await expect(hero.getByTestId('hero-cta')).toHaveText('Get Started');
+  await expect(hero.getByRole('link', { name: 'Setup guides' })).toHaveAttribute('href', '#setup');
   await expect(hero.locator('[data-proof]')).toHaveCount(3);
 });
 
-test('the integrations ticker lists the platforms twice, for a seamless loop', async ({ page }) => {
+test('the services ticker lists the platforms twice, for a seamless loop', async ({ page }) => {
   const ticker = page.getByTestId('landing-ticker');
   await expect(ticker).toContainText('Netflix');
   await expect(ticker).toContainText('SuperSport');
   // Thirteen platforms, doubled: the second copy is what lets the marquee
   // restart without a visible jump.
   await expect(ticker.locator('[data-platform]')).toHaveCount(26);
+  // The affiliation disclaimer is the footer's job and the FAQ's — the ticker
+  // is a row of names, not a place to read a paragraph.
+  await expect(ticker.locator('p')).toHaveCount(0);
 });
 
-test('the features section lists four blocks', async ({ page }) => {
+test('the features section lists four blocks, one of them the no-content promise', async ({ page }) => {
   const features = page.getByTestId('landing-features');
   await expect(features.locator('[data-feature]')).toHaveCount(4);
-  await expect(features).toContainText('Multiple platforms in one');
-  await expect(features).toContainText('Save time, money, effort');
+  await expect(features).toContainText('Guided device setup');
+  await expect(features).toContainText('No content, ever');
 });
 
-test('pricing shows the annual plan at R1599 with its five features', async ({ page }) => {
-  const plan = page.getByTestId('plan');
-  await expect(plan).toContainText('Limited Time Offer!');
-  await expect(plan).toContainText('R1599');
-  await expect(plan).toContainText('/ year');
-  await expect(plan.locator('[data-plan-feature]')).toHaveCount(5);
-  await expect(plan).toContainText('14 Day Money Back Guarantee');
+test('the setup guides open on one device and switch to another when picked', async ({ page }) => {
+  const setup = page.getByTestId('landing-setup');
+  const tabs = setup.locator('[data-setup-tab]');
+  await expect(tabs).toHaveCount(8);
+
+  // One guide open, the rest closed — never all eight stacked, never none.
+  await expect(setup.locator('[data-setup-panel]:not([hidden])')).toHaveCount(1);
+  await expect(setup.locator('[data-setup-panel="firetv"]')).toBeVisible();
+  await expect(setup.locator('[data-setup-panel="firetv"]')).toContainText('Appstore');
+
+  await setup.getByRole('tab', { name: 'Apple TV' }).click();
+  await expect(setup.locator('[data-setup-panel="appletv"]')).toBeVisible();
+  await expect(setup.locator('[data-setup-panel="firetv"]')).toBeHidden();
+  await expect(setup.locator('[data-setup-panel]:not([hidden])')).toHaveCount(1);
 });
 
-test('the setup price point sits beside the plain one, priced and linked separately', async ({ page }) => {
-  const setup = page.getByTestId('plan-setup');
-  await expect(setup).toContainText('Annual Plan + Setup');
-  await expect(setup).toContainText('R1599');
-  await expect(setup).toContainText('+ R499 once-off setup');
-  // The extra feature is what the customer is paying the fee for.
-  await expect(setup.locator('[data-plan-feature]')).toHaveCount(6);
-  await expect(setup).toContainText('Guided setup done for you');
+test('the device picker is a tablist a keyboard can drive', async ({ page }) => {
+  const setup = page.getByTestId('landing-setup');
+  const first = setup.getByRole('tab', { name: 'Fire TV Stick' });
 
-  // Its own checkout, not the plain plan's — a shared href would make the whole
-  // price point pointless.
-  const setupHref = await page.getByTestId('plan-setup-cta').getAttribute('href');
-  const planHref = await page.getByTestId('plan-cta').getAttribute('href');
-  expect(setupHref).toBe('https://pay.example.test/afristream-setup');
-  expect(setupHref).not.toBe(planHref);
+  await expect(first).toHaveAttribute('aria-selected', 'true');
+  // Roving tabindex: the whole picker is one stop in the tab order.
+  await expect(setup.locator('[data-setup-tab][tabindex="0"]')).toHaveCount(1);
+
+  await first.focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(setup.getByRole('tab', { name: 'Apple TV' })).toHaveAttribute('aria-selected', 'true');
+  await expect(setup.locator('[data-setup-panel="appletv"]')).toBeVisible();
+
+  // And it wraps rather than dead-ending at either edge.
+  await page.keyboard.press('ArrowUp');
+  await expect(first).toHaveAttribute('aria-selected', 'true');
 });
 
-test('both price points sit side by side on desktop and stack on mobile', async ({ page }) => {
-  const boxes = async () => ({
-    a: await page.getByTestId('plan').boundingBox(),
-    b: await page.getByTestId('plan-setup').boundingBox(),
-  });
+test('the sourcing guide prices the device apart and promises a quote first', async ({ page }) => {
+  const setup = page.getByTestId('landing-setup');
+  await setup.getByRole('tab', { name: 'No device yet' }).click();
 
-  await page.setViewportSize({ width: 1280, height: 900 });
-  let { a, b } = await boxes();
-  expect(b.x, 'the cards should be columns, not stacked, at 1280px').toBeGreaterThan(a.x + a.width - 1);
-
-  await page.setViewportSize({ width: 390, height: 844 });
-  ({ a, b } = await boxes());
-  expect(b.y, 'the cards should stack at 390px').toBeGreaterThan(a.y + a.height - 1);
-  expect(b.x).toBeCloseTo(a.x, 0);
+  const panel = setup.locator('[data-setup-panel="none"]');
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText('Nothing is ordered until you say yes');
+  await expect(panel).toContainText('separate cost');
+  await expect(panel).toContainText('We do not supply content with it');
 });
 
 test('every Get Started button shares one destination, none pointing at another CTA', async ({ page }) => {
   // The mirror carries the empty-setting fallback, so what matters here is that
-  // all five agree — in WordPress they all resolve through the same setting.
-  // The setup card's button is deliberately excluded: it has its own setting.
-  const hrefs = await page.locator('.as-landing a:not(.as-plan-cta-setup)').evaluateAll((links) =>
+  // all four agree — in WordPress they all resolve through the same setting.
+  const hrefs = await page.locator('.as-landing a').evaluateAll((links) =>
     links
-      .filter((a) => /^(Get Started|Get AfriStream)/.test(a.textContent.trim()))
+      .filter((a) => a.textContent.trim() === 'Get Started')
       .map((a) => a.getAttribute('href')));
 
-  expect(hrefs).toHaveLength(5);
+  expect(hrefs).toHaveLength(4);
   expect([...new Set(hrefs)]).toHaveLength(1);
   expect(hrefs[0]).not.toBe('#signup');
 });
 
-test('the testimonials section is gone', async ({ page }) => {
+test('the page never claims to carry, bundle or undercut anyone else’s content', async ({ page }) => {
+  // The whole point of the rewrite. Asserted on the rendered text rather than
+  // section by section, so a claim reintroduced anywhere fails this.
+  const text = await page.locator('.as-landing').innerText();
+  for (const claim of ['IPTV', '20 000', '19 000', 'Save thousands', 'Money Back', 'cancel your other subscriptions']) {
+    expect(text, `the page should not say "${claim}"`).not.toContain(claim);
+  }
+
   await expect(page.getByTestId('landing-testimonials')).toHaveCount(0);
   await expect(page.locator('.as-landing figure')).toHaveCount(0);
 });
 
-// Prices are annualised Rand. The maths under test: saving is what is left
-// after AfriStream's own R1599, and never negative.
-const pick = (page, name) => page.getByTestId('landing-calculator').getByRole('button', { name });
-
-// Some figures are only worth asserting as a number, whatever wraps them.
-const digits = async (locator) => (await locator.innerText()).replace(/[^\d]/g, '');
-
-test('the calculator starts at zero and prompts for a selection', async ({ page }) => {
-  const calc = page.getByTestId('landing-calculator');
-  await expect(calc.getByTestId('calc-saving')).toHaveText(/R\s*0$/);
-  await expect(calc.getByTestId('calc-basis')).toContainText('your selection below');
-  await expect(calc).toContainText('R1599 / year');
-});
-
-test('selecting subscriptions adds up and subtracts the AfriStream price', async ({ page }) => {
-  const calc = page.getByTestId('landing-calculator');
-
-  await pick(page, /Netflix Premium/).click();
-  await pick(page, /HBO Max/).click();
-
-  // 2748 + 4968 = 7716, less AfriStream's 1599 = 6117.
-  expect(await digits(calc.getByTestId('calc-total'))).toBe('7716');
-  expect(await digits(calc.getByTestId('calc-saving'))).toBe('6117');
-  await expect(calc.getByTestId('calc-basis')).toContainText('2 subscriptions selected');
-
-  // A chosen subscription reads as pressed, for assistive tech.
-  await expect(pick(page, /Netflix Premium/)).toHaveAttribute('aria-pressed', 'true');
-});
-
-test('the other-subscriptions figure joins the total', async ({ page }) => {
-  const calc = page.getByTestId('landing-calculator');
-  await pick(page, /Netflix Premium/).click();
-  await pick(page, /HBO Max/).click();
-  await calc.getByTestId('calc-other').fill('1000');
-
-  expect(await digits(calc.getByTestId('calc-saving'))).toBe('7117');
-});
-
-test('deselecting returns the saving to zero', async ({ page }) => {
-  const calc = page.getByTestId('landing-calculator');
-  await pick(page, /Netflix Premium/).click();
-  expect(await digits(calc.getByTestId('calc-saving'))).toBe('1149');
-
-  await pick(page, /Netflix Premium/).click();
-  expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
-  await expect(pick(page, /Netflix Premium/)).toHaveAttribute('aria-pressed', 'false');
-});
-
-test('a selection worth less than AfriStream shows no saving, not a negative one', async ({ page }) => {
-  const calc = page.getByTestId('landing-calculator');
-  // Amazon Prime at R399 is well under AfriStream's R1599.
-  await pick(page, /Amazon Prime/).click();
-  expect(await digits(calc.getByTestId('calc-saving'))).toBe('0');
-});
-
-test('the calculator quotes savings against the configured price, not a hardcoded one', async ({ page }) => {
-  // The price is a setting. The mirror advertises R1599, changing the attribute
-  // the way a differently configured install would must move the arithmetic.
-  await page.getByTestId('landing-calculator').evaluate((el) => el.setAttribute('data-price', '2000'));
-  await page.getByTestId('landing-calculator').getByRole('button', { name: /Netflix Premium/ }).click();
-
-  // Netflix Premium is R2748 a year: R748 left after a R2000 subscription.
-  const saving = await digits(page.getByTestId('calc-saving'));
-  expect(saving).toBe('748');
+test('the footer carries the standing disclaimer', async ({ page }) => {
+  const note = page.getByTestId('landing-disclaimer');
+  await expect(note).toContainText('do not host, stream, supply, share or resell');
+  await expect(note).toContainText('not affiliated with, endorsed by or acting for');
+  await expect(note).toContainText('trademarks of their respective owners');
 });
 
 test('the FAQ opens with the first answer showing and toggles the rest', async ({ page }) => {
   const faq = page.getByTestId('landing-faq');
   const items = faq.locator('[data-faq]');
-  await expect(items).toHaveCount(7);
+  await expect(items).toHaveCount(8);
 
   const first = items.first();
   await expect(first.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
@@ -395,7 +303,7 @@ test('the FAQ opens with the first answer showing and toggles the rest', async (
   await third.getByRole('button').click();
   await expect(third.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
   await expect(third.locator('[data-faq-answer]')).toBeVisible();
-  await expect(third).toContainText('BT, SKY, BBC');
+  await expect(third).toContainText('You keep and pay for whatever services you choose');
 
   // Opening one does not close another — these are independent, not a
   // single-open accordion.
@@ -405,14 +313,59 @@ test('the FAQ opens with the first answer showing and toggles the rest', async (
   await expect(third.locator('[data-faq-answer]')).toBeHidden();
 });
 
-test('the closing section asks for the sale rather than for an email address', async ({ page }) => {
+test('the FAQ answers the questions a reviewer asks', async ({ page }) => {
+  const faq = page.getByTestId('landing-faq');
+  await expect(faq).toContainText('Do you supply any content, channels or subscriptions?');
+  await expect(faq).toContainText('Are you affiliated with Netflix, Disney+, Showmax or anyone else?');
+  await expect(faq).toContainText('Can you help me get round regional restrictions?');
+
+  // And the answers are the ones that matter, not a soft version of them.
+  for (const q of ['Do you supply any content', 'Are you affiliated with', 'Can you help me get round']) {
+    const item = faq.locator('[data-faq]').filter({ hasText: q });
+    await item.getByRole('button').click();
+    await expect(item.locator('[data-faq-answer]')).toContainText('No');
+  }
+
+  // The plainest statement of it lives here now, not in the hero.
+  const supply = faq.locator('[data-faq]').filter({ hasText: 'Do you supply any content' });
+  await expect(supply.locator('[data-faq-answer]'))
+    .toContainText('We do not host, supply, stream or resell any content');
+});
+
+test('the setup guide step numbers are circles, not stretched lozenges', async ({ page }) => {
+  // The number is a grid item, so it used to grow to the height of a two-line
+  // step and read as a pill rather than a numbered marker.
+  const boxes = await page.locator('.as-setup-panel:not([hidden]) .as-setup-steps li')
+    .evaluateAll((items) => items.map((li) => {
+      const before = getComputedStyle(li, '::before');
+      return { h: parseFloat(before.height), w: parseFloat(before.width), li: li.getBoundingClientRect().height };
+    }));
+
+  expect(boxes.length).toBeGreaterThan(0);
+  // At least one step wraps, or the test proves nothing.
+  expect(boxes.some((b) => b.li > b.h * 1.5), 'no step is tall enough to test against').toBe(true);
+  for (const box of boxes) {
+    expect(box.h).toBeCloseTo(box.w, 0);
+  }
+});
+
+test('the closing sub-line sits on one line on a desktop screen', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const lines = await page.getByTestId('landing-signup').locator('.as-sec-head p').evaluate((el) => {
+    const height = el.getBoundingClientRect().height;
+    return Math.round(height / parseFloat(getComputedStyle(el).lineHeight));
+  });
+  expect(lines).toBe(1);
+});
+
+test('the closing section asks for the sale, without a price or a guarantee', async ({ page }) => {
   const signup = page.getByTestId('landing-signup');
-  await expect(signup).toContainText('Unlock the power of AfriStream today');
-  await expect(signup).toContainText('14 Day Money Back Guarantee');
+  await expect(signup).toContainText('Let us get you set up');
+  await expect(signup).toContainText('You keep your own subscriptions, with the providers');
 
   const cta = page.getByTestId('signup-cta');
   await expect(cta).toBeVisible();
-  await expect(cta).toHaveText(/Get AfriStream for R1599/);
+  await expect(cta).toHaveText('Get Started');
 
   // Every "Get Started" on the page leads here, so this button must never be
   // the one that goes nowhere.
@@ -420,8 +373,10 @@ test('the closing section asks for the sale rather than for an email address', a
   expect(href).toBeTruthy();
   expect(href).not.toBe('#signup');
 
-  // The newsletter embed is gone: no form controls left in this section.
+  // No form controls, and no price: the money is quoted in the flow the button
+  // opens, once we know what the customer actually needs.
   await expect(signup.locator('input, form, textarea')).toHaveCount(0);
+  await expect(signup).not.toContainText('R1599');
 });
 
 test('every call to action on the page resolves to a section that exists', async ({ page }) => {
@@ -453,18 +408,8 @@ test('with reduced motion preferred, nothing is hidden waiting to be revealed', 
   await page.goto('/landing');
 
   // Every section is visible immediately — the reveal never runs.
-  for (const id of ['landing-features', 'landing-calculator', 'landing-pricing', 'landing-faq', 'landing-signup']) {
+  for (const id of ['landing-features', 'landing-setup', 'landing-faq', 'landing-signup']) {
     await expect(page.getByTestId(id).locator('[data-reveal]')).toHaveCSS('opacity', '1');
   }
 });
 
-test('the two rows of the calculator card spell money the same way', async ({ page }) => {
-  // "Your subscriptions now" is written by JS, "AfriStream" by PHP, one line
-  // apart in the same card. They disagreed: R7 716 against R1599.
-  const calc = page.getByTestId('landing-calculator');
-  await pick(page, /Netflix Premium/).click();
-  await pick(page, /HBO Max/).click();
-
-  await expect(calc.getByTestId('calc-total')).toHaveText('R7716 / year');
-  await expect(calc.getByTestId('calc-saving')).toHaveText('R6117');
-});
