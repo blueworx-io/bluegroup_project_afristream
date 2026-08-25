@@ -164,6 +164,18 @@
   font-weight: 600;
 }
 
+/* What AfriStream is not. It appears on the first screen and again above the
+   checkout button, because those are the two moments a customer decides what
+   they think they are buying. It carries its own margin rather than relying on
+   the panel's flex gap: it sits inside a step, not beside one, so without this
+   it butts straight up against the list or the total above it. */
+.as-ob-fine {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #8f88a3;
+}
+
 /* The checkout link lives in the nav row and takes Continue's place on the
    last step, so it carries no margin of its own — anything here would offset
    it from the button it replaces. */

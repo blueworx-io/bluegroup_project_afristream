@@ -1,6 +1,6 @@
 {
   "name": "bluegroup-project-afristream",
-  "version": "0.30.2",
+  "version": "0.30.3",
   "private": true,
   "description": "AfriStream Customer Portal — WordPress plugin ([afristream_portal] shortcode).",
   "scripts": {

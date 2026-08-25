@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.3] - 2026-08-25
+
+### Fixed
+
+- The “we do not host or supply content” line in the onboarding pop-up was
+  rendering as unstyled body text, squashed against whatever sat above it. Its
+  styling had been deleted by accident.
+
 ## [0.30.2] - 2026-08-25
 
 ### Removed

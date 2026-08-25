@@ -98,6 +98,30 @@ test('the intro lists what the subscription includes, the price, and what it is 
   await expect(page.getByTestId('ob-progress')).toHaveText('Step 1 of 3');
 });
 
+test('the disclaimer is styled as fine print, not left on the browser defaults', async ({ page }) => {
+  // Its rule was once deleted along with a neighbouring block, and nothing
+  // caught it: the paragraph fell back to 16px at the default line height,
+  // butted against the list above it, and read as body copy.
+  await page.getByTestId('header-cta').click();
+
+  const style = await page.getByTestId('ob-disclaimer').evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      size: parseFloat(cs.fontSize),
+      leading: parseFloat(cs.lineHeight) / parseFloat(cs.fontSize),
+      top: parseFloat(cs.marginTop),
+      colour: cs.color,
+    };
+  });
+  const lede = await page.locator('[data-ob-step="intro"] .as-ob-lede')
+    .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+
+  expect(style.size, 'the disclaimer should be smaller than the lede').toBeLessThan(lede);
+  expect(style.leading, 'lines are set too tight to read').toBeGreaterThan(1.4);
+  expect(style.top, 'it needs clear air above it, not the browser default').toBeGreaterThanOrEqual(12);
+  expect(style.colour, 'it should be dimmed, not full-strength body text').not.toBe('rgb(244, 241, 250)');
+});
+
 const open = async (page) => {
   await page.getByTestId('header-cta').click();
   await expect(page.getByTestId('onboarding')).toBeVisible();
