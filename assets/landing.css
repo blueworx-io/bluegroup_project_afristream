@@ -1014,6 +1014,162 @@ body.afristream-landing-page {
 
 .as-landing .as-plan .as-fine { margin-top: 0; line-height: 1.5; }
 
+/* Sits under both cards, spanning the grid: the timeline applies to the whole
+   offer, not to one price point. */
+.as-landing .as-delivery {
+  width: min(872px, 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: clamp(24px, 3vw, 34px);
+  padding-top: clamp(20px, 3vw, 26px);
+  border-top: 1px solid var(--hairline);
+}
+
+.as-landing .as-delivery-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px 28px;
+}
+
+.as-landing .as-delivery-list li {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  padding-left: 18px;
+  position: relative;
+}
+
+.as-landing .as-delivery-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 100px;
+  background: var(--accent);
+}
+
+/* ------------------------------------------------------------- documents */
+
+/* The policy pages. One column, set for reading rather than for scanning —
+   these are the pages somebody reads end to end when they are deciding whether
+   to trust us with a card number. */
+.as-landing .as-doc {
+  display: flex;
+  justify-content: center;
+  padding: clamp(48px, 8vw, 96px) clamp(16px, 4vw, 40px) clamp(64px, 9vw, 110px);
+}
+
+.as-landing .as-doc-in {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 4vw, 40px);
+}
+
+.as-landing .as-doc-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: clamp(20px, 3vw, 28px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.as-landing .as-doc-head h1 {
+  margin: 0;
+  font-size: clamp(34px, 5vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.as-landing .as-doc-lede {
+  margin: 0;
+  font-size: clamp(16px, 2vw, 18px);
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.as-landing .as-doc-date {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  color: var(--text-3);
+}
+
+.as-landing .as-doc-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.as-landing .as-doc-sec h2 {
+  margin: 0;
+  font-size: clamp(20px, 2.4vw, 24px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.as-landing .as-doc-sec p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--text-2);
+}
+
+.as-landing .as-doc-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.as-landing .as-doc-list li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.as-landing .as-doc-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 100px;
+  background: var(--accent);
+}
+
+/* Prices in the copy are switcher-driven like every other price on the site,
+   so they are marked as figures rather than left to read as body text. */
+.as-landing .as-doc-sec [data-money] {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+.as-landing .as-doc-foot {
+  margin: 0;
+  padding-top: clamp(20px, 3vw, 28px);
+  border-top: 1px solid var(--hairline);
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.as-landing .as-doc-foot a {
+  color: var(--text-2);
+}
+
 /* --------------------------------------------------------- setup guides */
 
 .as-landing .as-setup {
