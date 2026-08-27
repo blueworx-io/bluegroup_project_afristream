@@ -11,6 +11,7 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'MB_IN_BYTES', 1048576 );
+define( 'OBJECT', 'OBJECT' );
 
 /**
  * The ACF-readiness scan reads real files off disk, so the one thing that
@@ -54,6 +55,7 @@ function af_reset_store() {
 		),
 		'filters'         => array(),
 		'actions'         => array(),
+		'activation_hooks'=> array(),
 		'http'            => array(),
 		'http_calls'      => array(),
 		'surecart'        => array(
@@ -543,6 +545,61 @@ function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array() ) {
 }
 
 // -- Posts and users ----------------------------------------------------------
+
+/**
+ * Enough of wp_insert_post() for the plugin's one caller: it publishes pages.
+ * Ids continue from the highest seeded one, so a test can seed a page and then
+ * let the plugin create others without them colliding.
+ */
+function wp_insert_post( $args = array() ) {
+	$id = 1;
+	foreach ( array_keys( $GLOBALS['af_store']['posts'] ) as $existing ) {
+		$id = max( $id, (int) $existing + 1 );
+	}
+
+	$name = isset( $args['post_name'] ) ? $args['post_name'] : sanitize_title( $args['post_title'] );
+
+	$GLOBALS['af_store']['posts'][ $id ] = array(
+		'ID'           => $id,
+		'post_title'   => isset( $args['post_title'] ) ? $args['post_title'] : '',
+		'post_status'  => isset( $args['post_status'] ) ? $args['post_status'] : 'draft',
+		'post_type'    => isset( $args['post_type'] ) ? $args['post_type'] : 'post',
+		'post_content' => isset( $args['post_content'] ) ? $args['post_content'] : '',
+		'post_name'    => $name,
+	);
+	$GLOBALS['af_store']['permalinks'][ $id ] = '/' . $name . '/';
+
+	return $id;
+}
+
+function sanitize_title( $value ) {
+	return trim( preg_replace( '/[^a-z0-9]+/', '-', strtolower( (string) $value ) ), '-' );
+}
+
+/**
+ * Real get_page_by_path() looks up a hierarchical path; the plugin only ever
+ * asks about a top-level page, so this matches on post_name.
+ */
+function get_page_by_path( $path, $output = OBJECT, $post_type = 'page' ) {
+	foreach ( $GLOBALS['af_store']['posts'] as $post ) {
+		if ( $post['post_type'] === $post_type && isset( $post['post_name'] ) && $post['post_name'] === $path ) {
+			return (object) $post;
+		}
+	}
+	return null;
+}
+
+function get_page_template_slug( $post_id = 0 ) {
+	return (string) get_post_meta( $post_id, '_wp_page_template', true );
+}
+
+function register_activation_hook( $file, $callback ) {
+	$GLOBALS['af_store']['activation_hooks'][] = $callback;
+}
+
+function af_activation_hooks() {
+	return $GLOBALS['af_store']['activation_hooks'];
+}
 
 function get_the_title( $post_id ) {
 	return isset( $GLOBALS['af_store']['posts'][ $post_id ] ) ? $GLOBALS['af_store']['posts'][ $post_id ]['post_title'] : '';

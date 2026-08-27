@@ -15,6 +15,13 @@ require_once __DIR__ . '/../../includes/currency.php';
 require_once __DIR__ . '/../../includes/landing.php';
 require_once __DIR__ . '/../../includes/policies.php';
 
+// Captured at require time: af_reset_store() runs before every test and wipes
+// the hook registrations the file above made when it loaded.
+$GLOBALS['af_policy_boot_hooks'] = array(
+	'activation' => af_activation_hooks(),
+	'admin_init' => af_registered_actions( 'admin_init' ),
+);
+
 /**
  * One rendered document, parsed.
  *
@@ -228,6 +235,98 @@ af_test( 'each document links the other three', function () {
 
 		af_assert_same( 3, $links->length, $key . ' links the other three, and not itself' );
 	}
+} );
+
+// -- Creating the pages ------------------------------------------------------
+
+af_test( 'installing publishes a page for every document, so nobody has to build them', function () {
+	afristream_policy_install();
+
+	foreach ( AFRISTREAM_POLICIES as $key => $policy ) {
+		$url = afristream_policy_url( $key );
+		af_assert_same( '/' . $policy['slug'] . '/', $url, $policy['title'] . ' is published at its own address' );
+	}
+
+	$legal = ( new DOMXPath( af_landing_root( afristream_policy_body( 'terms' ) )->ownerDocument ) )
+		->query( '//div[@data-testid="footer-legal"]//a' );
+	af_assert_same( 4, $legal->length, 'and the footer links all four without anyone touching WordPress' );
+} );
+
+af_test( 'a created page renders even if somebody switches its template off', function () {
+	afristream_policy_install();
+
+	$page = get_page_by_path( 'refund-policy' );
+	af_assert_same(
+		'[afristream_policy doc="refunds"]',
+		$page->post_content,
+		'the shortcode is the safety net under the template'
+	);
+} );
+
+af_test( 'installing twice does not publish a second set', function () {
+	afristream_policy_install();
+	$after_first = count( $GLOBALS['af_store']['posts'] );
+
+	afristream_policy_install();
+
+	af_assert_same( $after_first, count( $GLOBALS['af_store']['posts'] ), 'nothing was created the second time' );
+} );
+
+af_test( 'a page the admin already made at that address is adopted, not duplicated', function () {
+	af_seed_post( 7, 'Our refund terms', 'publish', 'page' );
+	$GLOBALS['af_store']['posts'][7]['post_name'] = 'refund-policy';
+	af_seed_permalink( 7, '/refund-policy/' );
+
+	afristream_policy_install();
+
+	af_assert_same( 'afristream-refunds.php', get_page_template_slug( 7 ), 'their page gets the template' );
+	af_assert_same( '/refund-policy/', afristream_policy_url( 'refunds' ), 'and is what the footer links' );
+	af_assert_same( 'Our refund terms', get_the_title( 7 ), 'and keeps the title they gave it' );
+} );
+
+af_test( 'a draft at that address is not adopted, since nobody could read it', function () {
+	af_seed_post( 7, 'Half-written terms', 'draft', 'page' );
+	$GLOBALS['af_store']['posts'][7]['post_name'] = 'terms';
+
+	afristream_policy_install();
+
+	af_assert_same( '', get_page_template_slug( 7 ), 'the draft is left as a draft' );
+	af_assert( '' !== afristream_policy_url( 'terms' ), 'and a page that can actually be read is published' );
+} );
+
+af_test( 'a page that already carries the template is left completely alone', function () {
+	$ids = af_landing_seed_policy_pages();
+
+	afristream_policy_install();
+
+	af_assert_same( '/terms/', afristream_policy_url( 'terms' ), 'the existing page still answers' );
+	af_assert_same( 4, count( $ids ), 'and no fifth page was invented' );
+	af_assert_same( 4, count( $GLOBALS['af_store']['posts'] ), 'nothing else was created either' );
+} );
+
+af_test( 'a policy page the admin deletes stays deleted', function () {
+	afristream_policy_install();
+
+	$page = get_page_by_path( 'privacy' );
+	unset( $GLOBALS['af_store']['posts'][ $page->ID ] );
+	unset( $GLOBALS['afristream_policy_pages'] );
+
+	// Being handed your legal pages is helpful. Having one reappear every time
+	// you get rid of it is not.
+	afristream_policy_install();
+
+	af_assert_same( '', afristream_policy_url( 'privacy' ), 'it was not put back' );
+} );
+
+af_test( 'the pages are created on activation and on the first admin screen after an update', function () {
+	af_assert(
+		in_array( 'afristream_policy_install', $GLOBALS['af_policy_boot_hooks']['activation'], true ),
+		'a fresh activation creates them'
+	);
+	af_assert(
+		in_array( 'afristream_policy_install', $GLOBALS['af_policy_boot_hooks']['admin_init'], true ),
+		'and so does updating in place, which never fires an activation hook'
+	);
 } );
 
 // -- Wiring ------------------------------------------------------------------

@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 2026-08-27
+
+### Added
+
+- **The plugin now publishes the four policy pages itself**, at `/terms`,
+  `/privacy`, `/refund-policy` and `/cancellation-policy`. Updating the plugin
+  creates them and the footer's Legal column starts linking them — there is
+  nothing to build in WordPress.
+- It runs once and remembers, so a page you delete stays deleted. A published
+  page you already have at one of those addresses is adopted and keeps its
+  title rather than being duplicated.
+
 ## [0.32.1] - 2026-08-27
 
 ### Changed
