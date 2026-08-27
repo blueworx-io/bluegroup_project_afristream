@@ -20,7 +20,7 @@ test('the header links to the sections it names, and to the portal', async ({ pa
   const nav = page.getByTestId('landing-nav');
   await expect(nav.getByRole('link', { name: 'What we do' })).toHaveAttribute('href', '#features');
   await expect(nav.getByRole('link', { name: 'Setup guides' })).toHaveAttribute('href', '#setup');
-  await expect(nav.getByRole('link', { name: 'Services we cover' })).toHaveAttribute('href', '#services');
+  await expect(nav.getByRole('link', { name: 'Services', exact: true })).toHaveAttribute('href', '#services');
   await expect(nav.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '#faq');
   await expect(page.getByTestId('landing-header').getByRole('link', { name: 'Dashboard' }))
     .toHaveAttribute('href', '/portal/');

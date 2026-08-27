@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.1] - 2026-08-27
+
+### Changed
+
+- The "Services we cover" menu item is now just "Services". The section it
+  jumps to keeps its fuller heading.
+
+## [0.32.0] - 2026-08-27
+
+### Added
+
+- **Four policy pages** — Terms of Service, Privacy Policy, Refund Policy and
+  Cancellation Policy — each its own page at its own URL, in the site's own
+  branding. Create a page in WordPress and pick the matching template; the
+  plugin writes the rest.
+- **A Legal column in the footer**, linking all four from every page.
+- **The delivery timeline under the pricing cards** — portal and guides
+  immediately, setup within 2 business days, devices in 5 to 10 — so it is on
+  the page rather than only inside a policy.
+
+### Changed
+
+- The price quoted in the Terms is the same setting the pricing card and the
+  checkout read, so changing it in Settings can no longer leave the Terms
+  quoting an old figure.
+- The header and footer links on a policy page point back into the landing
+  page instead of at anchors that page does not have.
+
 ## [0.31.0] - 2026-08-27
 
 ### Added

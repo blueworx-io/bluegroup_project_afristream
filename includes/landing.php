@@ -477,10 +477,23 @@ function afristream_landing_page_field() {
 }
 
 /**
+ * The wrapper every page the plugin renders opens with — the landing page and
+ * each of the four policy pages.
+ *
+ * It carries the exchange rates, so the header's currency switcher works
+ * wherever the header does. Prices are quoted in the terms as well as on the
+ * pricing card, and a switcher that silently stopped working on the page
+ * quoting them would be the one place it mattered most.
+ */
+function afristream_landing_open() {
+	return '<div class="as-landing" data-fx-rates="' . esc_attr( (string) wp_json_encode( afristream_fx_rates() ) ) . '">';
+}
+
+/**
  * The page body: header, sections, footer.
  */
 function afristream_landing_body() {
-	return '<div class="as-landing" data-fx-rates="' . esc_attr( (string) wp_json_encode( afristream_fx_rates() ) ) . '">'
+	return afristream_landing_open()
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
@@ -777,26 +790,82 @@ function afristream_landing_teasers() {
 }
 
 /**
+ * Point an in-page link at the landing page when it is being printed somewhere
+ * else.
+ *
+ * The header and footer are shared with the four policy pages, and their links
+ * are fragments — "#pricing", "#faq". On the landing page that is exactly
+ * right. On a policy page it is a link that appears to do nothing, which is
+ * how a customer reading the refund terms gets stranded.
+ *
+ * Only fragments are rewritten. A configured checkout URL is already absolute
+ * and must be left alone.
+ *
+ * @param string $href The link as the landing page would write it.
+ * @param string $base The landing page's URL, or '' when we are on it.
+ * @return string
+ */
+function afristream_landing_anchor( $href, $base ) {
+	if ( '' === $base || '#' !== substr( (string) $href, 0, 1 ) ) {
+		return $href;
+	}
+	return rtrim( $base, '/' ) . '/' . $href;
+}
+
+/**
+ * The published page using the landing template, for the policy pages to link
+ * their headers and footers back at.
+ *
+ * Falls back to the site's home page: a header that cannot find the landing
+ * page must still take somebody somewhere, and on most installs the landing
+ * page is the home page anyway.
+ */
+function afristream_landing_url() {
+	if ( isset( $GLOBALS['afristream_landing_url'] ) ) {
+		return $GLOBALS['afristream_landing_url'];
+	}
+
+	$pages = get_posts(
+		array(
+			'post_type'      => 'page',
+			'post_status'    => 'publish',
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+			'meta_query'     => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				array(
+					'key'   => '_wp_page_template',
+					'value' => AFRISTREAM_LANDING_TEMPLATE,
+				),
+			),
+		)
+	);
+
+	$GLOBALS['afristream_landing_url'] = $pages ? (string) get_permalink( $pages[0] ) : home_url( '/' );
+	return $GLOBALS['afristream_landing_url'];
+}
+
+/**
  * Sticky header. The nav collapses to a burger below 860px; both the full nav
  * and the menu panel are always in the markup and CSS decides which shows, so
  * a resize never leaves the page without navigation.
  */
-function afristream_landing_header() {
+function afristream_landing_header( $base = '' ) {
 	$portal = afristream_landing_portal_url();
-	$cta    = afristream_landing_cta_url();
+	$cta    = afristream_landing_anchor( afristream_landing_cta_url(), $base );
 	$links  = array(
 		'#features' => 'What we do',
 		'#pricing'  => 'Pricing',
 		'#setup'    => 'Setup guides',
-		'#services' => 'Services we cover',
+		'#services' => 'Services',
 		'#faq'      => 'FAQ',
 	);
 
 	$nav  = '';
 	$menu = '';
 	foreach ( $links as $href => $label ) {
-		$nav  .= '<a href="' . esc_attr( $href ) . '">' . esc_html( $label ) . '</a>';
-		$menu .= '<a href="' . esc_attr( $href ) . '">' . esc_html( $label ) . '</a>';
+		$to    = esc_attr( afristream_landing_anchor( $href, $base ) );
+		$nav  .= '<a href="' . $to . '">' . esc_html( $label ) . '</a>';
+		$menu .= '<a href="' . $to . '">' . esc_html( $label ) . '</a>';
 	}
 
 	$dashboard = $portal
@@ -809,7 +878,7 @@ function afristream_landing_header() {
 	return '
 <header class="as-head" data-testid="landing-header">
   <div class="as-head-in">
-    <a class="as-brand" href="#top">
+    <a class="as-brand" href="' . esc_attr( afristream_landing_anchor( '#top', $base ) ) . '">
       <img src="' . esc_url( afristream_landing_asset( 'afristream-icon.svg' ) ) . '" alt="AfriStream" width="26" height="27">AfriStream
     </a>
     <nav class="as-nav-full" data-testid="landing-nav">' . $nav . '</nav>
@@ -968,9 +1037,31 @@ function afristream_landing_pricing() {
       <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
       <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
     </div>' . afristream_landing_setup_plan() . '
-    </div>
+    </div>' . afristream_landing_delivery() . '
   </div>
 </section>';
+}
+
+/**
+ * When the customer gets what they just paid for, under the price they are
+ * about to pay.
+ *
+ * The same list the terms print, and deliberately on the page rather than only
+ * behind a legal link: "how soon" is a question somebody asks with their card
+ * in their hand, and an answer they have to go and find is an answer that cost
+ * us the sale.
+ */
+function afristream_landing_delivery() {
+	$steps = '';
+	foreach ( AFRISTREAM_DELIVERY as $step ) {
+		$steps .= '<li>' . esc_html( $step ) . '</li>';
+	}
+
+	return '
+    <div class="as-delivery" data-testid="delivery">
+      <span class="as-eyebrow as-eyebrow-muted">When you get it</span>
+      <ul class="as-delivery-list">' . $steps . '</ul>
+    </div>';
 }
 
 /**
@@ -1241,9 +1332,30 @@ function afristream_landing_signup() {
 </section>';
 }
 
-function afristream_landing_footer() {
+/**
+ * The footer's Legal column.
+ *
+ * A policy with no page published for it is left out rather than linked at
+ * nothing: a dead legal link is worse than a missing one, both to a customer
+ * and to whoever is reviewing the business.
+ */
+function afristream_landing_policy_links() {
+	$links = '';
+	foreach ( AFRISTREAM_POLICIES as $key => $policy ) {
+		$url = afristream_policy_url( $key );
+		if ( $url ) {
+			$links .= '<a href="' . esc_url( $url ) . '">' . esc_html( $policy['title'] ) . '</a>';
+		}
+	}
+	return $links;
+}
+
+function afristream_landing_footer( $base = '' ) {
 	$portal    = afristream_landing_portal_url();
 	$dashboard = $portal ? '<a href="' . esc_url( $portal ) . '">Dashboard</a>' : '';
+	$to        = function ( $hash ) use ( $base ) {
+		return esc_attr( afristream_landing_anchor( $hash, $base ) );
+	};
 
 	return '
 <footer class="as-foot" data-testid="landing-footer">
@@ -1255,11 +1367,14 @@ function afristream_landing_footer() {
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Company</span>
-      <a href="#features">What we do</a><a href="#pricing">Pricing</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a>
+      <a href="' . $to( '#features' ) . '">What we do</a><a href="' . $to( '#pricing' ) . '">Pricing</a><a href="' . $to( '#setup' ) . '">Setup guides</a><a href="' . $to( '#services' ) . '">Services</a>
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Help</span>
-      <a href="#faq">FAQ</a><a href="mailto:support@afristream.io">support@afristream.io</a>' . $dashboard . '
+      <a href="' . $to( '#faq' ) . '">FAQ</a><a href="mailto:support@afristream.io">support@afristream.io</a>' . $dashboard . '
+    </div>
+    <div class="as-foot-col" data-testid="footer-legal">
+      <span class="as-eyebrow as-eyebrow-muted">Legal</span>' . afristream_landing_policy_links() . '
     </div>
   </div>
   <p class="as-foot-note" data-testid="landing-disclaimer">AfriStream is an independent device-setup and content-discovery service. We do not host, stream, supply, share or resell any video, channel or subscription, and we are not affiliated with, endorsed by or acting for any streaming service or broadcaster. You watch on your own accounts, in the providers’ own apps. All service names and logos are the trademarks of their respective owners.</p>

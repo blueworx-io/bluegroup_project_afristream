@@ -174,12 +174,42 @@ function af_landing_seed_setup_plan() {
 	update_option( AFRISTREAM_LANDING_SETUP_CTA_OPTION, 'https://pay.example.test/afristream-setup' );
 }
 
+/**
+ * A published page per policy, at the slug the preview harness serves it from.
+ *
+ * The footer's Legal column is built from whichever policy pages exist, so
+ * without these the render has an empty column where the mirror has four
+ * links — and the mirror is what a payment reviewer would be opening.
+ *
+ * @return array<string,int> Page ids, keyed by policy.
+ */
+function af_landing_seed_policy_pages() {
+	$slugs = array(
+		'terms'        => '/terms/',
+		'privacy'      => '/privacy/',
+		'refunds'      => '/refund-policy/',
+		'cancellation' => '/cancellation-policy/',
+	);
+
+	$ids = array();
+	$id  = 100;
+	foreach ( AFRISTREAM_POLICIES as $key => $policy ) {
+		++$id;
+		af_seed_post( $id, $policy['title'], 'publish', 'page' );
+		update_post_meta( $id, '_wp_page_template', $policy['template'] );
+		af_seed_permalink( $id, $slugs[ $key ] );
+		$ids[ $key ] = $id;
+	}
+	return $ids;
+}
+
 // -- Mirror parity -------------------------------------------------------
 
 af_test( 'the rendered sections appear in the same order as the preview mirror', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
 	af_landing_seed_setup_plan();
+	af_landing_seed_policy_pages();
 
 	af_assert_same(
 		af_landing_section_ids( af_landing_mirror_root() ),
@@ -192,6 +222,7 @@ af_test( 'marker counts match the preview mirror', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
 	af_landing_seed_setup_plan();
+	af_landing_seed_policy_pages();
 	$root = af_landing_php_root();
 
 	af_assert_same( 26, af_landing_xpath_count( $root, './/*[@data-platform]' ), 'ticker platforms (13, doubled for a seamless loop)' );
@@ -210,6 +241,7 @@ af_test( 'the visible text matches the preview mirror', function () {
 	af_landing_seed_portal_page();
 	af_landing_seed_teasers();
 	af_landing_seed_setup_plan();
+	af_landing_seed_policy_pages();
 
 	af_assert_same(
 		af_landing_text_nodes( af_landing_mirror_root() ),
