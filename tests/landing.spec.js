@@ -257,15 +257,21 @@ test('the sourcing guide prices the device apart and promises a quote first', as
 
 test('every Get Started button shares one destination, none pointing at another CTA', async ({ page }) => {
   // The mirror carries the empty-setting fallback, so what matters here is that
-  // all four agree — in WordPress they all resolve through the same setting.
+  // they all agree — in WordPress they all resolve through the same setting.
+  // The device card is the one exception and is meant to be: it sells a
+  // different thing and bills through its own checkout.
   const hrefs = await page.locator('.as-landing a').evaluateAll((links) =>
     links
       .filter((a) => a.textContent.trim() === 'Get Started')
+      .filter((a) => a.dataset.testid !== 'plan-setup-cta')
       .map((a) => a.getAttribute('href')));
 
-  expect(hrefs).toHaveLength(4);
+  expect(hrefs).toHaveLength(5);
   expect([...new Set(hrefs)]).toHaveLength(1);
   expect(hrefs[0]).not.toBe('#signup');
+
+  const setup = await page.getByTestId('plan-setup-cta').getAttribute('href');
+  expect(setup).not.toBe(hrefs[0]);
 });
 
 test('the page never claims to carry, bundle or undercut anyone else’s content', async ({ page }) => {

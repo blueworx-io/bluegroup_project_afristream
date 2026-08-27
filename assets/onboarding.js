@@ -24,12 +24,12 @@
   var fee = 0;
   var price = 0;
 
-  /* Ungrouped, because that is how every price PHP prints is written — R1599
-     on the intro, the fee on the device question. Grouping only the computed
-     figures put "R2 598" on the screen straight after an offer reading
-     "R999". */
+  /* The breakdown's figures are computed here rather than printed by PHP, so
+     they are the one set of prices currency.js cannot rewrite from markup —
+     they go through its formatter instead, and the fallback matches how PHP
+     writes a Rand price when that file is absent. */
   function money(n) {
-    return 'R' + Math.round(n);
+    return window.AfriStreamMoney ? window.AfriStreamMoney.format(n) : 'R' + Math.round(n);
   }
 
   var TITLES = {
@@ -148,6 +148,16 @@
     if (e.target.closest('[data-ob-next]')) go(1);
     if (e.target.closest('[data-ob-back]')) go(-1);
   });
+
+  /* Switching currency with the breakdown on screen has to repaint it: those
+     lines were written into the DOM once, by breakdown(), and nothing else
+     will touch them again. Skipped while the modal is shut, when price and fee
+     are still zero — reset() reads them on every open anyway. */
+  if (window.AfriStreamMoney) {
+    window.AfriStreamMoney.onChange(function () {
+      if (!root.hidden) render();
+    });
+  }
 
   root.addEventListener('change', function (e) {
     if (e.target.name === 'as-ob-device') state.wantsDevice = e.target.value;

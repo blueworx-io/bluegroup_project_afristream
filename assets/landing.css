@@ -170,6 +170,64 @@ body.afristream-landing-page {
   }
 }
 
+/* -------------------------------------------------------- currency switch */
+
+/* A native select, styled down to the header's weight rather than replaced.
+   The arrow is drawn as a background image because appearance:none removes
+   the browser's own, and without one the control reads as a text field. */
+.as-landing .as-fx-select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background-color: rgba(205, 45, 245, 0.06);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23cd2df5' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  border: 1px solid var(--hairline);
+  border-radius: 100px;
+  padding: 8px 30px 8px 14px;
+  cursor: pointer;
+}
+
+/* The list itself is drawn by the OS, which does not inherit the page's dark
+   palette — without this the options render as black on black on Windows. */
+.as-landing .as-fx-select option {
+  color: #fff;
+  background: #12091c;
+}
+
+.as-landing .as-fx-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* In the burger panel it is a row like the links above it, not a pill floated
+   against the edge of one. */
+.as-landing .as-fx-menu {
+  padding: 10px 0 4px;
+}
+
+.as-landing .as-fx-menu .as-fx-select {
+  width: 100%;
+  border-radius: 12px;
+  padding: 13px 30px 13px 14px;
+  font-size: 15px;
+}
+
+/* The billed-in-Rand line, wherever a converted price is shown. Accent rather
+   than the usual muted grey: it qualifies a number the visitor is reading, so
+   it has to be noticed at the moment they read it. */
+.as-landing .as-fx-note,
+.as-ob .as-fx-note {
+  color: var(--accent);
+}
+
+.as-landing .as-plan .as-fx-note {
+  margin-top: -6px;
+}
+
 /* ---------------------------------------------------------------- buttons */
 
 .as-landing .as-btn {
@@ -859,6 +917,102 @@ body.afristream-landing-page {
   line-height: 1.6;
   color: var(--text-3);
 }
+
+/* --------------------------------------------------------------- pricing */
+
+.as-landing .as-sec-pricing .as-sec-in { align-items: center; }
+
+/* One price point or two. The cards keep their own max width and centre in
+   their cell, so the single-card case is unchanged by the grid around it, and
+   align-items:start stops the taller card stretching the shorter one. */
+.as-landing .as-plans {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 420px));
+  justify-content: center;
+  align-items: start;
+  gap: clamp(20px, 3vw, 32px);
+}
+
+.as-landing .as-plan {
+  width: min(420px, 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-radius: 24px;
+  padding: clamp(24px, 4vw, 34px);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--royal), 0 0 60px rgba(101, 0, 159, 0.25);
+}
+
+.as-landing .as-plan-badge {
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid rgba(205, 45, 245, 0.35);
+  border-radius: 100px;
+  padding: 5px 12px;
+}
+
+.as-landing .as-plan-name { font-size: 15px; color: var(--text-2); }
+
+.as-landing .as-plan-price {
+  font-size: clamp(40px, 6vw, 56px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.as-landing .as-plan-price small {
+  font-size: 15px;
+  letter-spacing: 0;
+  color: var(--text-3);
+  margin-left: 8px;
+}
+
+.as-landing .as-plan-tag { font-size: 14.5px; color: var(--text-2); }
+
+.as-landing .as-plan-features {
+  margin: 8px 0 0;
+  padding: 0 0 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 18px;
+}
+
+.as-landing .as-plan-features li {
+  display: flex;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.as-landing .as-plan-features li::before {
+  content: '✓';
+  color: var(--accent);
+  flex: none;
+}
+
+/* Full-width CTAs are blocks, not pills: the inline button's 100px radius
+   reads as a stretched capsule at card width, so they take the card's own
+   corner radius and a taller tap target. */
+.as-landing .as-plan-cta {
+  width: 100%;
+  border-radius: 12px;
+  padding: 15px 20px;
+  font-size: 15px;
+  white-space: normal;
+  margin-top: 6px;
+}
+
+.as-landing .as-plan .as-fine { margin-top: 0; line-height: 1.5; }
 
 /* --------------------------------------------------------- setup guides */
 

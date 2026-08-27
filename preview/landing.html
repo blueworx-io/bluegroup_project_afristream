@@ -18,19 +18,19 @@
 <link rel="stylesheet" href="/assets/onboarding.css">
 </head>
 <body class="afristream-landing-page">
-<div class="as-landing">
+<div class="as-landing" data-fx-rates="{&quot;GBP&quot;:0.043,&quot;NAD&quot;:1,&quot;ZAR&quot;:1,&quot;USD&quot;:0.055,&quot;VND&quot;:1420}">
 <header class="as-head" data-testid="landing-header">
   <div class="as-head-in">
     <a class="as-brand" href="#top">
       <img src="/assets/afristream-icon.svg" alt="AfriStream" width="26" height="27">AfriStream
     </a>
-    <nav class="as-nav-full" data-testid="landing-nav"><a href="#features">What we do</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a><a href="#faq">FAQ</a></nav>
-    <div class="as-head-cta"><a class="as-dash" href="/portal/">Dashboard</a><a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="#setup">Get Started</a></div>
+    <nav class="as-nav-full" data-testid="landing-nav"><a href="#features">What we do</a><a href="#pricing">Pricing</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a><a href="#faq">FAQ</a></nav>
+    <div class="as-head-cta"><div class="as-fx as-fx-header" data-testid="currency-header"><select class="as-fx-select" data-fx-select aria-label="Show prices in"><option value="GBP">GBP (£)</option><option value="NAD">NAD (N$)</option><option value="ZAR" selected>ZAR (R)</option><option value="USD">USD ($)</option><option value="VND">VND (₫)</option></select></div><a class="as-dash" href="/portal/">Dashboard</a><a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="#pricing">Get Started</a></div>
     <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
   </div>
-  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden><a href="#features">What we do</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a><a href="#faq">FAQ</a><a href="/portal/">Dashboard</a><a class="as-btn as-btn-primary" data-onboard href="#setup">Get Started</a></div>
+  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden><a href="#features">What we do</a><a href="#pricing">Pricing</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a><a href="#faq">FAQ</a><a href="/portal/">Dashboard</a><div class="as-fx as-fx-menu" data-testid="currency-menu"><select class="as-fx-select" data-fx-select aria-label="Show prices in"><option value="GBP">GBP (£)</option><option value="NAD">NAD (N$)</option><option value="ZAR" selected>ZAR (R)</option><option value="USD">USD ($)</option><option value="VND">VND (₫)</option></select></div><a class="as-btn as-btn-primary" data-onboard href="#pricing">Get Started</a></div>
 </header>
 <section id="top" class="as-hero" data-testid="landing-hero">
   <div class="as-hero-in">
@@ -38,7 +38,7 @@
     <h1>Set it up. Then find it.</h1>
     <p class="as-lede">AfriStream gets your streaming device set up properly, then helps you find which of the services you already pay for has the thing you want to watch.</p>
     <div class="as-hero-cta">
-      <a class="as-btn as-btn-primary" data-testid="hero-cta" data-onboard href="#setup">Get Started</a>
+      <a class="as-btn as-btn-primary" data-testid="hero-cta" data-onboard href="#pricing">Get Started</a>
       <a class="as-btn as-btn-ghost" href="#setup">Setup guides</a>
     </div>
     <div class="as-proofs"><span class="as-proof" data-proof>Setup on the device you already own</span><span class="as-proof" data-proof>Search once, see who has it</span><span class="as-proof" data-proof>Your own accounts, the providers’ own apps</span></div>
@@ -90,6 +90,42 @@
         <h3>Real people to ask</h3>
         <p>Stuck on a remote, a login or a picture that will not play? Message us and a person answers.</p>
       </div></div>
+  </div>
+</section>
+<section id="pricing" class="as-sec as-sec-pricing" data-testid="landing-pricing">
+  <div class="as-sec-in" data-reveal>
+  <div class="as-sec-head">
+    <span class="as-eyebrow">Pricing</span>
+    <h2>One price, and you know what it is</h2>
+    <p>A single annual subscription for the setup, the guides, the search and the support. No tiers, no add-ons you find out about later.</p>
+  </div>
+    <div class="as-plans">
+    <div class="as-plan" data-testid="plan">
+      <span class="as-plan-badge">Annual</span>
+      <span class="as-plan-name">AfriStream subscription</span>
+      <span class="as-plan-price"><span data-money="1599">R1599</span><small>/ year</small></span>
+      <p class="as-fine as-fx-note" data-fx-note hidden>Converted from South African Rand at today’s rate. You are billed in Rand, and your bank sets the rate you actually pay.</p>
+      <span class="as-plan-tag">Everything we do, for a year, for one payment.</span>
+      <ul class="as-plan-features"><li>Guided setup for your device, with a real person</li><li>Written step-by-step guides for every device we cover</li><li>Search once to see which of your services is carrying a title</li><li>The AfriStream customer portal</li><li>Support by email when something stops working</li></ul>
+      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="#pricing">Get Started</a>
+      <span class="as-fine">Billed once a year. Nothing here is a video, a channel or a subscription — those stay yours, on your own accounts, paid directly to the providers.</span>
+    </div>
+    <div class="as-plan" data-testid="plan-setup">
+      <span class="as-plan-badge">Optional</span>
+      <span class="as-plan-name">Device, sourced and set up</span>
+      <span class="as-plan-price"><span data-money="999">R999</span><small>once off</small></span>
+      <p class="as-fine as-fx-note" data-fx-note hidden>Converted from South African Rand at today’s rate. You are billed in Rand, and your bank sets the rate you actually pay.</p>
+      <span class="as-plan-tag">Added to your first order, on top of the subscription.</span>
+      <ul class="as-plan-features">
+        <li>We recommend a device that suits your TV, your internet and the services you pay for</li>
+        <li>The device is quoted and agreed in writing before anything is ordered</li>
+        <li>Set up and updated before it reaches you, so it works when you plug it in</li>
+        <li>Signed in to your own subscription apps on a call</li>
+      </ul>
+      <a class="as-btn as-btn-ghost as-plan-cta" data-testid="plan-setup-cta" data-onboard href="https://pay.example.test/afristream-setup">Get Started</a>
+      <span class="as-fine">No content comes with the device. The apps and the subscriptions on it are yours.</span>
+    </div>
+    </div>
   </div>
 </section>
 <section id="setup" class="as-sec as-sec-setup" data-testid="landing-setup">
@@ -243,7 +279,7 @@
     <p>Tell us what you watch on and what you already subscribe to. We will take it from there.</p>
   </div>
     <div class="as-signup">
-      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="#setup">Get Started</a>
+      <a class="as-btn as-btn-primary as-signup-cta" data-testid="signup-cta" data-onboard href="#pricing">Get Started</a>
       <span class="as-fine">Setup and search only. You keep your own subscriptions, with the providers.</span>
     </div>
   </div>
@@ -257,7 +293,7 @@
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Company</span>
-      <a href="#features">What we do</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a>
+      <a href="#features">What we do</a><a href="#pricing">Pricing</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a>
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Help</span>
@@ -266,7 +302,7 @@
   </div>
   <p class="as-foot-note" data-testid="landing-disclaimer">AfriStream is an independent device-setup and content-discovery service. We do not host, stream, supply, share or resell any video, channel or subscription, and we are not affiliated with, endorsed by or acting for any streaming service or broadcaster. You watch on your own accounts, in the providers’ own apps. All service names and logos are the trademarks of their respective owners.</p>
 </footer>
-<div class="as-ob" data-testid="onboarding" data-price="1599" data-setup-fee="999" data-cta="#setup" data-setup-cta="https://pay.example.test/afristream-setup" hidden>
+<div class="as-ob" data-testid="onboarding" data-price="1599" data-setup-fee="999" data-cta="#pricing" data-setup-cta="https://pay.example.test/afristream-setup" hidden>
   <div class="as-ob-backdrop" data-ob-close></div>
   <div class="as-ob-panel" role="dialog" aria-modal="true" aria-labelledby="as-ob-title" tabindex="-1">
     <div class="as-ob-top">
@@ -277,14 +313,15 @@
     </div>
     <h2 class="as-ob-title" id="as-ob-title" data-testid="ob-title" tabindex="-1">What you get with AfriStream</h2>
     <div class="as-ob-step" data-ob-step="intro">
-      <p class="as-ob-lede">One annual subscription of R1599, covering everything below. One quick question and we will show you what it comes to.</p>
+      <p class="as-ob-lede">One annual subscription of <span data-money="1599">R1599</span>, covering everything below. One quick question and we will show you what it comes to.</p>
       <ul class="as-ob-list"><li>Guided setup for your device, with a real person</li><li>Written step-by-step guides for every device we cover</li><li>Search once to see which of your services is carrying a title</li><li>The AfriStream customer portal</li><li>Support by email when something stops working</li></ul>
+      <p class="as-ob-fine as-fx-note" data-fx-note hidden>Converted from South African Rand at today’s rate. You are billed in Rand, and your bank sets the rate you actually pay.</p>
       <p class="as-ob-fine" data-testid="ob-disclaimer">AfriStream does not host, stream, supply or resell any video, channel or subscription. You watch on your own accounts, in the providers’ own apps.</p>
     </div>
     <div class="as-ob-step" data-ob-step="device" hidden>
-      <p class="as-ob-lede">If you have not got a streaming device yet, we can source one, set it up and update it before it reaches you, for a one-off R999. Plug it in and it works.</p>
+      <p class="as-ob-lede">If you have not got a streaming device yet, we can source one, set it up and update it before it reaches you, for a one-off <span data-money="999">R999</span>. Plug it in and it works.</p>
       <div class="as-ob-choice" role="radiogroup" aria-label="Shall we source a device for you?">
-        <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="yes" data-testid="ob-device-yes"><span><strong>Yes, source one for me</strong>R999 once off, added to this order. No content comes with it.</span></label>
+        <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="yes" data-testid="ob-device-yes"><span><strong>Yes, source one for me</strong><span data-money="999">R999</span> once off, added to this order. No content comes with it.</span></label>
         <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="no" data-testid="ob-device-no"><span><strong>No, I already have one</strong>A smart TV, a stick or a box. Our guides and our support will get it working.</span></label>
       </div>
     </div>
@@ -298,16 +335,18 @@
         <ul class="as-ob-bill" data-testid="ob-cost"></ul>
         <p class="as-ob-total">Total today <span data-testid="ob-total">R0</span></p>
       </div>
+      <p class="as-ob-fine as-fx-note" data-fx-note hidden>Converted from South African Rand at today’s rate. You are billed in Rand, and your bank sets the rate you actually pay.</p>
       <p class="as-ob-fine">AfriStream does not host, stream, supply or resell any video, channel or subscription. You watch on your own accounts, in the providers’ own apps.</p>
     </div>
     <div class="as-ob-nav">
       <button class="as-btn as-btn-ghost" type="button" data-testid="ob-back" data-ob-back hidden>Back</button>
       <button class="as-btn as-btn-primary" type="button" data-testid="ob-next" data-ob-next>Continue</button>
-      <a class="as-btn as-btn-primary as-ob-checkout" data-testid="ob-checkout" href="#setup" hidden>Continue to checkout</a>
+      <a class="as-btn as-btn-primary as-ob-checkout" data-testid="ob-checkout" href="#pricing" hidden>Continue to checkout</a>
     </div>
   </div>
 </div></div>
 
+<script src="/assets/currency.js"></script>
 <script src="/assets/landing.js"></script>
 <script src="/assets/onboarding.js"></script>
 </body>

@@ -24,6 +24,15 @@ export default defineConfig({
   use: {
     baseURL,
     trace: 'on-first-retry',
+    // The currency switcher picks its opening currency from the browser's own
+    // timezone, so an unpinned browser prices the page differently on a
+    // developer's laptop than in CI. Pinned to the currency the site bills in;
+    // tests/currency.spec.js overrides it where the choice is the point.
+    //
+    // Timezone only, deliberately: the portal's affiliate calculator formats
+    // through Intl.NumberFormat, so pinning a locale here would change its
+    // separators as a side effect.
+    timezoneId: 'Africa/Johannesburg',
   },
   webServer: external
     ? undefined

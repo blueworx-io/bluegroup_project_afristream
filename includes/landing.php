@@ -34,10 +34,20 @@ function afristream_landing_register_assets() {
 		array( 'afristream-landing-fonts' ),
 		AFRISTREAM_PORTAL_VERSION
 	);
+	// The switcher owns the money formatter both of the other scripts print
+	// through, so it is a dependency rather than a fourth thing to remember to
+	// enqueue in the right order.
+	wp_register_script(
+		'afristream-currency',
+		plugins_url( 'assets/currency.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
+		array(),
+		AFRISTREAM_PORTAL_VERSION,
+		true
+	);
 	wp_register_script(
 		'afristream-landing',
 		plugins_url( 'assets/landing.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array(),
+		array( 'afristream-currency' ),
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
@@ -50,7 +60,7 @@ function afristream_landing_register_assets() {
 	wp_register_script(
 		'afristream-onboarding',
 		plugins_url( 'assets/onboarding.js', dirname( __DIR__ ) . '/bluegroup-project-afristream.php' ),
-		array(),
+		array( 'afristream-currency' ),
 		AFRISTREAM_PORTAL_VERSION,
 		true
 	);
@@ -294,10 +304,11 @@ const AFRISTREAM_LANDING_SETUP_FEE_OPTION = 'afristream_landing_setup_fee';
  * They used to jump to each other, which meant a visitor could press Get
  * Started twice and still not have started anything.
  *
- * With nothing configured they fall back to the setup guides: the one section
- * that is useful on its own, and never a link to the button you just pressed.
+ * With nothing configured they fall back to the pricing section — the page's
+ * own answer to what pressing Get Started is about to cost, and never a link
+ * to the button you just pressed.
  */
-const AFRISTREAM_LANDING_CTA_FALLBACK = '#setup';
+const AFRISTREAM_LANDING_CTA_FALLBACK = '#pricing';
 
 /**
  * Reject anything that is not an http(s), mailto or tel link.
@@ -335,7 +346,7 @@ function afristream_landing_sanitize_cta_url( $value ) {
  * it and have it keep working.
  *
  * Anything that is not an http(s) link is returned untouched — there is no
- * cache to bust on "#setup", a mailto: or a tel:.
+ * cache to bust on "#pricing", a mailto: or a tel:.
  */
 function afristream_landing_bust( $url ) {
 	$url = (string) $url;
@@ -348,8 +359,8 @@ function afristream_landing_bust( $url ) {
 /**
  * Where the page's Get Started buttons point.
  *
- * Falls back to the setup guides rather than to nothing: an empty setting must
- * not leave the page's main call to action inert.
+ * Falls back to the pricing section rather than to nothing: an empty setting
+ * must not leave the page's main call to action inert.
  */
 function afristream_landing_cta_url() {
 	$url = trim( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) );
@@ -362,14 +373,14 @@ function afristream_landing_cta_field() {
 		esc_attr( AFRISTREAM_LANDING_CTA_OPTION ),
 		esc_attr( (string) get_option( AFRISTREAM_LANDING_CTA_OPTION, '' ) )
 	);
-	echo '<p class="description">' . esc_html__( 'The checkout for the subscription on its own. Used by the landing page buttons, the onboarding pop-up and the affiliate buy links. Left empty, the landing page buttons scroll to the setup guides instead.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The checkout for the subscription on its own. Used by the landing page buttons, the onboarding pop-up and the affiliate buy links. Left empty, the landing page buttons scroll to the pricing section instead.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 /**
  * Where a customer who takes the device offer is sent.
  *
  * Falls back to the ordinary Get Started URL for the same reason that one falls
- * back to the setup guides: a priced offer with a dead button is worse than one
+ * back to the pricing section: a priced offer with a dead button is worse than one
  * that sends the customer somewhere they can still buy.
  */
 function afristream_landing_setup_cta_url() {
@@ -380,7 +391,7 @@ function afristream_landing_setup_cta_url() {
 /**
  * The saved checkout URL for a price point, with no page-anchor fallback.
  *
- * The Get Started helpers fall back to "#setup" so a landing page button is
+ * The Get Started helpers fall back to "#pricing" so a landing page button is
  * never inert, but an affiliate's buy link has no page to scroll — it is
  * shared as a URL. So this returns an empty string when nothing is saved, and
  * the caller decides what to do about it.
@@ -469,12 +480,13 @@ function afristream_landing_page_field() {
  * The page body: header, sections, footer.
  */
 function afristream_landing_body() {
-	return '<div class="as-landing">'
+	return '<div class="as-landing" data-fx-rates="' . esc_attr( (string) wp_json_encode( afristream_fx_rates() ) ) . '">'
 		. afristream_landing_header()
 		. afristream_landing_hero()
 		. afristream_landing_integrations()
 		. afristream_landing_watch_teaser()
 		. afristream_landing_features()
+		. afristream_landing_pricing()
 		. afristream_landing_setup()
 		. afristream_landing_picks_teaser()
 		. afristream_landing_faq()
@@ -774,6 +786,7 @@ function afristream_landing_header() {
 	$cta    = afristream_landing_cta_url();
 	$links  = array(
 		'#features' => 'What we do',
+		'#pricing'  => 'Pricing',
 		'#setup'    => 'Setup guides',
 		'#services' => 'Services we cover',
 		'#faq'      => 'FAQ',
@@ -800,12 +813,12 @@ function afristream_landing_header() {
       <img src="' . esc_url( afristream_landing_asset( 'afristream-icon.svg' ) ) . '" alt="AfriStream" width="26" height="27">AfriStream
     </a>
     <nav class="as-nav-full" data-testid="landing-nav">' . $nav . '</nav>
-    <div class="as-head-cta">' . $dashboard . '<a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="' . esc_url( $cta ) . '">Get Started</a></div>
+    <div class="as-head-cta">' . afristream_currency_switcher( 'header' ) . $dashboard . '<a class="as-btn as-btn-primary" data-testid="header-cta" data-onboard href="' . esc_url( $cta ) . '">Get Started</a></div>
     <button class="as-burger" type="button" data-testid="landing-burger" aria-expanded="false" aria-controls="as-menu-panel" aria-label="Menu">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cd2df5" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
     </button>
   </div>
-  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . '<a class="as-btn as-btn-primary" data-onboard href="' . esc_url( $cta ) . '">Get Started</a></div>
+  <div class="as-menu" id="as-menu-panel" data-testid="landing-menu" hidden>' . $menu . $menu_dash . afristream_currency_switcher( 'menu' ) . '<a class="as-btn as-btn-primary" data-onboard href="' . esc_url( $cta ) . '">Get Started</a></div>
 </header>';
 }
 
@@ -864,6 +877,98 @@ function afristream_landing_features() {
 			'We set your device up, and we help you find what to watch on the subscriptions you already have. That is the whole service.'
 		) . '
     <div class="as-features">' . $cards . '</div>
+  </div>
+</section>';
+}
+
+/**
+ * What the subscription buys, as a list.
+ *
+ * Read from the onboarding flow's list rather than kept as a second copy: the
+ * pricing card and the first screen of the flow it opens are the same promise,
+ * and two lists drift the moment one of them is edited.
+ */
+function afristream_landing_plan_features() {
+	$items = '';
+	foreach ( AFRISTREAM_ONBOARDING_INCLUDES as $line ) {
+		$items .= '<li>' . esc_html( $line ) . '</li>';
+	}
+	return $items;
+}
+
+/**
+ * Whether the device offer is being sold at all.
+ *
+ * The same test the onboarding flow makes: a priced fee is not enough on its
+ * own, because a fee billed through the plain subscription checkout is a fee
+ * that checkout cannot charge. Both have to be configured or neither card nor
+ * question appears.
+ */
+function afristream_landing_setup_offered() {
+	return afristream_landing_setup_fee() > 0
+		&& afristream_landing_setup_cta_url() !== afristream_landing_cta_url();
+}
+
+/** Said under both cards. */
+const AFRISTREAM_LANDING_PLAN_FINE = 'Billed once a year. Nothing here is a video, a channel or a subscription — those stay yours, on your own accounts, paid directly to the providers.';
+
+/**
+ * The optional second card: a device, sourced and set up.
+ *
+ * Priced, not sold — the device itself is quoted and agreed before anything is
+ * ordered, and this is the setup work around it.
+ */
+function afristream_landing_setup_plan() {
+	if ( ! afristream_landing_setup_offered() ) {
+		return '';
+	}
+
+	return '
+    <div class="as-plan" data-testid="plan-setup">
+      <span class="as-plan-badge">Optional</span>
+      <span class="as-plan-name">Device, sourced and set up</span>
+      <span class="as-plan-price">' . afristream_price( afristream_landing_setup_fee() ) . '<small>once off</small></span>
+      ' . afristream_fx_note() . '
+      <span class="as-plan-tag">Added to your first order, on top of the subscription.</span>
+      <ul class="as-plan-features">
+        <li>We recommend a device that suits your TV, your internet and the services you pay for</li>
+        <li>The device is quoted and agreed in writing before anything is ordered</li>
+        <li>Set up and updated before it reaches you, so it works when you plug it in</li>
+        <li>Signed in to your own subscription apps on a call</li>
+      </ul>
+      <a class="as-btn as-btn-ghost as-plan-cta" data-testid="plan-setup-cta" data-onboard href="' . esc_url( afristream_landing_setup_cta_url() ) . '">Get Started</a>
+      <span class="as-fine">No content comes with the device. The apps and the subscriptions on it are yours.</span>
+    </div>';
+}
+
+/**
+ * Pricing: one annual plan, and the device offer beside it when there is one.
+ *
+ * Every price in here is printed in Rand and carries that figure on a
+ * data-money attribute for the header switcher to convert. What the customer
+ * is billed does not move with it — see includes/currency.php.
+ */
+function afristream_landing_pricing() {
+	return '
+<section id="pricing" class="as-sec as-sec-pricing" data-testid="landing-pricing">
+  <div class="as-sec-in" data-reveal>'
+		. afristream_landing_section_header(
+			'Pricing',
+			'One price, and you know what it is',
+			'A single annual subscription for the setup, the guides, the search and the support. No tiers, no add-ons you find out about later.'
+		) . '
+    <div class="as-plans">
+    <div class="as-plan" data-testid="plan">
+      <span class="as-plan-badge">Annual</span>
+      <span class="as-plan-name">AfriStream subscription</span>
+      <span class="as-plan-price">' . afristream_price( afristream_landing_price() ) . '<small>/ year</small></span>
+      ' . afristream_fx_note() . '
+      <span class="as-plan-tag">Everything we do, for a year, for one payment.</span>
+      <ul class="as-plan-features">' . afristream_landing_plan_features() . '</ul>
+      <a class="as-btn as-btn-primary as-plan-cta" data-testid="plan-cta" data-onboard href="' . esc_url( afristream_landing_cta_url() ) . '">Get Started</a>
+      <span class="as-fine">' . esc_html( AFRISTREAM_LANDING_PLAN_FINE ) . '</span>
+    </div>' . afristream_landing_setup_plan() . '
+    </div>
   </div>
 </section>';
 }
@@ -1150,7 +1255,7 @@ function afristream_landing_footer() {
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Company</span>
-      <a href="#features">What we do</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a>
+      <a href="#features">What we do</a><a href="#pricing">Pricing</a><a href="#setup">Setup guides</a><a href="#services">Services we cover</a>
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Help</span>
