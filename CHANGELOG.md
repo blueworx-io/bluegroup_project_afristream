@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.1] - 2026-08-27
+
+### Changed
+
+- The "Services we cover" menu item is now just "Services". The section it
+  jumps to keeps its fuller heading.
+
 ## [0.32.0] - 2026-08-27
 
 ### Added

@@ -856,7 +856,7 @@ function afristream_landing_header( $base = '' ) {
 		'#features' => 'What we do',
 		'#pricing'  => 'Pricing',
 		'#setup'    => 'Setup guides',
-		'#services' => 'Services we cover',
+		'#services' => 'Services',
 		'#faq'      => 'FAQ',
 	);
 
@@ -1367,7 +1367,7 @@ function afristream_landing_footer( $base = '' ) {
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Company</span>
-      <a href="' . $to( '#features' ) . '">What we do</a><a href="' . $to( '#pricing' ) . '">Pricing</a><a href="' . $to( '#setup' ) . '">Setup guides</a><a href="' . $to( '#services' ) . '">Services we cover</a>
+      <a href="' . $to( '#features' ) . '">What we do</a><a href="' . $to( '#pricing' ) . '">Pricing</a><a href="' . $to( '#setup' ) . '">Setup guides</a><a href="' . $to( '#services' ) . '">Services</a>
     </div>
     <div class="as-foot-col">
       <span class="as-eyebrow as-eyebrow-muted">Help</span>
