@@ -22,7 +22,7 @@ test('the flow is closed until a Get Started button opens it', async ({ page }) 
 
 test('every Get Started button opens the flow', async ({ page }) => {
   const buttons = await page.locator('.as-landing [data-onboard]').all();
-  expect(buttons.length).toBe(4); // header, mobile menu, hero, closing section
+  expect(buttons.length).toBe(6); // header, mobile menu, hero, both pricing cards, closing section
 
   for (const button of buttons) {
     // The header's Get Started button and the mobile menu's copy of it are
@@ -49,7 +49,7 @@ test('every CTA still carries a working checkout href for a visitor without JS',
   const hrefs = await page.locator('.as-landing [data-onboard]').evaluateAll((els) =>
     els.map((el) => el.getAttribute('href')));
 
-  expect(hrefs).toHaveLength(4);
+  expect(hrefs).toHaveLength(6);
   hrefs.forEach((href) => expect(href, 'a CTA with no destination').toBeTruthy());
 });
 
@@ -249,7 +249,7 @@ test('declining the device leaves the fee off the bill and off the checkout', as
 
   await expect(page.getByTestId('ob-cost')).not.toContainText('R999');
   await expect(page.getByTestId('ob-total')).toHaveText('R1599');
-  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#setup');
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
 });
 
 
@@ -322,11 +322,11 @@ test('focus stays inside the dialog after a keyboard-activated step change disab
 test('the terminal checkout button closes the modal before following a fragment link', async ({ page }) => {
   await toBreakdown(page, false);
 
-  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#setup');
+  await expect(page.getByTestId('ob-checkout')).toHaveAttribute('href', '#pricing');
   await page.getByTestId('ob-checkout').click();
 
   await expect(modal(page)).toBeHidden();
-  await expect(page.locator('#setup')).toBeInViewport();
+  await expect(page.locator('#pricing')).toBeInViewport();
 });
 
 test('the device offer is withheld when the setup checkout is not distinct from the plain one', async ({ page }) => {

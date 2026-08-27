@@ -4,6 +4,27 @@ All notable changes to this project are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-08-27
+
+### Added
+
+- **A currency switcher in the header.** Prices show in Pounds, Namibian
+  Dollars, Rand, US Dollars or Đồng, and the page picks one from where the
+  visitor is before they touch it. Their choice is remembered next visit.
+  Rates refresh once a day; if that ever fails, the page falls back to
+  built-in rates rather than showing nothing.
+- **The pricing section is back**, between "What we do" and the setup guides,
+  with the annual subscription and — when it is configured — the device
+  sourcing fee beside it. Both open the same Get Started flow.
+- Wherever a converted price is shown, a line says you are billed in Rand and
+  your bank sets the rate. Nothing about the switcher changes what is charged:
+  the checkout is still in Rand, with SureCart's own currency control on it.
+
+### Changed
+
+- Get Started buttons with no checkout configured now scroll to the pricing
+  section rather than the setup guides.
+
 ## [0.30.3] - 2026-08-25
 
 ### Fixed

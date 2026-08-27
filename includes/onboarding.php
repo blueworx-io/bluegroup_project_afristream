@@ -55,14 +55,15 @@ function afristream_onboarding_modal() {
     </div>
     <h2 class="as-ob-title" id="as-ob-title" data-testid="ob-title" tabindex="-1">What you get with AfriStream</h2>
     <div class="as-ob-step" data-ob-step="intro">
-      <p class="as-ob-lede">One annual subscription of R' . (int) afristream_landing_price() . ', covering everything below. One quick question and we will show you what it comes to.</p>
+      <p class="as-ob-lede">One annual subscription of ' . afristream_price( afristream_landing_price() ) . ', covering everything below. One quick question and we will show you what it comes to.</p>
       <ul class="as-ob-list">' . $includes . '</ul>
+      ' . afristream_fx_note( 'as-ob-fine as-fx-note' ) . '
       <p class="as-ob-fine" data-testid="ob-disclaimer">' . esc_html( AFRISTREAM_ONBOARDING_DISCLAIMER ) . '</p>
     </div>
     <div class="as-ob-step" data-ob-step="device" hidden>
-      <p class="as-ob-lede">If you have not got a streaming device yet, we can source one, set it up and update it before it reaches you, for a one-off R' . (int) afristream_landing_setup_fee() . '. Plug it in and it works.</p>
+      <p class="as-ob-lede">If you have not got a streaming device yet, we can source one, set it up and update it before it reaches you, for a one-off ' . afristream_price( afristream_landing_setup_fee() ) . '. Plug it in and it works.</p>
       <div class="as-ob-choice" role="radiogroup" aria-label="Shall we source a device for you?">
-        <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="yes" data-testid="ob-device-yes"><span><strong>Yes, source one for me</strong>R' . (int) afristream_landing_setup_fee() . ' once off, added to this order. No content comes with it.</span></label>
+        <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="yes" data-testid="ob-device-yes"><span><strong>Yes, source one for me</strong>' . afristream_price( afristream_landing_setup_fee() ) . ' once off, added to this order. No content comes with it.</span></label>
         <label class="as-ob-opt"><input type="radio" name="as-ob-device" value="no" data-testid="ob-device-no"><span><strong>No, I already have one</strong>A smart TV, a stick or a box. Our guides and our support will get it working.</span></label>
       </div>
     </div>
@@ -76,6 +77,7 @@ function afristream_onboarding_modal() {
         <ul class="as-ob-bill" data-testid="ob-cost"></ul>
         <p class="as-ob-total">Total today <span data-testid="ob-total">R0</span></p>
       </div>
+      ' . afristream_fx_note( 'as-ob-fine as-fx-note' ) . '
       <p class="as-ob-fine">' . esc_html( AFRISTREAM_ONBOARDING_DISCLAIMER ) . '</p>
     </div>
     <div class="as-ob-nav">

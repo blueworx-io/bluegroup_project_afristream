@@ -198,11 +198,11 @@ af_test( 'marker counts match the preview mirror', function () {
 	af_assert_same( 4, af_landing_xpath_count( $root, './/*[@data-feature]' ), 'feature cards' );
 	af_assert_same( 8, af_landing_xpath_count( $root, './/*[@data-setup-tab]' ), 'device guides in the picker' );
 	af_assert_same( 8, af_landing_xpath_count( $root, './/*[@data-faq]' ), 'FAQ items' );
-	af_assert_same( 6, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
+	af_assert_same( 7, af_landing_xpath_count( $root, './/*[@data-reveal]' ), 'sections that fade in on scroll' );
 	af_assert_same( 16, af_landing_xpath_count( $root, './/*[@data-teaser-card]' ), 'teaser posters (eight per row, two rows)' );
 	af_assert_same( 0, af_landing_xpath_count( $root, './/figure' ), 'no testimonials — the section was dropped in 0.24.0' );
 	af_assert_same( 1, af_landing_xpath_count( $root, './/h1' ), 'exactly one h1 on the page' );
-	af_assert_same( 4, af_landing_xpath_count( $root, './/*[@data-onboard]' ), 'CTAs that open the onboarding flow' );
+	af_assert_same( 6, af_landing_xpath_count( $root, './/*[@data-onboard]' ), 'CTAs that open the onboarding flow' );
 } );
 
 
@@ -249,12 +249,12 @@ af_test( 'the shortcode path enqueues directly, since the_content runs after wp_
 
 // -- The Get Started URL -----------------------------------------------------
 
-af_test( 'an unset Get Started URL falls back to the setup guides, never to nothing', function () {
+af_test( 'an unset Get Started URL falls back to the pricing section, never to nothing', function () {
 	delete_option( AFRISTREAM_LANDING_CTA_OPTION );
 
-	af_assert_same( '#setup', afristream_landing_cta_url(), 'the fallback' );
+	af_assert_same( '#pricing', afristream_landing_cta_url(), 'the fallback' );
 	af_assert(
-		false !== strpos( afristream_landing_signup(), 'href="#setup"' ),
+		false !== strpos( afristream_landing_signup(), 'href="#pricing"' ),
 		'the CTA every other Get Started button leads to is never inert'
 	);
 } );
@@ -274,11 +274,11 @@ af_test( 'every Get Started button on the page uses the configured URL, not anot
 		$hrefs[] = $link->getAttribute( 'href' );
 	}
 
-	af_assert_same( 4, count( $hrefs ), 'header, mobile menu, hero, closing section' );
+	af_assert_same( 5, count( $hrefs ), 'header, mobile menu, hero, pricing card, closing section' );
 	af_assert_same(
 		array( 'https://pay.example.test/afristream?v=' . AFRISTREAM_PORTAL_VERSION ),
 		array_values( array_unique( $hrefs ) ),
-		'all four resolve to the one configured URL'
+		'all five resolve to the one configured URL'
 	);
 } );
 
@@ -333,7 +333,7 @@ af_test( 'a setup fee with no checkout of its own falls back, never goes dead', 
 
 	// And with neither set, it lands on the same last resort as everything else.
 	delete_option( AFRISTREAM_LANDING_CTA_OPTION );
-	af_assert_same( '#setup', afristream_landing_setup_cta_url(), 'never nothing' );
+	af_assert_same( '#pricing', afristream_landing_setup_cta_url(), 'never nothing' );
 } );
 
 af_test( 'the price is configurable, and an emptied field means the default, not free', function () {

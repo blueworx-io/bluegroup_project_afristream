@@ -29,7 +29,7 @@ first published page containing that shortcode.
 Set **Get Started URL** on the same settings screen to whatever should take an
 order — a checkout, an order form, a WhatsApp or mailto link. Every "Get
 Started" button on the landing page follows this URL. Left empty they scroll to
-the setup guides instead, so the page never has a dead button.
+the pricing section instead, so the page never has a dead button.
 
 Every "Get Started" button opens the onboarding flow first — four short steps
 covering whether we should source a device and which services the customer
@@ -37,6 +37,24 @@ already pays for, ending at one of the two configured checkouts (the plain Get
 Started URL, or the setup fee checkout when they asked us to source a device).
 Those URLs are still where it ends up; the flow only decides which one. Leave
 the setup fee at 0 and the device question is never asked.
+
+### Currency switcher
+
+The header carries a currency switcher offering Pounds, Namibian Dollars, Rand,
+US Dollars and Đồng — the same five SureCart is configured for. It opens on
+whichever suits the visitor's timezone (US Dollars anywhere we do not
+recognise), and remembers a manual choice for their next visit.
+
+It is display only. Everything is priced in Rand in the markup and converted in
+the browser, so the page is correct before the script runs and stays correct if
+it never does. SureCart still bills in Rand and shows its own currency control
+on the checkout, and every converted price carries a line saying so.
+
+Rates come from [open.er-api.com](https://open.er-api.com) — free, no key —
+refreshed once a day on cron and cached for two days, so a day's outage leaves
+yesterday's rates in place. If there is nothing cached at all, the plugin's own
+fallback rates in [includes/currency.php](includes/currency.php) price the page.
+Nothing is ever fetched during a page render.
 
 ## Live "What to Watch" data
 

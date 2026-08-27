@@ -4,6 +4,13 @@
     "@playwright/test": "^1.53.1"
   },
   "externalTools": {
+    "open.er-api.com": {
+      "approvedBy": "Luke",
+      "approvedOn": "2026-08-27",
+      "license": "CC BY-SA 4.0 (attribution not required on the free open endpoint)",
+      "url": "https://open.er-api.com/v6/latest/ZAR",
+      "why": "Daily exchange rates for the landing page's currency switcher. Free, no API key, and quotes all five currencies SureCart is configured for. Fetched once a day on cron and cached; the plugin ships baked-in fallback rates, so the site prices correctly if it is ever unreachable. Display only — SureCart still bills in Rand."
+    },
     "iptv-org/epg": {
       "approvedBy": "Luke",
       "approvedOn": "2026-07-22",

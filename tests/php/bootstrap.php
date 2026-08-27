@@ -49,6 +49,8 @@ function af_reset_store() {
 		),
 		'filters'         => array(),
 		'actions'         => array(),
+		'http'            => array(),
+		'http_calls'      => array(),
 		'surecart'        => array(
 			'customers'     => array(),
 			'subscriptions' => array(),
@@ -936,6 +938,53 @@ function wp_list_pluck( $list, $field ) {
 
 function is_wp_error( $thing ) {
 	return $thing instanceof WP_Error;
+}
+
+function wp_json_encode( $data, $options = 0, $depth = 512 ) {
+	return json_encode( $data, $options, $depth );
+}
+
+/**
+ * Outbound HTTP. Nothing is seeded by default, so a code path that reaches the
+ * network in a test fails the way an unreachable host does rather than
+ * silently succeeding against the real internet.
+ *
+ * @param string $url      The URL the code under test will request.
+ * @param mixed  $response What wp_remote_get() should hand back for it.
+ */
+function af_seed_http( $url, $response ) {
+	$GLOBALS['af_store']['http'][ $url ] = $response;
+}
+
+/** A 200 with a JSON body, the shape most of these fakes need. */
+function af_seed_http_json( $url, array $body, $code = 200 ) {
+	af_seed_http(
+		$url,
+		array(
+			'response' => array( 'code' => $code ),
+			'body'     => json_encode( $body ),
+		)
+	);
+}
+
+function wp_remote_get( $url, $args = array() ) {
+	$GLOBALS['af_store']['http_calls'][] = $url;
+	if ( isset( $GLOBALS['af_store']['http'][ $url ] ) ) {
+		return $GLOBALS['af_store']['http'][ $url ];
+	}
+	return new WP_Error( 'http_request_failed', 'No response seeded for ' . $url );
+}
+
+function wp_remote_retrieve_response_code( $response ) {
+	return is_array( $response ) && isset( $response['response']['code'] ) ? (int) $response['response']['code'] : 0;
+}
+
+function wp_remote_retrieve_body( $response ) {
+	return is_array( $response ) && isset( $response['body'] ) ? (string) $response['body'] : '';
+}
+
+function af_http_calls() {
+	return $GLOBALS['af_store']['http_calls'];
 }
 
 class WP_Error {
