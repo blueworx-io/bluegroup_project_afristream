@@ -41,14 +41,22 @@ the setup fee at 0 and the device question is never asked.
 ### Policy pages
 
 The plugin ships four legal documents — Terms of Service, Privacy Policy, Refund
-Policy and Cancellation Policy — as page templates. Create a page for each, pick
-the matching **AfriStream —** template from the Template dropdown, and publish.
-The suggested slugs are `terms`, `privacy`, `refund-policy` and
-`cancellation-policy`; the plugin does not care what you call them.
+Policy and Cancellation Policy — and **publishes a page for each of them itself**
+at `/terms`, `/privacy`, `/refund-policy` and `/cancellation-policy`. There is
+nothing to set up: activating or updating the plugin creates them, and the
+footer's Legal column starts linking them.
+
+It runs once and remembers that it has, so a page you delete stays deleted. A
+published page you have already made at one of those addresses is adopted rather
+than duplicated — it keeps its title and gets the template. A draft or a trashed
+page at that address is left alone and a readable one is published alongside it.
 
 The footer's Legal column links whichever of the four are published, on every
-page including the portal, and each document links the other three. An
-unpublished policy is left out rather than linked at a dead URL.
+page including the portal, and each document links the other three. A policy
+with no page is left out rather than linked at a dead URL.
+
+Each created page also carries `[afristream_policy doc="…"]` in its content, so
+the document still renders if the template is ever switched off.
 
 The wording lives in [includes/policies.php](includes/policies.php), not in
 WordPress, so it cannot be edited into contradicting the plugin. The price in

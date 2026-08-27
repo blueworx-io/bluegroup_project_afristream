@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.32.1
+ * Version:     0.33.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.32.1' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.33.0' );
 }
 
 /**

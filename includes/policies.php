@@ -55,6 +55,7 @@ const AFRISTREAM_DELIVERY = array(
 const AFRISTREAM_POLICIES = array(
 	'terms'        => array(
 		'template' => 'afristream-terms.php',
+		'slug'     => 'terms',
 		'label'    => 'AfriStream — Terms of Service',
 		'title'    => 'Terms of Service',
 		'lede'     => 'What you are buying from AfriStream, what we do for you, and what we do not.',
@@ -159,6 +160,7 @@ const AFRISTREAM_POLICIES = array(
 	),
 	'privacy'      => array(
 		'template' => 'afristream-privacy.php',
+		'slug'     => 'privacy',
 		'label'    => 'AfriStream — Privacy Policy',
 		'title'    => 'Privacy Policy',
 		'lede'     => 'What we hold about you, why, and how to get it back or get rid of it.',
@@ -246,6 +248,7 @@ const AFRISTREAM_POLICIES = array(
 	),
 	'refunds'      => array(
 		'template' => 'afristream-refunds.php',
+		'slug'     => 'refund-policy',
 		'label'    => 'AfriStream — Refund Policy',
 		'title'    => 'Refund Policy',
 		'lede'     => 'Fourteen days to change your mind, as long as we have not done the work yet.',
@@ -316,6 +319,7 @@ const AFRISTREAM_POLICIES = array(
 	),
 	'cancellation' => array(
 		'template' => 'afristream-cancellation.php',
+		'slug'     => 'cancellation-policy',
 		'label'    => 'AfriStream — Cancellation Policy',
 		'title'    => 'Cancellation Policy',
 		'lede'     => 'Cancel whenever you like. You keep what you paid for until the year is up.',
@@ -528,6 +532,89 @@ function afristream_policy_pages() {
 	$GLOBALS['afristream_policy_pages'] = $found;
 	return $found;
 }
+
+/**
+ * Where we record that the pages have been created.
+ *
+ * Holds the install version rather than a boolean, so a later release that
+ * adds a fifth document can create just that one by bumping the number.
+ */
+const AFRISTREAM_POLICIES_INSTALLED_OPTION = 'afristream_policies_installed';
+
+/** Bump when a document is added that existing sites need a page for. */
+const AFRISTREAM_POLICIES_INSTALL_VERSION = 1;
+
+/**
+ * Publish a page for every policy that has not got one.
+ *
+ * Runs once. The record of having run is what stops it recreating a page an
+ * admin has deliberately deleted — being handed your own legal pages is
+ * helpful, having them reappear every time you get rid of one is not.
+ */
+function afristream_policy_install() {
+	if ( (int) get_option( AFRISTREAM_POLICIES_INSTALLED_OPTION, 0 ) >= AFRISTREAM_POLICIES_INSTALL_VERSION ) {
+		return;
+	}
+
+	foreach ( AFRISTREAM_POLICIES as $key => $policy ) {
+		afristream_policy_ensure_page( $key, $policy );
+	}
+
+	update_option( AFRISTREAM_POLICIES_INSTALLED_OPTION, AFRISTREAM_POLICIES_INSTALL_VERSION );
+	unset( $GLOBALS['afristream_policy_pages'] );
+}
+
+/**
+ * One policy's page, created only if there is not already one.
+ *
+ * Three things it must not do: duplicate a page that already carries the
+ * template, trample a page the admin has already made at that address, or
+ * leave behind a page that renders nothing if somebody later switches the
+ * template off. Hence the shortcode in the content — the template ignores it,
+ * and it is what saves the page if the template is ever changed.
+ *
+ * @param string              $key    A key of AFRISTREAM_POLICIES.
+ * @param array<string,mixed> $policy That document's definition.
+ * @return int The page id, or 0 if there was nothing to do or it failed.
+ */
+function afristream_policy_ensure_page( $key, array $policy ) {
+	if ( afristream_policy_url( $key ) ) {
+		return 0;
+	}
+
+	// Somebody's own page at this address is adopted, not duplicated: they
+	// went to the trouble of making it, and two "Refund Policy" pages is worse
+	// than none. Only a published one, though — adopting a draft or something
+	// in the trash would leave the footer linking at a page nobody can read.
+	$existing = get_page_by_path( $policy['slug'] );
+	if ( $existing && 'publish' === $existing->post_status ) {
+		update_post_meta( $existing->ID, '_wp_page_template', $policy['template'] );
+		return (int) $existing->ID;
+	}
+
+	$id = wp_insert_post(
+		array(
+			'post_type'    => 'page',
+			'post_status'  => 'publish',
+			'post_title'   => $policy['title'],
+			'post_name'    => $policy['slug'],
+			'post_content' => '[afristream_policy doc="' . $key . '"]',
+		)
+	);
+
+	if ( ! $id || is_wp_error( $id ) ) {
+		return 0;
+	}
+
+	update_post_meta( $id, '_wp_page_template', $policy['template'] );
+	return (int) $id;
+}
+
+// On activation, and again on the first admin screen after an update — a
+// plugin updated in place never fires its activation hook, and this shipped
+// after the first release that had the templates.
+register_activation_hook( dirname( __DIR__ ) . '/bluegroup-project-afristream.php', 'afristream_policy_install' );
+add_action( 'admin_init', 'afristream_policy_install' );
 
 /**
  * Offer all four templates in the page editor's Template dropdown.
