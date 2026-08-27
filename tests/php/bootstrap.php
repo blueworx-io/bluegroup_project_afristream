@@ -29,6 +29,11 @@ define( 'AF_FIXTURE_THEMES', __DIR__ . '/fixtures/themes' );
 $GLOBALS['af_store'] = array();
 
 function af_reset_store() {
+	// Per-request page lookups the plugin resolves once and remembers. A real
+	// request ends and forgets them; the suite rebuilds the whole site between
+	// tests inside one PHP process, so they have to be forgotten by hand.
+	unset( $GLOBALS['afristream_policy_pages'], $GLOBALS['afristream_landing_url'] );
+
 	$GLOBALS['af_store'] = array(
 		'postmeta'        => array(),
 		'usermeta'        => array(),
@@ -920,6 +925,10 @@ function get_template_directory() {
 	return $GLOBALS['af_store']['theme']['template_directory'];
 }
 
+function home_url( $path = '' ) {
+	return '/' . ltrim( (string) $path, '/' );
+}
+
 function admin_url( $path = '' ) {
 	return '/wp-admin/' . ltrim( (string) $path, '/' );
 }
@@ -1259,6 +1268,15 @@ function af_registered_meta( $meta_key ) {
 }
 
 function add_shortcode() {}
+
+function shortcode_atts( $pairs, $atts, $shortcode = '' ) {
+	$atts = (array) $atts;
+	$out  = array();
+	foreach ( $pairs as $name => $default ) {
+		$out[ $name ] = array_key_exists( $name, $atts ) ? $atts[ $name ] : $default;
+	}
+	return $out;
+}
 
 /**
  * Records the handle as registered — the one fact that

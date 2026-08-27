@@ -38,6 +38,24 @@ Started URL, or the setup fee checkout when they asked us to source a device).
 Those URLs are still where it ends up; the flow only decides which one. Leave
 the setup fee at 0 and the device question is never asked.
 
+### Policy pages
+
+The plugin ships four legal documents — Terms of Service, Privacy Policy, Refund
+Policy and Cancellation Policy — as page templates. Create a page for each, pick
+the matching **AfriStream —** template from the Template dropdown, and publish.
+The suggested slugs are `terms`, `privacy`, `refund-policy` and
+`cancellation-policy`; the plugin does not care what you call them.
+
+The footer's Legal column links whichever of the four are published, on every
+page including the portal, and each document links the other three. An
+unpublished policy is left out rather than linked at a dead URL.
+
+The wording lives in [includes/policies.php](includes/policies.php), not in
+WordPress, so it cannot be edited into contradicting the plugin. The price in
+the Terms is the same setting the pricing card and the checkout read, and the
+delivery timeline is the same list the pricing section prints.
+`[afristream_policy doc="refunds"]` renders one inside an existing page instead.
+
 ### Currency switcher
 
 The header carries a currency switcher offering Pounds, Namibian Dollars, Rand,

@@ -674,6 +674,12 @@ const server = createServer(async (req, res) => {
     // ?tab= is how the harness reaches them, since there is no nav button to
     // click any more.
     if (path === '/landing' || path === '/landing/') path = '/preview/landing.html';
+    // The four policy pages. In WordPress each is a page whose template the
+    // admin picks; here each is a mirror file under the slug the footer links
+    // at, so the footer's Legal column resolves in the harness too.
+    for (const slug of ['terms', 'privacy', 'refund-policy', 'cancellation-policy']) {
+      if (path === `/${slug}` || path === `/${slug}/`) path = `/preview/${slug}.html`;
+    }
     // The landing mirror links its Dashboard button at the portal page's
     // permalink, which in WordPress is whatever page hosts the shortcode. The
     // harness has no pages, so /portal/ is that permalink here.
