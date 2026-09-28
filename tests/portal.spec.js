@@ -1057,6 +1057,18 @@ test('the Fire TV route unlocks the stick first and never names the store app', 
   await expect(page.locator('body')).not.toContainText('Firesend');
 });
 
+test('the Fire TV route gets Downloader straight from the Amazon Appstore, with no room code', async ({ page }) => {
+  await openSetup(page);
+  await page.getByRole('button', { name: /Amazon Fire TV Stick/ }).click();
+  await page.getByTestId('setup-next').click();
+
+  await expect(page.getByRole('heading', { name: 'Install the Downloader app' })).toBeVisible();
+  await expect(page.getByTestId('setup-steps')).toContainText('Downloader, by AFTVnews');
+  await expect(page.getByTestId('setup-steps')).not.toContainText(/room/i);
+  await expect(page.locator('body')).not.toContainText('welcome email, and install it');
+  await expect(page.getByTestId('setup-code')).toHaveCount(0);
+});
+
 test('a screen with no code to type shows no code pill', async ({ page }) => {
   await openSetup(page);
   await page.getByRole('button', { name: /Android phone or tablet/ }).click();
