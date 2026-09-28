@@ -3,7 +3,7 @@
  * Plugin Name: BlueGroup | AfriStream Portal
  * Plugin URI:  https://github.com/blueworx-io/bluegroup_project_afristream
  * Description: Customer portal for AfriStream subscribers — app profile credentials, what to watch, tips & tricks, and troubleshooting guides. Rendered via the [afristream_portal] shortcode.
- * Version:     0.33.0
+ * Version:     0.34.0
  * Author:      BlueWorx
  * License:     GPL-2.0-or-later
  * Text Domain: bluegroup-project-afristream
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'AFRISTREAM_PORTAL_VERSION' ) ) {
-	define( 'AFRISTREAM_PORTAL_VERSION', '0.33.0' );
+	define( 'AFRISTREAM_PORTAL_VERSION', '0.34.0' );
 }
 
 /**
@@ -36,6 +36,7 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/currency.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/landing.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/onboarding.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/policies.php';
+require_once plugin_dir_path( __FILE__ ) . 'includes/dashboard.php';
 
 /**
  * Register (but don't enqueue) the portal assets — they only load on pages
@@ -117,6 +118,27 @@ function afristream_portal_shortcode( $atts ) {
 		'afristream_portal'
 	);
 
+	return afristream_portal_mount( $atts['default_tab'], $atts['show_sport'] );
+}
+add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
+
+/**
+ * The element portal.js renders into, with the assets it needs enqueued.
+ *
+ * $only, when given, names the data endpoints this mount may fetch and drops
+ * the rest. Every endpoint left on is a request the moment the page loads, and
+ * the Labs dashboard draws all of its panels up front — so a panel that shows
+ * one section must not quietly fetch for all of them. Null keeps the lot, which
+ * is what the full portal needs.
+ *
+ * @param string     $default_tab The section to open on.
+ * @param string     $show_sport  'true' or 'false'.
+ * @param array|null $only        Endpoint attributes to keep, or null for all.
+ * @param array      $extra       Further data-* attributes, name => already-escaped value.
+ * @param string     $class       Extra class for the mount.
+ * @return string
+ */
+function afristream_portal_mount( $default_tab, $show_sport, $only = null, $extra = array(), $class = '' ) {
 	wp_enqueue_style( 'bluegroup-project-afristream' );
 	wp_enqueue_script( 'bluegroup-project-afristream' );
 
@@ -125,25 +147,41 @@ function afristream_portal_shortcode( $atts ) {
 	// that actually render this shortcode — so no other page is affected.
 	wp_add_inline_style( 'bluegroup-project-afristream', '.dashboard-right{padding:0 !important;}' );
 
-	return sprintf(
-		'<div class="afristream-portal" data-afristream-portal data-default-tab="%s" data-show-sport="%s" data-endpoint="%s" data-editor-endpoint="%s" data-detail-endpoint="%s" data-credentials-endpoint="%s" data-affiliate-endpoint="%s" data-apps-url="%s" data-rest-nonce="%s" data-home-url="%s" data-buy-url="%s" data-buy-setup-url="%s" data-show-bank="%s" data-portal-version="%s"></div>',
-		esc_attr( $atts['default_tab'] ),
-		esc_attr( $atts['show_sport'] ),
-		esc_url( rest_url( 'afristream/v1/watch' ) ),
-		esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
-		esc_url( rest_url( 'afristream/v1/detail' ) ),
-		esc_url( rest_url( 'afristream/v1/credentials' ) ),
-		esc_url( rest_url( 'afristream/v1/affiliate' ) ),
-		esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
-		esc_attr( wp_create_nonce( 'wp_rest' ) ),
-		esc_url( home_url( '/' ) ),
-		esc_url( afristream_landing_checkout_url() ),
-		esc_url( afristream_landing_checkout_url( true ) ),
-		afristream_portal_show_bank() ? 'true' : 'false',
-		esc_attr( AFRISTREAM_PORTAL_VERSION )
+	$endpoints = array(
+		'data-endpoint'             => esc_url( rest_url( 'afristream/v1/watch' ) ),
+		'data-editor-endpoint'      => esc_url( rest_url( 'afristream/v1/editor-picks' ) ),
+		'data-detail-endpoint'      => esc_url( rest_url( 'afristream/v1/detail' ) ),
+		'data-credentials-endpoint' => esc_url( rest_url( 'afristream/v1/credentials' ) ),
+		'data-affiliate-endpoint'   => esc_url( rest_url( 'afristream/v1/affiliate' ) ),
 	);
+	if ( null !== $only ) {
+		$endpoints = array_intersect_key( $endpoints, array_flip( $only ) );
+	}
+
+	$attrs = array_merge(
+		array(
+			'data-default-tab' => esc_attr( $default_tab ),
+			'data-show-sport'  => esc_attr( $show_sport ),
+		),
+		$endpoints,
+		array(
+			'data-apps-url'       => esc_url( add_query_arg( 'ver', AFRISTREAM_PORTAL_VERSION, plugins_url( 'data/apps.json', __FILE__ ) ) ),
+			'data-rest-nonce'     => esc_attr( wp_create_nonce( 'wp_rest' ) ),
+			'data-home-url'       => esc_url( home_url( '/' ) ),
+			'data-buy-url'        => esc_url( afristream_landing_checkout_url() ),
+			'data-buy-setup-url'  => esc_url( afristream_landing_checkout_url( true ) ),
+			'data-show-bank'      => afristream_portal_show_bank() ? 'true' : 'false',
+			'data-portal-version' => esc_attr( AFRISTREAM_PORTAL_VERSION ),
+		),
+		$extra
+	);
+
+	$html = '<div class="afristream-portal' . ( '' !== $class ? ' ' . esc_attr( $class ) : '' ) . '" data-afristream-portal';
+	foreach ( $attrs as $name => $value ) {
+		$html .= ' ' . $name . '="' . $value . '"';
+	}
+	return $html . '></div>';
 }
-add_shortcode( 'afristream_portal', 'afristream_portal_shortcode' );
 
 /**
  * TMDB integration for the What to Watch section.

@@ -77,13 +77,21 @@ function afristream_landing_enqueue() {
 /**
  * The customer portal's permalink, for the header and footer "Dashboard" links.
  *
- * Prefers the page chosen in Settings → AfriStream Portal. With none chosen it
+ * Prefers the BlueWorx Labs customer dashboard when Labs is serving one, then
+ * the page chosen in Settings → AfriStream Portal. With neither it
  * looks for the first published page containing the portal shortcode, and
  * caches the answer for a day. Returns '' when there is nothing to link to —
  * the header then omits the link rather than pointing at the home page and
  * calling it a dashboard.
  */
 function afristream_landing_portal_url() {
+	// Once BlueWorx Labs is serving the customer dashboard, that is where our
+	// sections live — see includes/dashboard.php — so it wins over any page.
+	$labs = function_exists( 'afristream_dashboard_url' ) ? afristream_dashboard_url() : '';
+	if ( '' !== $labs ) {
+		return $labs;
+	}
+
 	$chosen = (int) get_option( 'afristream_portal_page_id', 0 );
 	if ( $chosen > 0 && 'publish' === get_post_status( $chosen ) ) {
 		return (string) get_permalink( $chosen );
@@ -473,7 +481,7 @@ function afristream_landing_page_field() {
 			'option_none_value' => '0',
 		)
 	);
-	echo '<p class="description">' . esc_html__( 'The page holding the customer portal. Without one, the landing page leaves its Dashboard links out rather than pointing them somewhere wrong.', 'bluegroup-project-afristream' ) . '</p>';
+	echo '<p class="description">' . esc_html__( 'The page holding the customer portal. Without one, the landing page leaves its Dashboard links out rather than pointing them somewhere wrong. Not used while BlueWorx Labs is serving the customer dashboard — the links go there instead.', 'bluegroup-project-afristream' ) . '</p>';
 }
 
 /**
