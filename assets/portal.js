@@ -1295,14 +1295,12 @@
           },
           {
             title: 'Install the Downloader app',
-            sub: 'Downloader is a small free app that fetches AfriStream for you. On Fire TV it comes from the store app in your welcome email.',
-            note: 'A warning about unknown apps is normal here — Fire TV shows it for anything not from Amazon. Choose Allow or Continue.',
+            sub: 'Downloader is a small free app that fetches AfriStream for you. It is in the Amazon Appstore.',
+            note: 'There is nothing to pay — Downloader is free.',
             steps: [
               { t: 'Press HOME on the remote, then open Search — the magnifying glass, top left.' },
-              { t: 'Search for the store app named in your welcome email, and install it.' },
-              { t: 'Open it, and choose Join Room.' },
-              { t: 'Type in this room code exactly as shown, then confirm.', code: '10325' },
-              { t: 'The room shows a list of apps. Scroll down it, find Downloader, and install it.' }
+              { t: 'Search for Downloader, by AFTVnews.' },
+              { t: 'Choose Get or Download, and wait for it to finish.' }
             ]
           },
           SETUP_SCREEN_INSTALL
