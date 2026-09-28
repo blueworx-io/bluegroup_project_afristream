@@ -1371,6 +1371,10 @@ function wp_enqueue_style( $handle, $src = '', $deps = array(), $ver = false, $m
 	return true;
 }
 
+function wp_add_inline_style( $handle, $data ) {
+	return true;
+}
+
 function af_wp_style_enqueued( $handle ) {
 	return in_array( $handle, $GLOBALS['af_store']['styles_enqueued'], true );
 }

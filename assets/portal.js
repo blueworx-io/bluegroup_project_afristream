@@ -463,7 +463,15 @@
       // home_url(); the header hides the link rather than guessing when it is
       // missing, so a portal embedded somewhere unexpected never offers a way
       // out that goes nowhere.
-      homeUrl: root.getAttribute('data-home-url') || ''
+      homeUrl: root.getAttribute('data-home-url') || '',
+      // One section of the BlueWorx Labs customer dashboard rather than the
+      // whole portal: Labs' sidebar is the nav, so the tab bar and header are
+      // left off. sectionViews maps each section to the Labs panel showing it,
+      // so a button that jumps sections still lands somewhere.
+      single: /^(true|1|yes)$/i.test(root.getAttribute('data-single-section') || ''),
+      sectionViews: (() => {
+        try { return JSON.parse(root.getAttribute('data-section-views') || '{}') || {}; } catch (e) { return {}; }
+      })()
     };
     // Profile credentials. Without a credentials endpoint (e.g. the generic
     // local preview) the built-in demo ACCOUNTS are shown. With one (the
@@ -1930,11 +1938,39 @@
     const SECTIONS = { profile: profileSection, setup: setupSection, watch: watchSection, apps: appsSection, editor: editorSection, download: downloadSection, affiliate: affiliateSection, tips: tipsSection, help: helpSection };
     // A deep link to a tab this user cannot have falls back to the Account tab,
     // the same way an unknown tab name already does.
-    const currentSection = () => (
-      'affiliate' === state.section && 'ready' !== affiliateState
-        ? profileSection
-        : (SECTIONS[state.section] || profileSection)
-    );
+    const currentSection = () => {
+      if ('affiliate' === state.section && 'ready' !== affiliateState) {
+        // A dashboard panel is only ever the one section, so falling back to
+        // Account would put logins in the Affiliates panel. Say where things
+        // stand instead.
+        return props.single ? affiliateUnavailable : profileSection;
+      }
+      return SECTIONS[state.section] || profileSection;
+    };
+
+    function affiliateUnavailable() {
+      return `
+<section style="background:#fff;border:1px solid rgba(11,21,51,.08);border-radius:18px;padding:24px;font-size:14px;line-height:1.6;color:rgba(11,21,51,.7)" data-testid="affiliate-unavailable">
+  ${'loading' === affiliateState ? 'Loading your affiliate details…' : 'Your affiliate details are not available right now. Please try again later.'}
+</section>`;
+    }
+
+    // Open another section. In the full portal that is a tab; in a dashboard
+    // panel it is another Labs panel. Clicking Labs' own nav link keeps its
+    // no-reload switching and history; with no link on the page, navigating to
+    // the address does the same thing the slow way.
+    function goToSection(id) {
+      const view = props.sectionViews[id];
+      if (!view) return;
+      const link = document.querySelector(`[data-view-link="${view}"]`);
+      if (link) {
+        link.click();
+        return;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', view);
+      window.location.href = url.toString();
+    }
 
     // Render-scoped registry of clickable cards: reg(obj) stashes the item
     // and returns its index so a data-card="<idx>" attribute can look it up
@@ -2139,8 +2175,9 @@
       const prevStrip = root.querySelector('.as-tabs');
       const prevNavScroll = prevStrip ? prevStrip.scrollLeft : 0;
 
-      root.innerHTML = `
-<div style="min-height:100vh;display:flex;flex-direction:column">
+      // In a dashboard panel, Labs draws the nav, the page and the heading,
+      // so the portal is just the section and the help line under it.
+      const header = props.single ? '' : `
 <header style="position:sticky;top:0;z-index:40;background:linear-gradient(165deg,#65009F 40%,#4A0073);box-shadow:0 10px 30px -18px rgba(11,21,51,.55)">
   <nav class="as-nav" style="max-width:1180px;margin:0 auto;padding:0 clamp(16px,3vw,32px);display:flex;align-items:stretch;gap:14px">
     <div class="as-tabs" data-dragscroll style="display:flex;align-items:stretch;gap:26px;overflow-x:auto;flex:1 1 auto;min-width:0">
@@ -2153,11 +2190,17 @@
       </span>
     </div>
   </nav>
-</header>
-<main style="flex:1;width:100%;max-width:1180px;margin:0 auto;padding:clamp(22px,3.5vw,34px) clamp(16px,3vw,32px) 76px">
+</header>`;
+      const frame = props.single ? 'display:flex;flex-direction:column' : 'min-height:100vh;display:flex;flex-direction:column';
+      const mainPad = props.single ? '0 0 8px' : 'clamp(22px,3.5vw,34px) clamp(16px,3vw,32px) 76px';
+      const footerPad = props.single ? '20px 0 0' : '20px clamp(16px,3vw,32px)';
+
+      root.innerHTML = `
+<div style="${frame}">${header}
+<main style="flex:1;width:100%;max-width:1180px;margin:0 auto;padding:${mainPad}">
 ${currentSection()()}
 </main>
-<footer style="border-top:1px solid rgba(11,21,51,.08);padding:20px clamp(16px,3vw,32px);text-align:center;font-size:12px;color:rgba(11,21,51,.5)">Need help? <a href="mailto:support@afristream.io">support@afristream.io</a> · © 2026 AfriStream</footer>
+<footer style="border-top:1px solid rgba(11,21,51,.08);padding:${footerPad};text-align:center;font-size:12px;color:rgba(11,21,51,.5)">Need help? <a href="mailto:support@afristream.io">support@afristream.io</a> · © 2026 AfriStream</footer>
 ${state.detail ? detailDrawer(state.detail) : ''}
 </div>`;
 
@@ -2215,6 +2258,10 @@ ${state.detail ? detailDrawer(state.detail) : ''}
       const val = el.getAttribute('data-val');
       switch (el.getAttribute('data-act')) {
         case 'nav':
+          if (props.single && val !== state.section) {
+            goToSection(val);
+            break;
+          }
           setState({ section: val });
           if (val === 'apps' && appsState === 'idle') loadApps();
           break;
@@ -2511,13 +2558,13 @@ ${state.detail ? detailDrawer(state.detail) : ''}
             if (plans.length) state.affPlan = plans[0].id;
           } else {
             affiliateState = 'off';
-            if (state.section === 'affiliate') state.section = 'profile';
+            if (state.section === 'affiliate' && !props.single) state.section = 'profile';
           }
           render(true);
         })
         .catch(() => {
           affiliateState = 'off';
-          if (state.section === 'affiliate') state.section = 'profile';
+          if (state.section === 'affiliate' && !props.single) state.section = 'profile';
           render(true);
         });
     }

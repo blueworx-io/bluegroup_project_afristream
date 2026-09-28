@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AfriStream Customer Portal — Labs Dashboard Preview</title>
+<!-- Test harness: a bare stand-in for the BlueWorx Labs customer dashboard,
+     with our sections in it as includes/dashboard.php hands them over — one
+     portal mount per panel, every panel on the page and all but one hidden.
+     Only the parts of Labs the portal touches are mimicked: nav links carrying
+     data-view-link, and panels switched without a reload when one is clicked. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/assets/portal.css">
+<style>
+  body{margin:0;font-family:system-ui,sans-serif}
+  .shell{display:flex;min-height:100vh}
+  .side{width:220px;flex:none;border-right:1px solid #ddd;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .side a.is-active{font-weight:700}
+  .main{flex:1;min-width:0;padding:24px}
+</style>
+</head>
+<body>
+<div class="shell" data-blueworx-store>
+  <nav class="side" aria-label="Dashboard">
+    <a href="?view=dashboard" data-view-link="dashboard">Dashboard</a>
+    <a href="?view=streaming" data-view-link="streaming">Streaming login</a>
+    <a href="?view=setup" data-view-link="setup">Setup</a>
+    <a href="?view=watch" data-view-link="watch">What to Watch</a>
+    <a href="?view=affiliates" data-view-link="affiliates">Affiliates</a>
+  </nav>
+  <main class="main">
+    <div class="blueworx-store__panel" data-view="dashboard"><p>Overview</p></div>
+    <div class="blueworx-store__panel" data-view="streaming" hidden><div class="afristream-portal afristream-portal--embedded" data-afristream-portal data-default-tab="profile" data-show-sport="true" data-credentials-endpoint="/api/credentials?fixture=1" data-apps-url="/data/apps.json" data-single-section="true" data-section-views='{"profile":"streaming","setup":"setup","watch":"watch","affiliate":"affiliates"}'></div></div>
+    <div class="blueworx-store__panel" data-view="setup" hidden><div class="afristream-portal afristream-portal--embedded" data-afristream-portal data-default-tab="setup" data-show-sport="true" data-apps-url="/data/apps.json" data-single-section="true" data-section-views='{"profile":"streaming","setup":"setup","watch":"watch","affiliate":"affiliates"}'></div></div>
+    <div class="blueworx-store__panel" data-view="watch" hidden><div class="afristream-portal afristream-portal--embedded" data-afristream-portal data-default-tab="watch" data-show-sport="true" data-endpoint="/api/watch?fixture=1" data-detail-endpoint="/api/detail?fixture=1" data-apps-url="/data/apps.json" data-single-section="true" data-section-views='{"profile":"streaming","setup":"setup","watch":"watch","affiliate":"affiliates"}'></div></div>
+    <div class="blueworx-store__panel" data-view="affiliates" hidden><div class="afristream-portal afristream-portal--embedded" data-afristream-portal data-default-tab="affiliate" data-show-sport="true" data-affiliate-endpoint="/api/affiliate?fixture=1" data-apps-url="/data/apps.json" data-single-section="true" data-section-views='{"profile":"streaming","setup":"setup","watch":"watch","affiliate":"affiliates"}'></div></div>
+  </main>
+</div>
+<script>
+  // Labs' own switching, reduced to what matters here: a nav click shows its
+  // panel without leaving the page.
+  (function () {
+    var root = document.querySelector('[data-blueworx-store]');
+    function show(key) {
+      root.querySelectorAll('.blueworx-store__panel').forEach(function (p) { p.hidden = p.getAttribute('data-view') !== key; });
+      root.querySelectorAll('[data-view-link]').forEach(function (a) { a.classList.toggle('is-active', a.getAttribute('data-view-link') === key); });
+    }
+    root.addEventListener('click', function (e) {
+      var a = e.target.closest('[data-view-link]');
+      if (!a) return;
+      e.preventDefault();
+      history.pushState(null, '', a.getAttribute('href'));
+      show(a.getAttribute('data-view-link'));
+    });
+    show(new URLSearchParams(location.search).get('view') || 'dashboard');
+  })();
+</script>
+<script src="/assets/portal.js"></script>
+</body>
+</html>

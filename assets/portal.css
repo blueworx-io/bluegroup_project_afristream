@@ -56,14 +56,21 @@
    the row it sits in then forces the same sideways scroll no matter how the
    box is sized. */
 :is(
-  :has(> .afristream-portal),
-  :has(> * > .afristream-portal),
-  :has(> * > * > .afristream-portal)
+  :has(> .afristream-portal:not(.afristream-portal--embedded)),
+  :has(> * > .afristream-portal:not(.afristream-portal--embedded)),
+  :has(> * > * > .afristream-portal:not(.afristream-portal--embedded))
 ):not(html):not(body) {
   max-width: none !important;
   width: 100% !important;
   box-sizing: border-box !important;
   min-width: 0 !important;
+}
+
+/* One section inside the BlueWorx Labs customer dashboard. Labs lays out its
+   own shell, so the width fix above stays off it — widening Labs' columns is
+   Labs' business — and the page colour is Labs' too. */
+.afristream-portal--embedded {
+  background: transparent;
 }
 
 .afristream-portal * {
